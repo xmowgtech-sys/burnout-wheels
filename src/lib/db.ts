@@ -44,8 +44,8 @@ export function getDb(): DatabaseSync {
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA busy_timeout = 8000;");
   db.exec("PRAGMA foreign_keys = ON;");
-  const empty = Number(db.prepare("SELECT COUNT(*) AS n FROM users").get()?.n ?? 0) === 0;
   migrate(db);
+  const empty = Number(db.prepare("SELECT COUNT(*) AS n FROM users").get()?.n ?? 0) === 0;
   if (empty) bootstrapStore(db);
   globalStore.__bwDb = db;
   return db;
