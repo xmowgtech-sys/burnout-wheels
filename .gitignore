@@ -1,0 +1,20 @@
+
+# dependencies
+node_modules/
+
+# next
+.next/
+out/
+next-env.d.ts
+
+# runtime data (sqlite + uploads)
+data/
+
+# secrets
+.env
+.env*.local
+
+# misc
+*.log
+.DS_Store
+Thumbs.db
