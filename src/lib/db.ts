@@ -1,6 +1,7 @@
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import fs, { constants as fsConstants } from "node:fs";
 import path from "node:path";
+import { bootstrapStore } from "./bootstrap-data";
 
 const globalStore = globalThis as unknown as { __bwDb?: DatabaseSync; __bwDirs?: { data: string; uploads: string; db: string } };
 
@@ -43,22 +44,9 @@ export function getDb(): DatabaseSync {
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA busy_timeout = 8000;");
   db.exec("PRAGMA foreign_keys = ON;");
-  
-  // FIXED: Safely type-cast the database response and use a fallback mechanism
-  const row = db.prepare("SELECT COUNT(*) AS n FROM users").get() as { n: unknown } | undefined;
-  const count = row && typeof row === 'object' && 'n' in row ? Number(row.n) : 0;
-  const empty = count === 0;
-  
+  const empty = Number(db.prepare("SELECT COUNT(*) AS n FROM users").get()?.n ?? 0) === 0;
   migrate(db);
-  if (empty) {
-    // If you have a bootstrap function available, invoke it
-    try {
-      // @ts-ignore - check if bootstrap exists in runtime scope
-      if (typeof bootstrapStore === 'function') bootstrapStore(db);
-    } catch (e) {
-      console.log("Bootstrap hook skipped or not imported.");
-    }
-  }
+  if (empty) bootstrapStore(db);
   globalStore.__bwDb = db;
   return db;
 }
@@ -240,7 +228,37 @@ export function migrate(db: DatabaseSync): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       actor TEXT NOT NULL DEFAULT 'system',
       action TEXT NOT NULL,
+      entity TEXT NOT NULL DEFAULT '',
+      detail TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_activity_created ON activityLog(createdAt);
   `);
+}
+
+export function run(stmt: StatementSync, ...params: unknown[]): { changes: number; id: number } {
+  const res = stmt.run(...(params as Parameters<typeof stmt.run>));
+  return { changes: Number(res.changes), id: Number(res.lastInsertRowid) };
+}
+
+export function nowIso(): string {
+  return new Date().toISOString();
+}
+
+/** Run a set of writes atomically. Nested/parallel usage must be avoided. */
+export function tx<T>(db: DatabaseSync, fn: () => T): T {
+  db.exec("BEGIN IMMEDIATE;");
+  try {
+    const out = fn();
+    db.exec("COMMIT;");
+    return out;
+  } catch (err) {
+    db.exec("ROLLBACK;");
+    throw err;
+  }
+}
+
+/** BEGIN IMMEDIATE for read-then-write flows where earlier reads are part of the same transaction. */
+export function beginWrite(db: DatabaseSync): void {
+  db.exec("BEGIN IMMEDIATE;");
 }
