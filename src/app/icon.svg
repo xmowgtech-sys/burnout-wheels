@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="c" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f2f5f8"/><stop offset="0.5" stop-color="#9aa2a9"/><stop offset="1" stop-color="#5b636b"/>
+    </linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff5a48"/><stop offset="0.5" stop-color="#e10600"/><stop offset="1" stop-color="#b00400"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="#101114"/>
+  <circle cx="32" cy="32" r="28" fill="url(#c)"/>
+  <circle cx="32" cy="32" r="24" fill="#141618"/>
+  <circle cx="32" cy="32" r="22.5" fill="none" stroke="url(#r)" stroke-width="3"/>
+  <text x="13" y="52" transform="rotate(-8 32 32)" font-family="'Arial Black',system-ui,sans-serif" font-size="36" font-weight="900" fill="url(#c)" stroke="#20242a" stroke-width="2" paint-order="stroke" letter-spacing="-2">B</text>
+  <text x="28" y="56" transform="rotate(-8 32 32)" font-family="'Arial Black',system-ui,sans-serif" font-size="36" font-weight="900" fill="url(#r)" stroke="#470402" stroke-width="2" paint-order="stroke" letter-spacing="-2">W</text>
+</svg>

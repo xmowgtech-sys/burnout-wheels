@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Burnout Wheels">
+  <defs>
+    <!-- chrome ring -->
+    <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8fafb"/>
+      <stop offset="0.22" stop-color="#c9ced3"/>
+      <stop offset="0.42" stop-color="#8e959c"/>
+      <stop offset="0.55" stop-color="#e8edf1"/>
+      <stop offset="0.75" stop-color="#9aa2a9"/>
+      <stop offset="1" stop-color="#5b636b"/>
+    </linearGradient>
+    <linearGradient id="chrome2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef1f4"/>
+      <stop offset="0.35" stop-color="#b9bfc6"/>
+      <stop offset="0.62" stop-color="#f2f5f8"/>
+      <stop offset="1" stop-color="#7d858d"/>
+    </linearGradient>
+    <!-- hot red -->
+    <linearGradient id="hotred" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff5a48"/>
+      <stop offset="0.3" stop-color="#e10600"/>
+      <stop offset="0.7" stop-color="#b00400"/>
+      <stop offset="1" stop-color="#ff3b2e"/>
+    </linearGradient>
+    <linearGradient id="glowred" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff2d1f" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#7a0200" stop-opacity="0.9"/>
+    </linearGradient>
+    <radialGradient id="carbon" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0" stop-color="#232629"/>
+      <stop offset="0.7" stop-color="#141618"/>
+      <stop offset="1" stop-color="#0b0c0e"/>
+    </radialGradient>
+    <pattern id="twill" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="8" height="8" fill="transparent"/>
+      <rect width="4" height="1.6" y="1" fill="#ffffff" opacity="0.045"/>
+    </pattern>
+    <pattern id="checker" width="28" height="28" patternUnits="userSpaceOnUse">
+      <rect width="28" height="28" fill="#e10600"/>
+      <rect width="14" height="14" fill="#111214"/>
+      <rect x="14" y="14" width="14" height="14" fill="#111214"/>
+    </pattern>
+    <clipPath id="badgeClip"><circle cx="256" cy="236" r="212"/></clipPath>
+  </defs>
+
+  <!-- ===== badge base ===== -->
+  <!-- outer glow -->
+  <circle cx="256" cy="236" r="248" fill="url(#glowred)" opacity="0.5"/>
+  <!-- chrome ring -->
+  <circle cx="256" cy="236" r="236" fill="url(#chrome)"/>
+  <circle cx="256" cy="236" r="216" fill="#101114"/>
+  <circle cx="256" cy="236" r="212" fill="url(#carbon)"/>
+  <circle cx="256" cy="236" r="212" fill="url(#twill)" clip-path="url(#badgeClip)"/>
+  <!-- red inner glow ring -->
+  <circle cx="256" cy="236" r="206" fill="none" stroke="url(#hotred)" stroke-width="7"/>
+  <circle cx="256" cy="236" r="196" fill="none" stroke="url(#hotred)" stroke-width="1.6" opacity="0.55"/>
+
+  <!-- ===== checker flag swoosh (left) ===== -->
+  <g clip-path="url(#badgeClip)">
+    <g transform="translate(96,150) rotate(-16)">
+      <path d="M0 0 h58 v58 h-14 v14 h-14 v14 h-14 v14 H0 Z" fill="url(#checker)" opacity="0.95"/>
+      <path d="M-52 44 L110 8 L104 30 L-44 74 Z" fill="#e10600" opacity="0.9"/>
+      <path d="M-64 78 L96 46 L90 66 L-56 104 Z" fill="#ff2d1f" opacity="0.75"/>
+    </g>
+    <!-- speed ticks -->
+    <g fill="#e10600" opacity="0.85">
+      <rect x="70" y="290" width="96" height="9" rx="4.5" transform="rotate(-12 118 294)"/>
+      <rect x="84" y="316" width="76" height="8" rx="4" transform="rotate(-12 122 320)" opacity="0.7"/>
+    </g>
+  </g>
+
+  <!-- ===== BW monogram ===== -->
+  <g transform="translate(118,64)">
+    <!-- far red slash behind -->
+    <path d="M266 34 L306 34 L224 246 L184 246 Z" fill="url(#hotred)" opacity="0.35"/>
+    <!-- W — front, hot red chrome -->
+    <text x="168" y="238" transform="skewX(-9)" font-family="'Arial Black','Archivo Black',system-ui,sans-serif" font-size="212" font-weight="900"
+      fill="url(#hotred)" stroke="#5d0603" stroke-width="7" paint-order="stroke" letter-spacing="-8">W</text>
+    <text x="168" y="238" transform="skewX(-9)" font-family="'Arial Black','Archivo Black',system-ui,sans-serif" font-size="212" font-weight="900"
+      fill="none" stroke="#ff6a55" stroke-width="2.4" opacity="0.8" letter-spacing="-8">W</text>
+    <!-- B — chrome, overlapping -->
+    <text x="66" y="212" transform="skewX(-9)" font-family="'Arial Black','Archivo Black',system-ui,sans-serif" font-size="212" font-weight="900"
+      fill="url(#chrome2)" stroke="#23282d" stroke-width="8" paint-order="stroke" letter-spacing="-6">B</text>
+    <text x="66" y="212" transform="skewX(-9)" font-family="'Arial Black','Archivo Black',system-ui,sans-serif" font-size="212" font-weight="900"
+      fill="none" stroke="#ffffff" stroke-width="1.6" opacity="0.7" letter-spacing="-6">B</text>
+  </g>
+
+  <!-- ===== wordmark band ===== -->
+  <g transform="translate(0,368)">
+    <!-- red pulse lines -->
+    <path d="M40 40 L200 40 L192 58 L32 58 Z" fill="url(#hotred)" opacity="0.9"/>
+    <path d="M290 62 L472 62 L464 78 L282 78 Z" fill="url(#hotred)" opacity="0.6"/>
+    <!-- BURNOUT chrome -->
+    <text x="24" y="96" transform="skewX(-8)" font-family="'Arial Black','Archivo Black',system-ui,sans-serif" font-size="64" font-weight="900"
+      fill="url(#chrome2)" stroke="#1b1e22" stroke-width="7" paint-order="stroke" letter-spacing="1">BURNOUT</text>
+    <!-- WHEELS red, spaced -->
+    <text x="106" y="132" transform="skewX(-8)" font-family="'Arial Black','Archivo Black',system-ui,sans-serif" font-size="34" font-weight="900"
+      fill="url(#hotred)" letter-spacing="14">WHEELS</text>
+  </g>
+</svg>

@@ -1,0 +1,42 @@
+{
+  "name": "burnout-wheels",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Burnout Wheels — premium die-cast collectibles storefront + admin",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "seed": "node scripts/seed.mjs",
+    "seed:fresh": "node scripts/seed.mjs --fresh"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "@fontsource/archivo": "^5.2.5",
+    "@fontsource/ibm-plex-mono": "^5.2.5",
+    "@netlify/plugin-nextjs": "^5.16.5",
+    "bcryptjs": "^3.0.2",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.23.0",
+    "jose": "^6.0.11",
+    "lenis": "^1.3.4",
+    "lucide-react": "^0.525.0",
+    "next": "^15.4.0",
+    "nodemailer": "^10.3.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.10",
+    "@types/node": "^24.0.0",
+    "@types/nodemailer": "^8.0.2",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.10",
+    "typescript": "^5.8.0"
+  }
+}

@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# SQLite lives on /tmp inside the function once the read-only FS defeats
+# writes — db.ts handles the fallback automatically. See README → Netlify.
