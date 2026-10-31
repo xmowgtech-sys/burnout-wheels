@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "@fontsource/archivo/latin-400.css";
 import "@fontsource/archivo/latin-500.css";
 import "@fontsource/archivo/latin-600.css";
@@ -40,7 +41,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="u-grain min-h-dvh">{children}</body>
+      <body className="u-grain min-h-dvh">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }

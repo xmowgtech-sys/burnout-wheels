@@ -17,6 +17,7 @@
   "dependencies": {
     "@fontsource/archivo": "^5.2.5",
     "@fontsource/ibm-plex-mono": "^5.2.5",
+    "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.0",
