@@ -4,9 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShoppingBag, Tag, Lock } from "lucide-react";
+import { ShoppingBag, Tag, Lock, Zap } from "lucide-react";
 import { PageHero, EmptyState } from "@/components/ui";
 import { useStore, useToast } from "@/components/store/providers";
+import { ShopPayButton } from "@/components/store/shop-pay-button";
 import { trackFlow } from "@/components/store/site-monitor";
 import { fmtUSD } from "@/lib/money";
 
@@ -34,6 +35,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<"UPI" | "COD">("UPI");
   const [stage, setStage] = useState<Stage>("cart");
   const [error, setError] = useState("");
+  const [shopPay, setShopPay] = useState<{ storeDomain: string; variantIds: number[] } | null>(null);
 
   const fmt = (n: number) => fmtUSD(n);
   const subtotal = store.subtotal();
@@ -45,6 +47,33 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (store.mounted && store.lines.length > 0) trackFlow("checkout_start");
   }, [store.mounted, store.lines.length]);
+
+  // Shop Pay express — only offers itself when the whole cart is Shopify-connected
+  useEffect(() => {
+    if (!store.mounted || store.lines.length === 0) return;
+    const ids = [...new Set(store.lines.map((l) => l.productId))];
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/shop-pay/session", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ productIds: ids }),
+        });
+        const data = (await res.json()) as { eligible?: boolean; storeDomain?: string; variantIds?: number[] };
+        if (!cancelled && res.ok && data.eligible && data.storeDomain && data.variantIds) {
+          setShopPay({ storeDomain: data.storeDomain, variantIds: data.variantIds });
+        } else if (!cancelled) {
+          setShopPay(null);
+        }
+      } catch {
+        if (!cancelled) setShopPay(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [store.mounted, store.lines]);
 
   if (!store.mounted) {
     return <PageHero label="Checkout" title="Loading cart" sub="Reading the paddock state…" />;
@@ -195,6 +224,20 @@ export default function CheckoutPage() {
       <PageHero label="Checkout" title="Settle the order" sub="Stock reserves the second this lands. No card storage — UPI confirmation or cash on delivery." />
       <div className="mx-auto grid max-w-7xl gap-12 px-4 py-12 md:px-8 lg:grid-cols-[1fr_420px]">
         <form onSubmit={placeOrder} className="flex flex-col gap-10" noValidate={false}>
+          {/* express checkout — Shop Pay (only when the whole cart is Shopify-connected) */}
+          {shopPay && (
+            <div className="u-card p-5">
+              <p className="u-label flex items-center gap-2"><Zap className="size-3.5 text-yellow" aria-hidden /> Express checkout</p>
+              <div className="mt-3">
+                <ShopPayButton
+                  storeDomain={shopPay.storeDomain}
+                  variantIds={shopPay.variantIds}
+                  note="Leaves this page for Shop Pay — payment and address run on your Shopify store. The order appears in this dashboard on the next Shopify sync."
+                />
+              </div>
+            </div>
+          )}
+
           {/* contact + address */}
           <fieldset className="flex flex-col gap-4">
             <legend className="u-label">01 — Delivery target</legend>
@@ -246,7 +289,7 @@ export default function CheckoutPage() {
                   <input type="radio" name="pm" value={opt.id} checked={paymentMethod === opt.id} onChange={() => setPaymentMethod(opt.id as never)} className="mt-1 accent-red" />
                   <span>
                     <span className="block text-[14px] font-semibold">{opt.label}</span>
-                    <span className="u-label-txt mt-0.5 block !normal-case !tracking-normal">{opt.note}</span>
+                    <span className="u-label-txt mt-0.5 block normal-case! tracking-normal!">{opt.note}</span>
                   </span>
                 </label>
               ))}
@@ -257,7 +300,7 @@ export default function CheckoutPage() {
             <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[13px] text-red">{error}</p>
           )}
 
-          <button type="submit" disabled={stage === "placing"} className="u-btn u-btn-primary w-full !py-4 md:w-auto">
+          <button type="submit" disabled={stage === "placing"} className="u-btn u-btn-primary w-full py-4! md:w-auto">
             <Lock className="size-4" aria-hidden />
             {stage === "placing" ? "Placing order…" : `Place order — ${fmt(total)}`}
           </button>
@@ -289,10 +332,10 @@ export default function CheckoutPage() {
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="Discount code"
-                  className="u-input !py-2 !uppercase"
+                  className="u-input py-2! uppercase!"
                   aria-label="Discount code"
                 />
-                <button type="button" onClick={applyCode} disabled={codeBusy} className="u-btn u-btn-ghost !px-3 !py-2">{codeBusy ? "…" : "Apply"}</button>
+                <button type="button" onClick={applyCode} disabled={codeBusy} className="u-btn u-btn-ghost px-3! py-2!">{codeBusy ? "…" : "Apply"}</button>
               </div>
               {codeErr && <p className="mt-2 text-[12px] text-red">{codeErr}</p>}
             </div>

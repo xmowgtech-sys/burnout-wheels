@@ -107,7 +107,7 @@ export function Hero({ heroImage, headlineParts, subline, dropName, dropPrice, d
               ["Setter", "Scroll ↓"],
             ].map(([k, v], i) => (
               <div key={k} className="flex flex-col gap-1 px-4 py-4 md:px-6">
-                <span className="u-label !text-dim">{k}</span>
+                <span className="u-label text-dim!">{k}</span>
                 <span className={`u-mono text-[12px] md:text-[13px] ${i === 3 ? "flex items-center gap-2 text-fog" : ""}`}>
                   {v}
                   {i === 3 && <ArrowDown className="size-3.5 shrink-0 text-red" aria-hidden />}

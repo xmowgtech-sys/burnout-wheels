@@ -103,7 +103,7 @@ export function OtpVerify({ initialEmail = "" }: { initialEmail?: string }) {
             autoComplete={i === 0 ? "one-time-code" : "off"}
             aria-label={`Digit ${i + 1}`}
             maxLength={6}
-            className="u-input !h-12 !w-11 !text-center !text-lg !font-bold sm:!w-12"
+            className="u-input h-12! w-11! text-center! text-lg! font-bold! sm:w-12!"
           />
         ))}
       </div>

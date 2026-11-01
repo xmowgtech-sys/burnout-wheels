@@ -8,6 +8,11 @@ import { VisitsBeacon } from "@/components/store/visits-beacon";
 import { SiteMonitor } from "@/components/store/site-monitor";
 import { ConsentBanner } from "@/components/store/consent-banner";
 
+// The storefront renders live server data on every page (catalog, settings,
+// sessions, orders). Never prerender these pages at build time — the deployment
+// host has no database while it compiles, and static attempts crash the build.
+export const dynamic = "force-dynamic";
+
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   return (
     <StoreProviders>

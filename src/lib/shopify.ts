@@ -124,15 +124,15 @@ export async function syncProducts(): Promise<{ items: number }> {
   const db = getDb();
   const upProduct = db.prepare(
     `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images,
-       priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, source, createdAt, updatedAt)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(?,?),?)
+       priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, source, shopifyVariantId, createdAt, updatedAt)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(slug) DO UPDATE SET
        name = excluded.name, brand = excluded.brand, description = excluded.description, images = excluded.images,
        priceSale = excluded.priceSale, stock = excluded.stock, lowStockThreshold = excluded.lowStockThreshold,
-       status = excluded.status, tags = excluded.tags, source = excluded.source, updatedAt = excluded.updatedAt`
+       status = excluded.status, tags = excluded.tags, source = excluded.source,
+       shopifyVariantId = excluded.shopifyVariantId, updatedAt = excluded.updatedAt`
   );
   const ts = nowIso();
-  const backfill = ts;
 
   const { json } = await shopFetch(cfg, "products.json?limit=250");
   const items = ((json as { products?: ShopifyProductShape[] }).products ?? []) as ShopifyProductShape[];
@@ -140,6 +140,7 @@ export async function syncProducts(): Promise<{ items: number }> {
   for (const p of items) {
     const price = money(p.variants[0]?.price);
     const daoStock = p.variants.reduce((sum, v) => sum + (v.inventory_quantity ?? 0), 0);
+    const variantId = p.variants[0]?.id != null ? String(p.variants[0].id) : null;
     const text = p.body_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     run(upProduct,
       p.handle, p.title, null, p.product_type || "Uncategorised", null, "NEW",
@@ -147,8 +148,7 @@ export async function syncProducts(): Promise<{ items: number }> {
       JSON.stringify(p.images.map((i) => i.src).slice(0, 6)),
       price, 0, 2, daoStock, 3,
       p.status === "active" ? "ACTIVE" : p.status === "archived" ? "ARCHIVED" : "DRAFT",
-      0, null, "SHOPIFY",
-      backfill, ts, ts
+      0, null, "SHOPIFY", variantId, ts, ts
     );
     n++;
   }
@@ -167,10 +167,11 @@ export async function syncInventory(): Promise<{ items: number }> {
     const { json } = await shopFetch(cfg, `products.json?limit=250&page=${page}&fields=id,handle,variants`);
     const items = ((json as { products?: { handle: string; variants: ShopifyVariant[] }[] }).products ?? []) as { handle: string; variants: ShopifyVariant[] }[];
     if (items.length === 0) break;
-    const upd = db.prepare("UPDATE products SET stock = ?, updatedAt = ? WHERE slug = ? AND source = 'SHOPIFY'");
+    const upd = db.prepare("UPDATE products SET stock = ?, shopifyVariantId = ?, updatedAt = ? WHERE slug = ? AND source = 'SHOPIFY'");
     for (const p of items) {
       const stock = p.variants.reduce((sum, v) => sum + (v.inventory_quantity ?? 0), 0);
-      const res = run(upd, stock, nowIso(), p.handle);
+      const variantId = p.variants[0]?.id != null ? String(p.variants[0].id) : null;
+      const res = run(upd, stock, variantId, nowIso(), p.handle);
       n += res.changes;
     }
     if (items.length < 250) break;

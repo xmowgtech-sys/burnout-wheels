@@ -3,6 +3,7 @@ import { ShieldCheck, Lock, Undo2, Star } from "lucide-react";
 import { PageHero, SectionHead } from "@/components/ui";
 import { Reveal } from "@/components/store/reveal";
 import { getTrustpilot } from "@/lib/settings";
+import { CONTACT } from "@/lib/contact";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -42,7 +43,7 @@ export default function TrustPage() {
         </div>
 
         <div id="trustpilot" className="u-card mt-12 border-yellow/40 p-7">
-          <p className="u-label !text-yellow">Trustpilot status</p>
+          <p className="u-label text-yellow!">Trustpilot status</p>
           {t.mode === "coming_soon" ? (
             <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-bone/85">
               Trustpilot is coming soon. Until a real Burnout Wheels profile is connected, we display zero customer scores anywhere
@@ -63,17 +64,17 @@ export default function TrustPage() {
         <section id="contact" className="mt-16">
           <SectionHead index="02" title="Contact" sub="Discord or WhatsApp gets the fastest lap — email works too. A human reads every channel, 24/7." />
           <div className="mt-8 flex flex-wrap gap-3">
-            <a href="https://discord.gg/wwUHm5MaK7" target="_blank" rel="noopener noreferrer" className="u-btn u-btn-primary">Join the Discord</a>
-            <a href="https://wa.me/919876596647?text=Hi%20Burnout%20Wheels%20%E2%80%94%20I%20have%20an%20enquiry%3A" target="_blank" rel="noopener noreferrer" className="u-btn u-btn-primary">WhatsApp enquiry</a>
+            <a href={CONTACT.discord} target="_blank" rel="noopener noreferrer" className="u-btn u-btn-primary">Join the Discord</a>
+            <a href={CONTACT.whatsappHref} target="_blank" rel="noopener noreferrer" className="u-btn u-btn-primary">WhatsApp enquiry</a>
             <Link href="/refund-cancellation" className="u-btn u-btn-ghost">Refund & cancellation protocol</Link>
             <Link href="/shipping" className="u-btn u-btn-ghost">Shipping policy</Link>
           </div>
           <div className="u-card mt-6 p-6">
             <p className="u-label">The paddock</p>
             <address className="mt-3 text-[14px] not-italic leading-relaxed text-fog">
-              1-Floor, PP - 370, Greater Mohali, Emaar, Sector - 108, Mohali - 140307, Punjab, India
+              {CONTACT.address}
             </address>
-            <p className="u-mono mt-3 text-[13px] text-fog">theburnoutwheels@gmail.com · +91 98765 96647</p>
+            <p className="u-mono mt-3 text-[13px] text-fog">{CONTACT.email} · {CONTACT.phoneDisplay}</p>
           </div>
         </section>
       </div>

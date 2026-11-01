@@ -66,7 +66,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
   return (
     <article className="group relative flex flex-col">
       <Link href={`/product/${product.slug}`} className="relative block" aria-label={`View ${product.name}`}>
-        <div className="u-media u-duotone relative aspect-[4/3]">
+        <div className="u-media u-duotone relative aspect-[16/10] sm:aspect-[4/3]">
           {primary ? (
             <Image
               src={primary}
@@ -100,7 +100,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
 
       <div className="flex flex-1 items-start justify-between gap-3 pt-4">
         <div className="min-w-0">
-          <p className="u-label !text-dim">{product.category}{product.scale ? ` · ${product.scale}` : ""}</p>
+          <p className="u-label text-dim!">{product.category}{product.scale ? ` · ${product.scale}` : ""}</p>
           <Link href={`/product/${product.slug}`} className="mt-1.5 block text-[15px] font-semibold leading-snug transition-colors hover:text-red">
             {product.name}
           </Link>
@@ -110,7 +110,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
           onClick={add}
           disabled={soldOut}
           aria-label={soldOut ? `${product.name} is sold out` : `Add ${product.name} to cart`}
-          className="u-btn u-btn-ghost !rounded-sm !p-3 disabled:cursor-not-allowed"
+          className="u-btn u-btn-ghost rounded-sm! p-3! disabled:cursor-not-allowed"
         >
           <Plus className={cn("size-4", !soldOut && "transition-transform group-hover:rotate-90")} aria-hidden />
         </button>

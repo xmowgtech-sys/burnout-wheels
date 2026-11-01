@@ -49,12 +49,12 @@ export default function WishlistPage() {
                   <Link href={`/product/${w.slug}`} className="truncate text-[14px] font-semibold hover:text-red">{w.name}</Link>
                   <p className="u-mono mt-1 text-[13px]">{fmtUSD(w.price)}</p>
                   <div className="mt-auto flex gap-2 pt-3">
-                    <button onClick={() => moveToCart(w)} className="u-btn u-btn-primary !px-3 !py-2 !text-[10px]">
+                    <button onClick={() => moveToCart(w)} className="u-btn u-btn-primary px-3! py-2! text-[10px]!">
                       <ShoppingCart className="size-3.5" aria-hidden /> To cart
                     </button>
                     <button
                       onClick={() => store.toggleWishlist(w)}
-                      className="u-btn u-btn-ghost !px-3 !py-2"
+                      className="u-btn u-btn-ghost px-3! py-2!"
                       aria-label={`Remove ${w.name} from wishlist`}
                     >
                       <Trash2 className="size-3.5" aria-hidden />

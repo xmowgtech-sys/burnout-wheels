@@ -68,7 +68,7 @@ export function AdminShell({
     <div className="min-h-dvh bg-ink">
       {/* topbar */}
       <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center gap-4 border-b border-line bg-coal/95 px-4 backdrop-blur-md md:px-6">
-        <button className="u-btn u-btn-ghost !px-2.5 !py-2 md:hidden" onClick={() => setOpen((o) => !o)} aria-label="Toggle menu" aria-expanded={open}>
+        <button className="u-btn u-btn-ghost px-2.5! py-2! md:hidden" onClick={() => setOpen((o) => !o)} aria-label="Toggle menu" aria-expanded={open}>
           {open ? <X className="size-4" /> : <Menu className="size-4" />}
         </button>
         <Link href="/admin" className="flex items-center gap-2.5">

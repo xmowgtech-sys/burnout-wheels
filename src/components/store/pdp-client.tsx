@@ -27,7 +27,7 @@ export function Gallery({ product }: { product: Product }) {
     <div className="flex flex-col gap-3">
       <div
         ref={mainRef}
-        className={cn("u-media relative aspect-[16/11] w-full cursor-zoom-in", zoom && "cursor-zoom-out")}
+        className={cn("u-media relative aspect-[16/11] w-full cursor-zoom-in sm:aspect-[4/3]", zoom && "cursor-zoom-out")}
         onClick={() => setZoom((z) => !z)}
         onMouseMove={(e) => {
           if (!zoom || prefersReducedMotion() || e.currentTarget === null) return;
@@ -55,7 +55,7 @@ export function Gallery({ product }: { product: Product }) {
       {images.length > 1 && (
         <div className="flex items-center gap-3">
           <button
-            className="u-btn u-btn-ghost !px-3 !py-2.5"
+            className="u-btn u-btn-ghost px-3! py-2.5!"
             onClick={() => setIdx((i) => (i - 1 + images.length) % images.length)}
             aria-label="Previous image"
           >
@@ -75,7 +75,7 @@ export function Gallery({ product }: { product: Product }) {
             ))}
           </div>
           <button
-            className="u-btn u-btn-ghost !px-3 !py-2.5"
+            className="u-btn u-btn-ghost px-3! py-2.5!"
             onClick={() => setIdx((i) => (i + 1) % images.length)}
             aria-label="Next image"
           >
@@ -145,7 +145,7 @@ export function BuyPanel({ product }: { product: Product }) {
           toast(`${product.name} × ${qty} loaded into cart`);
         }}
         disabled={soldOut}
-        className="u-btn u-btn-primary w-full !py-4 !text-[12px]"
+        className="u-btn u-btn-primary w-full py-4! text-[12px]!"
       >
         <ShoppingCart className="size-4" aria-hidden />
         {soldOut ? "Sold out" : `Add to cart — ${fmtUSD(product.priceSale * qty)}`}
@@ -154,7 +154,7 @@ export function BuyPanel({ product }: { product: Product }) {
       {soldOut ? (
         <p className="u-label-txt">Next allocation drops soon — join the newsletter for first call.</p>
       ) : product.stock <= product.lowStockThreshold ? (
-        <p className="u-label-txt !text-yellow">⚠ Only {product.stock} in the paddock — first come, first served</p>
+        <p className="u-label-txt text-yellow!">⚠ Only {product.stock} in the paddock — first come, first served</p>
       ) : (
         <p className="u-label-txt">✓ In stock · reserved when the order is placed</p>
       )}
@@ -236,7 +236,7 @@ export function ReviewLauncher({ product }: { product: Product }) {
             >
               <div className="flex items-center justify-between">
                 <p className="u-h3">Review {product.name}</p>
-                <button type="button" onClick={() => setOpen(false)} className="u-btn u-btn-ghost !px-2.5 !py-2" aria-label="Close">
+                <button type="button" onClick={() => setOpen(false)} className="u-btn u-btn-ghost px-2.5! py-2!" aria-label="Close">
                   <X className="size-4" aria-hidden />
                 </button>
               </div>

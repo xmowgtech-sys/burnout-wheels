@@ -1,16 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, MessageCircle } from "lucide-react";
+import { X } from "lucide-react";
+import { CONTACT } from "@/lib/contact";
 
-const DISCORD = "https://discord.gg/wwUHm5MaK7";
-const WHATSAPP =
-  "https://wa.me/7889079186?text=" + encodeURIComponent("Hi Burnout Wheels — I have an enquiry:");
 const KEY = "bw:announce:v2";
 
 /**
- * Slim, full-width announcement overlay that sits on top of the fixed header.
- * Dismiss with the × and it stays dismissed (localStorage), re-appears on new campaign copy (v-keyed).
+ * Slim, full-width announcement strip above the header. Dismiss with × and it
+ * stays dismissed (localStorage, campaign-keyed). Copy is written in plain
+ * utilities (no u-label override) so the colour can never regress to dim-on-red.
  */
 export function AnnounceBanner() {
   const [mounted, setMounted] = useState(false);
@@ -37,28 +36,33 @@ export function AnnounceBanner() {
   if (!mounted || !open) return null;
 
   return (
-    <div className="relative z-[70] flex w-full items-center justify-center gap-2 bg-red px-9 py-1.5 text-white sm:gap-3 sm:py-2" role="region" aria-label="Announcement">
-      <p className="u-label !text-white !tracking-[0.14em] text-center text-[10px] leading-tight sm:text-[11px]">
-        Join our{" "}
-        <a href={DISCORD} target="_blank" rel="noopener noreferrer" className="font-extrabold underline decoration-2 underline-offset-2 hover:!text-ink">
-          Discord
+    <div
+      className="relative z-[70] flex w-full items-center justify-center gap-2 overflow-hidden bg-red pl-4 pr-9 text-white sm:gap-3"
+      role="region"
+      aria-label="Announcement"
+    >
+      {/* checker accent on the left edge — visible brand cue even when the text truncates */}
+      <span aria-hidden className="hidden shrink-0 md:absolute md:left-0 md:inset-y-0 md:block md:w-10 md:bg-[repeating-conic-gradient(#fff_0%_25%,#e10600_0%_50%)] md:bg-[length:10px_10px] md:opacity-40" />
+
+      <p className="min-w-0 truncate py-2 text-center text-[11px] font-semibold leading-tight sm:py-2.5 sm:text-[12.5px]">
+        <a href={CONTACT.discord} target="_blank" rel="noopener noreferrer" className="underline decoration-2 underline-offset-2 transition-colors hover:text-ink">
+          Join our Discord
         </a>{" "}
-        for discounts &amp; offers — or{" "}
-        <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="font-extrabold underline decoration-2 underline-offset-2 hover:!text-ink">
-          WhatsApp us
-        </a>{" "}
-        for a quick enquiry
+        for discounts &amp; offers
+        <span className="hidden sm:inline"> — or{" "}
+          <a href={CONTACT.whatsappHref} target="_blank" rel="noopener noreferrer" className="underline decoration-2 underline-offset-2 transition-colors hover:text-ink">
+            WhatsApp us
+          </a>
+        </span>
       </p>
+
       <button
         onClick={close}
         aria-label="Dismiss announcement"
-        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-white/85 transition-colors hover:bg-black/25 hover:text-white"
+        className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1.5 text-white/90 transition-colors hover:bg-black/25 hover:text-white"
       >
         <X className="size-3.5" aria-hidden />
       </button>
-      <span className="sr-only">
-        <MessageCircle className="hidden" aria-hidden />
-      </span>
     </div>
   );
 }

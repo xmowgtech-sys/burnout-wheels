@@ -128,7 +128,7 @@ export function ChatbotPanel({
                     onChange={(e) => { const faqs = [...form.faqs]; faqs[i] = { keywords: f.keywords, answer: e.target.value }; setForm({ ...form, faqs }); }}
                     placeholder="Dispatch runs every morning…"
                     disabled={!canManage}
-                    className="u-textarea !min-h-0"
+                    className="u-textarea min-h-0!"
                     rows={2}
                     aria-label="FAQ answer"
                   />
@@ -182,7 +182,7 @@ export function ChatbotPanel({
                 </div>
                 <div className="mt-4 flex items-center gap-2">
                   <input value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Reply as crew…" className="u-input" aria-label="Reply as staff" />
-                  <button onClick={() => sendReply(openConv)} disabled={busy || !reply.trim()} className="u-btn u-btn-primary !px-3 !py-3" aria-label="Send reply"><Send className="size-4" /></button>
+                  <button onClick={() => sendReply(openConv)} disabled={busy || !reply.trim()} className="u-btn u-btn-primary px-3! py-3!" aria-label="Send reply"><Send className="size-4" /></button>
                 </div>
                 <div className="mt-3 flex gap-2">
                   <button onClick={() => resolve(openConv)} disabled={busy} className="u-btn u-btn-ghost"><Check className="size-3.5" /> Mark resolved</button>

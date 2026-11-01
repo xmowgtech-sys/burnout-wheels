@@ -3,10 +3,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
 import { Gallery, BuyPanel, ReviewLauncher, Stars } from "@/components/store/pdp-client";
+import { ShopPayButton } from "@/components/store/shop-pay-button";
 import { ProductCard } from "@/components/store/product-card";
 import { Reveal } from "@/components/store/reveal";
 import { EmptyState, SectionHead } from "@/components/ui";
 import { getProductBySlug, publishedReviews, relatedProducts } from "@/lib/catalog";
+import { getShopifyConfig } from "@/lib/shopify";
 import { getTrustpilot } from "@/lib/settings";
 import { fmtUSD } from "@/lib/money";
 import { CONDITION_LABELS } from "@/lib/types";
@@ -35,6 +37,13 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     Promise.resolve(relatedProducts(product, 3)),
     getTrustpilot(),
   ]);
+
+  // Shop Pay express eligibility, resolved server-side — honest gating, no fabricated ids.
+  const shopCfg = getShopifyConfig();
+  const shopPay =
+    shopCfg && product.source === "SHOPIFY" && product.shopifyVariantId && product.stock > 0
+      ? { storeDomain: shopCfg.shopDomain, variantIds: [Number(product.shopifyVariantId)] }
+      : null;
 
   const productJsonLd = {
     "@context": "https://schema.org",
@@ -91,6 +100,19 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <div className="mt-10">
             <BuyPanel product={product} />
           </div>
+
+          {shopPay && (
+            <div className="mt-6 border-t border-line pt-6">
+              <p className="u-label flex items-center gap-2">Express checkout</p>
+              <div className="mt-3">
+                <ShopPayButton
+                  storeDomain={shopPay.storeDomain}
+                  variantIds={shopPay.variantIds}
+                  note="Leaves this page for Shop Pay — payment and address run on our Shopify store. The order lands in this dashboard on the next Shopify sync."
+                />
+              </div>
+            </div>
+          )}
 
           <div className="mt-10 border-t border-line pt-8">
             <p className="u-label">Protocol</p>

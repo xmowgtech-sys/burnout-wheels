@@ -156,10 +156,10 @@ export function AccountSettings({ account }: { account: AccountSnapshot }) {
       </section>
 
       {/* danger zone */}
-      <section className="u-card !border-red/40 p-5">
+      <section className="u-card border-red/40! p-5">
         <p className="u-label flex items-center gap-2 text-red"><TriangleAlert className="size-3.5" aria-hidden /> Danger zone</p>
         <p className="u-label-txt mt-2">Delete this account permanently. Your session ends immediately; past order records stay only for accounting and are de-linked from any profile.</p>
-        <button onClick={() => setConfirmOpen(true)} className="u-btn mt-4 border-red text-red hover:!bg-red hover:!text-white">Delete account</button>
+        <button onClick={() => setConfirmOpen(true)} className="u-btn mt-4 border-red text-red hover:bg-red! hover:text-white!">Delete account</button>
         {dMsg && <p role="status" className="mt-3 text-[13px] font-bold text-red">{dMsg}</p>}
       </section>
 
@@ -173,16 +173,16 @@ export function AccountSettings({ account }: { account: AccountSnapshot }) {
             <input
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
-              className="u-input mt-3 !font-mono"
+              className="u-input mt-3 font-mono!"
               aria-label="Type DELETE to confirm"
               autoFocus
             />
             <div className="mt-4 flex gap-2">
-              <button onClick={() => { setConfirmOpen(false); setConfirmText(""); }} className="u-btn u-btn-ghost !py-2">Cancel</button>
+              <button onClick={() => { setConfirmOpen(false); setConfirmText(""); }} className="u-btn u-btn-ghost py-2!">Cancel</button>
               <button
                 onClick={deleteMe}
                 disabled={confirmText !== "DELETE" || dBusy}
-                className="u-btn u-btn-danger ml-auto !py-2"
+                className="u-btn u-btn-danger ml-auto py-2!"
               >
                 <Trash2 className="size-4" aria-hidden /> Delete forever
               </button>

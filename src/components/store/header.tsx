@@ -60,7 +60,7 @@ export function Header() {
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 md:h-[72px] md:px-8">
           <button
-            className="u-btn u-btn-ghost !border-line !px-2.5 !py-2.5 md:hidden"
+            className="u-btn u-btn-ghost border-line! px-2.5! py-2.5! md:hidden"
             onClick={() => setMenuOpen(true)}
             aria-label="Open menu"
             aria-expanded={menuOpen}
@@ -83,7 +83,7 @@ export function Header() {
                 <text x="30" y="54" transform="rotate(-8 32 32)" fontFamily="'Arial Black',system-ui,sans-serif" fontSize="30" fontWeight="900" fill="url(#hdr-r)" stroke="#470402" strokeWidth="1.6" paintOrder="stroke" letterSpacing="-2">W</text>
               </svg>
             </span>
-            <span className="text-sm font-extrabold uppercase tracking-[0.18em]">
+            <span className="whitespace-nowrap text-[12.5px] font-extrabold uppercase tracking-[0.12em] sm:text-sm sm:tracking-[0.18em]">
               Burnout<span className="text-red">/</span>Wheels
             </span>
           </Link>
@@ -93,7 +93,7 @@ export function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="u-label px-3 py-2 transition-colors hover:!text-bone"
+                className="u-label px-3 py-2 transition-colors hover:text-bone!"
               >
                 {item.label}
               </Link>
@@ -137,7 +137,7 @@ export function Header() {
           <div className="flex h-full flex-col bg-ink">
             <div className="flex items-center justify-between border-b border-line px-4 py-4">
               <span className="u-label">Pit lane index</span>
-              <button onClick={() => setMenuOpen(false)} className="u-btn u-btn-ghost !px-2.5 !py-2" aria-label="Close menu">
+              <button onClick={() => setMenuOpen(false)} className="u-btn u-btn-ghost px-2.5! py-2!" aria-label="Close menu">
                 <X className="size-4" aria-hidden />
               </button>
             </div>
@@ -230,7 +230,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
             type="search"
             enterKeyHint="search"
           />
-          <button type="button" onClick={onClose} className="u-btn u-btn-ghost !px-2.5 !py-2" aria-label="Close search">
+          <button type="button" onClick={onClose} className="u-btn u-btn-ghost px-2.5! py-2!" aria-label="Close search">
             <X className="size-4" aria-hidden />
           </button>
         </form>

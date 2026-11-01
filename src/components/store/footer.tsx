@@ -1,9 +1,5 @@
 import Link from "next/link";
-
-const WHATSAPP = "https://wa.me/7889079186?text=" +
-  encodeURIComponent("Hi Burnout Wheels — I have an enquiry:");
-const DISCORD = "https://discord.gg/wwUHm5MaK7";
-const ADDRESS = "1-Floor, PP - 370, Greater Mohali, Emaar, Sector - 108, Mohali - 140307, Punjab, India";
+import { CONTACT } from "@/lib/contact";
 
 const COLS: { title: string; links: { href: string; label: string; external?: boolean }[] }[] = [
   {
@@ -20,7 +16,7 @@ const COLS: { title: string; links: { href: string; label: string; external?: bo
       { href: "/shipping", label: "Shipping" },
       { href: "/refund-cancellation", label: "Refund & cancellation" },
       { href: "/trust", label: "Trust & authenticity" },
-      { href: WHATSAPP, label: "WhatsApp enquiry (24/7)", external: true },
+      { href: CONTACT.whatsappHref, label: "WhatsApp enquiry (24/7)", external: true },
     ],
   },
   {
@@ -33,7 +29,7 @@ const COLS: { title: string; links: { href: string; label: string; external?: bo
   {
     title: "Radio",
     links: [
-      { href: DISCORD, label: "Discord server — discounts & offers", external: true },
+      { href: CONTACT.discord, label: "Discord server — discounts & offers", external: true },
       { href: "/trust#contact", label: "Contact the crew" },
       { href: "/admin/login", label: "Admin cockpit" },
     ],
@@ -48,7 +44,7 @@ export function Footer() {
           <div key={copy} className="flex shrink-0 items-center gap-8 pr-8">
             {["Formula 1", "Motorsport", "Rare drops", "Sealed & inspected", "Join the Discord for drops", "Track every order"].map(
               (word) => (
-                <span key={word} className="u-label !text-dim whitespace-nowrap">
+                <span key={word} className="u-label text-dim! whitespace-nowrap">
                   {word} <span className="text-red">◦</span>
                 </span>
               )
@@ -97,18 +93,18 @@ export function Footer() {
         <div className="min-w-0">
           <p className="u-label">The paddock</p>
           <address className="mt-4 max-w-xs text-[13px] not-italic leading-relaxed text-fog">
-            {ADDRESS}
+            {CONTACT.address}
           </address>
           <p className="mt-4 text-[13px] leading-relaxed text-fog">
-            Email: <a className="underline underline-offset-2 hover:text-bone" href="mailto:theburnoutwheels@gmail.com">theburnoutwheels@gmail.com</a>
+            Email: <a className="underline underline-offset-2 hover:text-bone" href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>
             <br />
-            Phone: <a className="hover:text-bone" href="tel:+917889079186">+91 78890 79186</a>
+            Phone: <a className="hover:text-bone" href={CONTACT.phoneTel}>{CONTACT.phoneDisplay}</a>
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="u-btn u-btn-ghost !px-3 !py-2 !text-[12px]">
+            <a href={CONTACT.whatsappHref} target="_blank" rel="noopener noreferrer" className="u-btn u-btn-ghost px-3! py-2! text-[12px]!">
               WhatsApp us
             </a>
-            <a href={DISCORD} target="_blank" rel="noopener noreferrer" className="u-btn u-btn-primary !px-3 !py-2 !text-[12px]">
+            <a href={CONTACT.discord} target="_blank" rel="noopener noreferrer" className="u-btn u-btn-primary px-3! py-2! text-[12px]!">
               Join Discord
             </a>
           </div>
@@ -117,8 +113,8 @@ export function Footer() {
 
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 md:flex-row md:items-center md:justify-between md:px-8">
-          <p className="u-label !text-dim">© {new Date().getFullYear()} Burnout Wheels · Mohali, Punjab, India</p>
-          <p className="u-label !text-dim !normal-case !tracking-normal">
+          <p className="u-label text-dim!">© {new Date().getFullYear()} Burnout Wheels · Mohali, Punjab, India</p>
+          <p className="u-label text-dim! normal-case! tracking-normal!">
             Reference photography via Wikimedia Commons (CC BY-SA) — replace with your own product shots as stock grows.
           </p>
         </div>

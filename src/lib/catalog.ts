@@ -4,13 +4,13 @@ import type { ProductInput } from "./validation";
 import { escapeLike, randomSuffix } from "./utils";
 
 const COLS =
-  "id, slug, name, brand, category, scale, condition, description, highlights, tags, images, priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, createdAt, updatedAt";
+  "id, slug, name, brand, category, scale, condition, description, highlights, tags, images, priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, source, shopifyVariantId, createdAt, updatedAt";
 
 type ProductRow = Record<string, unknown> & {
   id: number; slug: string; name: string; brand: string | null; category: string; scale: string | null;
   condition: string; description: string; highlights: string; tags: string; images: string;
   priceSale: number; priceCost: number; feePercent: number; stock: number; lowStockThreshold: number;
-  status: string; featured: number; dropAt: string | null; createdAt: string; updatedAt: string;
+  status: string; featured: number; dropAt: string | null; source: string | null; shopifyVariantId: string | null; createdAt: string; updatedAt: string;
 };
 
 export function parseProduct(row: ProductRow): Product {
@@ -52,6 +52,8 @@ export function parseProduct(row: ProductRow): Product {
     status: row.status as ProductStatus,
     featured: row.featured === 1,
     dropAt: row.dropAt ?? null,
+    source: row.source ?? "LOCAL",
+    shopifyVariantId: row.shopifyVariantId ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

@@ -63,7 +63,7 @@ export function TeamPanel({ me, team }: { me: { id: number; role: Role }; team: 
       <form onSubmit={create} className="u-card grid items-end gap-3 p-5 md:grid-cols-[1fr_1fr_180px_120px_auto]">
         <label><span className="u-label-txt">Name</span><input value={name} onChange={(e) => setName(e.target.value)} required className="u-input mt-1.5" /></label>
         <label><span className="u-label-txt">Email</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="u-input mt-1.5" /></label>
-        <label><span className="u-label-txt">Temporary password</span><input type="text" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className="u-input mt-1.5 !font-mono !text-[13px]" placeholder="min 8 chars" /></label>
+        <label><span className="u-label-txt">Temporary password</span><input type="text" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className="u-input mt-1.5 font-mono! text-[13px]!" placeholder="min 8 chars" /></label>
         <label><span className="u-label-txt">Role</span>
           <select value={role} onChange={(e) => setRole(e.target.value as Role)} className="u-select mt-1.5">
             <option value="STAFF">STAFF</option>
@@ -71,7 +71,7 @@ export function TeamPanel({ me, team }: { me: { id: number; role: Role }; team: 
             <option value="OWNER">OWNER</option>
           </select>
         </label>
-        <button disabled={busy} className="u-btn u-btn-primary !py-3"><Plus className="size-4" /> Add member</button>
+        <button disabled={busy} className="u-btn u-btn-primary py-3!"><Plus className="size-4" /> Add member</button>
         {err && <p role="alert" className="text-[12px] text-red md:col-span-5">{err}</p>}
       </form>
 
@@ -89,7 +89,7 @@ export function TeamPanel({ me, team }: { me: { id: number; role: Role }; team: 
                   value={u.role}
                   onChange={(e) => patch(u.id, { role: e.target.value })}
                   disabled={busy || isSelf || u.role === "OWNER"}
-                  className="u-select !w-auto !py-2"
+                  className="u-select w-auto! py-2!"
                   aria-label={`Role for ${u.email}`}
                 >
                   {(["STAFF", "ADMIN", "OWNER"] as Role[]).map((r) => <option key={r} value={r}>{r}</option>)}
@@ -100,12 +100,12 @@ export function TeamPanel({ me, team }: { me: { id: number; role: Role }; team: 
               <Td>
                 <div className="flex gap-1.5">
                   {!isSelf && u.role !== "OWNER" && (
-                    <button onClick={() => patch(u.id, { active: !u.active })} disabled={busy} className="u-btn u-btn-ghost !px-3 !py-2">
+                    <button onClick={() => patch(u.id, { active: !u.active })} disabled={busy} className="u-btn u-btn-ghost px-3! py-2!">
                       {u.active ? "Deactivate" : "Reactivate"}
                     </button>
                   )}
                   {!isSelf && u.role !== "OWNER" && (
-                    <button onClick={() => setDelId(u.id)} className="u-btn u-btn-danger !px-2.5 !py-2" aria-label={`Remove ${u.email}`}><Trash2 className="size-3.5" /></button>
+                    <button onClick={() => setDelId(u.id)} className="u-btn u-btn-danger px-2.5! py-2!" aria-label={`Remove ${u.email}`}><Trash2 className="size-3.5" /></button>
                   )}
                 </div>
               </Td>

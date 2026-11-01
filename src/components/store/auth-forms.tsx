@@ -92,14 +92,14 @@ export function LoginForm({ googleParam }: { googleParam?: string }) {
           <span className="u-label-txt">Email</span>
           <div className="relative mt-1.5">
             <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
-            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="u-input !pl-10" placeholder="you@grid.io" />
+            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="u-input pl-10!" placeholder="you@grid.io" />
           </div>
         </label>
         <label className="block">
           <span className="u-label-txt">Password</span>
           <div className="relative mt-1.5">
             <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
-            <input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="u-input !pl-10" />
+            <input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="u-input pl-10!" />
           </div>
         </label>
         {error && <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[12.5px] text-red">{error}</p>}
@@ -109,7 +109,7 @@ export function LoginForm({ googleParam }: { googleParam?: string }) {
         {notice && <p role="status" className="border border-sky/50 bg-sky/[0.07] px-4 py-3 text-[12.5px] text-sky">{notice}</p>}
         <button disabled={busy} className="u-btn u-btn-primary"><LogIn className="size-4" aria-hidden />{busy ? "Checking pass…" : "Sign in"}</button>
       </form>
-      <div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="u-label !text-dim">or</span><span className="h-px flex-1 bg-line" /></div>
+      <div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="u-label text-dim!">or</span><span className="h-px flex-1 bg-line" /></div>
       <GoogleButton from="store" />
       <div className="mt-6 flex items-center justify-between text-[13px]">
         <Link href="/signup" className="hover:text-red text-fog underline-offset-4 hover:underline">New here? Create account</Link>
@@ -166,21 +166,21 @@ export function SignupForm({ googleParam }: { googleParam?: string }) {
             <span className="u-label-txt">Name</span>
             <div className="relative mt-1.5">
               <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
-              <input required minLength={1} maxLength={60} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className="u-input !pl-10" placeholder="Your name" />
+              <input required minLength={1} maxLength={60} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className="u-input pl-10!" placeholder="Your name" />
             </div>
           </label>
           <label className="block">
             <span className="u-label-txt">Email</span>
             <div className="relative mt-1.5">
               <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
-              <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="u-input !pl-10" placeholder="you@grid.io" />
+              <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="u-input pl-10!" placeholder="you@grid.io" />
             </div>
           </label>
           <label className="block">
             <span className="u-label-txt">Password (8+ characters)</span>
             <div className="relative mt-1.5">
               <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
-              <input type="password" required minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="u-input !pl-10" />
+              <input type="password" required minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="u-input pl-10!" />
             </div>
           </label>
           {error && <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[12.5px] text-red">{error}</p>}
@@ -188,7 +188,7 @@ export function SignupForm({ googleParam }: { googleParam?: string }) {
           <p className="u-label-txt">Creating an account means accepting the <Link href="/terms" className="underline">terms</Link> and <Link href="/privacy" className="underline">privacy policy</Link>.</p>
         </form>
       )}
-      <div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="u-label !text-dim">or</span><span className="h-px flex-1 bg-line" /></div>
+      <div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="u-label text-dim!">or</span><span className="h-px flex-1 bg-line" /></div>
       <GoogleButton from="store" />
       <p className="mt-6 text-[13px] text-fog">Already racing? <Link href="/login" className="underline underline-offset-4 hover:text-bone">Sign in</Link></p>
       <TeamPledge />
@@ -257,7 +257,7 @@ export function ResetForm() {
           <p className="u-label-txt flex items-center gap-2"><Flag className="size-3.5" aria-hidden /> Enter your account email — the reset link lands in one hour’s window.</p>
           <div className="relative">
             <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
-            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="u-input !pl-10" placeholder="you@grid.io" />
+            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="u-input pl-10!" placeholder="you@grid.io" />
           </div>
           {error && <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[12.5px] text-red">{error}</p>}
           <button disabled={busy} className="u-btn u-btn-primary">{busy ? "Sending…" : "Send reset link"}</button>

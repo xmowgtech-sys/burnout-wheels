@@ -282,7 +282,7 @@ export function ImageUploader({ images, onChange, productName }: Props) {
             )}
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[12px] font-medium">{it.name}</span>
-              <span className="u-label !text-dim">{(it.size / 1024).toFixed(0)} KB</span>
+              <span className="u-label text-dim!">{(it.size / 1024).toFixed(0)} KB</span>
               {it.status === "uploading" && (
                 <span className="mt-1.5 block h-1 w-full bg-white/10" role="progressbar" aria-valuenow={it.progress} aria-valuemin={0} aria-valuemax={100}>
                   <span className="block h-full bg-red transition-all" style={{ width: `${it.progress}%` }} />
@@ -292,7 +292,7 @@ export function ImageUploader({ images, onChange, productName }: Props) {
               {it.status === "done" && <span className="mt-0.5 block text-[12px] text-mint">Attached ✓</span>}
             </span>
             {it.status === "error" && it.file && (
-              <button type="button" onClick={() => void handleFile(it.file!, { aborted: false })} className="u-btn u-btn-ghost !px-2 !py-1.5" aria-label={`Retry ${it.name}`}>
+              <button type="button" onClick={() => void handleFile(it.file!, { aborted: false })} className="u-btn u-btn-ghost px-2! py-1.5!" aria-label={`Retry ${it.name}`}>
                 <RefreshCcw className="size-3.5" aria-hidden /> Retry
               </button>
             )}
@@ -339,7 +339,7 @@ export function ImageUploader({ images, onChange, productName }: Props) {
         <Upload className="mx-auto size-6 text-red" aria-hidden />
         <p className="mt-3 text-sm font-bold uppercase tracking-wide">Drop product photos here</p>
         <p className="u-label-txt mt-1">or click to browse — JPG · PNG · WEBP · AVIF · GIF, max 10 MB each, {MAX_IMAGES} photos per product</p>
-        <p className="u-label-txt mt-1 !text-dim">First photo = cover shot (used on cards and the gallery hero)</p>
+        <p className="u-label-txt mt-1 text-dim!">First photo = cover shot (used on cards and the gallery hero)</p>
       </div>
 
       <input
@@ -362,7 +362,7 @@ export function ImageUploader({ images, onChange, productName }: Props) {
         <p className="u-label-txt mt-4">No photos yet — the product needs at least one to publish on the storefront.</p>
       ) : (
         <>
-          <p className="u-label mt-5 flex items-center gap-2">Attached photos ({images.length}/{MAX_IMAGES}) <span className="!text-dim !font-normal">— drag the handle to reorder</span></p>
+          <p className="u-label mt-5 flex items-center gap-2">Attached photos ({images.length}/{MAX_IMAGES}) <span className="text-dim! font-normal!">— drag the handle to reorder</span></p>
           <ul ref={listRef} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {images.map((src, i) => (
               <li

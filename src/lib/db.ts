@@ -44,8 +44,11 @@ export function getDb(): DatabaseSync {
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA busy_timeout = 8000;");
   db.exec("PRAGMA foreign_keys = ON;");
-  const empty = Number(db.prepare("SELECT COUNT(*) AS n FROM users").get()?.n ?? 0) === 0;
+  // Schema FIRST, then the empty check — on a fresh serverless database the
+  // users table does not exist until migrate() runs; counting before it used
+  // to throw "no such table: users" and took every page down on cold start.
   migrate(db);
+  const empty = Number(db.prepare("SELECT COUNT(*) AS n FROM users").get()?.n ?? 0) === 0;
   if (empty) bootstrapStore(db);
   globalStore.__bwDb = db;
   return db;
@@ -296,6 +299,8 @@ export function migrate(db: DatabaseSync): void {
   ensureColumn(db, "products", "source", "source TEXT NOT NULL DEFAULT 'LOCAL'");
   ensureColumn(db, "accounts", "phone", "phone TEXT");
   ensureColumn(db, "accounts", "picture", "picture TEXT");
+  // Shop Pay express checkout needs each Shopify-sourced variant's numeric id.
+  ensureColumn(db, "products", "shopifyVariantId", "shopifyVariantId TEXT");
 }
 
 function ensureColumn(db: DatabaseSync, table: string, column: string, ddl: string): void {

@@ -15,7 +15,7 @@ function Row({ id, label, note, on, locked, onChange }: { id: string; label: str
   return (
     <div className="flex items-start justify-between gap-4 border-b border-line py-3 last:border-0">
       <div>
-        <label htmlFor={id} className="text-[13px] font-semibold">{label}{locked && <span className="u-label ml-2 !text-dim">always on</span>}</label>
+        <label htmlFor={id} className="text-[13px] font-semibold">{label}{locked && <span className="u-label ml-2 text-dim!">always on</span>}</label>
         <p className="mt-1 text-[12px] leading-relaxed text-fog">{note}</p>
       </div>
       <input
@@ -85,16 +85,16 @@ export function ConsentBanner() {
       ) : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button onClick={() => decide("accepted")} className="u-btn u-btn-primary !py-2.5 !text-[13px]">Accept all</button>
-        <button onClick={() => decide("rejected")} className="u-btn u-btn-ghost !py-2.5 !text-[13px]">Reject optional</button>
-        <button onClick={() => setShowPrefs((s) => !s)} className="u-label px-3 py-2 hover:!text-bone" aria-expanded={showPrefs}>
+        <button onClick={() => decide("accepted")} className="u-btn u-btn-primary py-2.5! text-[13px]!">Accept all</button>
+        <button onClick={() => decide("rejected")} className="u-btn u-btn-ghost py-2.5! text-[13px]!">Reject optional</button>
+        <button onClick={() => setShowPrefs((s) => !s)} className="u-label px-3 py-2 hover:text-bone!" aria-expanded={showPrefs}>
           {showPrefs ? "Hide preferences" : "Preferences"}
         </button>
         {showPrefs && (
-          <button onClick={() => decide("accepted")} className="u-btn u-btn-primary !py-2 !text-[12px]">Save choices</button>
+          <button onClick={() => decide("accepted")} className="u-btn u-btn-primary py-2! text-[12px]!">Save choices</button>
         )}
       </div>
-      <p className="u-label-txt mt-3 !text-dim">Full details in the <a href="/privacy" className="underline">Privacy Policy</a>.</p>
+      <p className="u-label-txt mt-3 text-dim!">Full details in the <a href="/privacy" className="underline">Privacy Policy</a>.</p>
     </div>
   );
 }

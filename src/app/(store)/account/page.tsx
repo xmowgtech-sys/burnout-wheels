@@ -77,7 +77,7 @@ export default async function AccountPage({
             <p className="text-[13px] leading-relaxed text-fog">
               Verify your email to lock in sign-in and order updates — the 6-digit code is in your inbox.
             </p>
-            <Link href="/verify" className="u-btn u-btn-primary ml-auto !py-2">Verify now</Link>
+            <Link href="/verify" className="u-btn u-btn-primary ml-auto py-2!">Verify now</Link>
           </div>
         )}
 

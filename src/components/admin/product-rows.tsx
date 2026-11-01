@@ -60,11 +60,11 @@ export function ProductRowActions({ product }: { product: Product }) {
 
   return (
     <div className="flex items-center gap-1.5">
-      <Link href={`/admin/products/${product.id}`} className="u-btn u-btn-ghost !px-2 !py-2" aria-label={`Edit ${product.name}`}><Pencil className="size-3.5" /></Link>
-      <button onClick={toggleStatus} disabled={busy} className="u-btn u-btn-ghost !px-2 !py-2" aria-label={product.status === "ACTIVE" ? "Unlist product" : "Publish product"}>
+      <Link href={`/admin/products/${product.id}`} className="u-btn u-btn-ghost px-2! py-2!" aria-label={`Edit ${product.name}`}><Pencil className="size-3.5" /></Link>
+      <button onClick={toggleStatus} disabled={busy} className="u-btn u-btn-ghost px-2! py-2!" aria-label={product.status === "ACTIVE" ? "Unlist product" : "Publish product"}>
         {product.status === "ACTIVE" ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
       </button>
-      <button onClick={() => setConfirm(true)} className="u-btn u-btn-danger !px-2 !py-2" aria-label={`Delete ${product.name}`}><Trash2 className="size-3.5" /></button>
+      <button onClick={() => setConfirm(true)} className="u-btn u-btn-danger px-2! py-2!" aria-label={`Delete ${product.name}`}><Trash2 className="size-3.5" /></button>
       <ConfirmDialog
         open={confirm}
         onClose={() => { setConfirm(false); setBusy(false); }}

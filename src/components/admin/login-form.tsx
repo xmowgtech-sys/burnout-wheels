@@ -47,10 +47,10 @@ export function LoginForm({ googleNotice }: { googleNotice?: string }) {
           <input name="password" type="password" required autoComplete="current-password" className="u-input mt-1.5" />
         </label>
         {error && <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[13px] text-red">{error}</p>}
-        <button disabled={busy} className="u-btn u-btn-primary w-full !py-3.5">{busy ? "Checking telemetry…" : "Enter the pit wall"}</button>
+        <button disabled={busy} className="u-btn u-btn-primary w-full py-3.5!">{busy ? "Checking telemetry…" : "Enter the pit wall"}</button>
       </form>
 
-      <div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="u-label !text-dim">or</span><span className="h-px flex-1 bg-line" /></div>
+      <div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="u-label text-dim!">or</span><span className="h-px flex-1 bg-line" /></div>
       <a href={next !== "/admin" && next.startsWith("/admin") ? `/api/auth/google?from=admin&back=${encodeURIComponent(next)}` : "/api/auth/google?from=admin"} className="u-auth-google">
         <svg viewBox="0 0 24 24" className="size-4.5" aria-hidden>
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z" />

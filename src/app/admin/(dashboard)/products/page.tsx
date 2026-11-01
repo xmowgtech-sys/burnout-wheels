@@ -26,7 +26,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
 
       <form method="GET" className="flex flex-wrap gap-2" role="search" action="/admin/products">
         <input name="q" defaultValue={q} placeholder="Search name, category, tags…" className="u-input max-w-xs" aria-label="Search products" />
-        <select name="status" defaultValue={sp.status ?? ""} className="u-select !w-auto" aria-label="Status filter">
+        <select name="status" defaultValue={sp.status ?? ""} className="u-select w-auto!" aria-label="Status filter">
           <option value="">All statuses</option>
           <option value="ACTIVE">Active</option>
           <option value="DRAFT">Draft</option>

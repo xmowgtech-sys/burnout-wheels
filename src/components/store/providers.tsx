@@ -222,7 +222,7 @@ function CartDrawer() {
             <p className="u-label">Paddock order</p>
             <p className="u-h3 mt-1">Cart</p>
           </div>
-          <button onClick={closeCart} className="u-btn u-btn-ghost !px-3 !py-2" aria-label="Close cart">
+          <button onClick={closeCart} className="u-btn u-btn-ghost px-3! py-2!" aria-label="Close cart">
             <X className="size-4" aria-hidden />
           </button>
         </div>

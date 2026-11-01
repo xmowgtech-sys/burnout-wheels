@@ -30,7 +30,7 @@ export default async function TrackPage({
         <form method="GET" action="/track" className="u-card flex flex-col gap-3 p-6 sm:flex-row sm:items-end">
           <label className="flex-1">
             <span className="u-label-txt">Order number</span>
-            <input name="number" defaultValue={number ?? ""} required placeholder="BW-XXXXXX-XX" className="u-input mt-1.5 !uppercase" />
+            <input name="number" defaultValue={number ?? ""} required placeholder="BW-XXXXXX-XX" className="u-input mt-1.5 uppercase!" />
           </label>
           <label className="flex-1">
             <span className="u-label-txt">Delivery email</span>

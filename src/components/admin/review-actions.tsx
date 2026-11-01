@@ -33,13 +33,13 @@ export function ReviewRowActions({ review }: { review: ReviewRow }) {
     <div className="flex items-center gap-1.5">
       {review.status === "PENDING" && (
         <>
-          <button onClick={() => patch("PUBLISHED")} disabled={busy} className="u-btn u-btn-primary !px-3 !py-2" aria-label="Publish review"><Check className="size-3.5" /> Publish</button>
-          <button onClick={() => patch("REJECTED")} disabled={busy} className="u-btn u-btn-ghost !px-3 !py-2" aria-label="Reject review"><X className="size-3.5" /> Reject</button>
+          <button onClick={() => patch("PUBLISHED")} disabled={busy} className="u-btn u-btn-primary px-3! py-2!" aria-label="Publish review"><Check className="size-3.5" /> Publish</button>
+          <button onClick={() => patch("REJECTED")} disabled={busy} className="u-btn u-btn-ghost px-3! py-2!" aria-label="Reject review"><X className="size-3.5" /> Reject</button>
         </>
       )}
-      {review.status === "PUBLISHED" && <button onClick={() => patch("REJECTED")} disabled={busy} className="u-btn u-btn-ghost !px-3 !py-2">Unpublish</button>}
-      {review.status === "REJECTED" && <button onClick={() => patch("PUBLISHED")} disabled={busy} className="u-btn u-btn-primary !px-3 !py-2">Publish</button>}
-      <button onClick={() => setDel(true)} disabled={busy} className="u-btn u-btn-danger !px-2.5 !py-2" aria-label="Delete review"><Trash2 className="size-3.5" /></button>
+      {review.status === "PUBLISHED" && <button onClick={() => patch("REJECTED")} disabled={busy} className="u-btn u-btn-ghost px-3! py-2!">Unpublish</button>}
+      {review.status === "REJECTED" && <button onClick={() => patch("PUBLISHED")} disabled={busy} className="u-btn u-btn-primary px-3! py-2!">Publish</button>}
+      <button onClick={() => setDel(true)} disabled={busy} className="u-btn u-btn-danger px-2.5! py-2!" aria-label="Delete review"><Trash2 className="size-3.5" /></button>
       <ConfirmDialog open={del} onClose={() => setDel(false)} onConfirm={destroy} title="Delete this review?" body="Removed and gone — no archive." confirmLabel="Delete" danger />
     </div>
   );

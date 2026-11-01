@@ -113,7 +113,7 @@ export function ChatWidget({ botName }: { botName: string }) {
               <div key={m.id} className={`max-w-[85%] whitespace-pre-line px-3.5 py-2.5 text-[13px] leading-relaxed ${
                 m.role === "user" ? "ml-auto bg-red text-white" : m.role === "admin" ? "border border-yellow/50 bg-yellow/10" : "border border-line bg-white/5"
               }`}>
-                {m.role === "admin" && <span className="u-label mb-1 block !text-yellow">Crew</span>}
+                {m.role === "admin" && <span className="u-label mb-1 block text-yellow!">Crew</span>}
                 {m.content}
               </div>
             ))}
@@ -122,7 +122,7 @@ export function ChatWidget({ botName }: { botName: string }) {
 
           <div className="flex flex-wrap gap-1.5 px-4 pb-2">
             {QUICK.map((q) => (
-              <button key={q} onClick={() => send(q)} className="u-chip !py-1">{q}</button>
+              <button key={q} onClick={() => send(q)} className="u-chip py-1!">{q}</button>
             ))}
           </div>
 
@@ -131,10 +131,10 @@ export function ChatWidget({ botName }: { botName: string }) {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={status === "HANDOFF_ACTIVE" ? "Crew is listening…" : "Type your message…"}
-              className="u-input !py-2.5"
+              className="u-input py-2.5!"
               aria-label="Chat message"
             />
-            <button type="submit" disabled={busy || !draft.trim()} className="u-btn u-btn-primary !px-3 !py-2.5" aria-label="Send">
+            <button type="submit" disabled={busy || !draft.trim()} className="u-btn u-btn-primary px-3! py-2.5!" aria-label="Send">
               <Send className="size-4" aria-hidden />
             </button>
           </form>

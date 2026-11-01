@@ -30,6 +30,7 @@ export interface Product {
   featured: boolean;
   dropAt: string | null;
   source?: string; // LOCAL | SHOPIFY
+  shopifyVariantId?: string | null; // numeric Shopify variant id — powers the Shop Pay express button
   createdAt: string;
   updatedAt: string;
 }

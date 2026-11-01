@@ -102,7 +102,7 @@ export default function MonitoringPage() {
               );
             })}
           </div>
-          <p className="u-label-txt mt-2 !text-dim">Counts only rise after visitors allow analytics cookies.</p>
+          <p className="u-label-txt mt-2 text-dim!">Counts only rise after visitors allow analytics cookies.</p>
         </div>
       </section>
 
@@ -110,7 +110,7 @@ export default function MonitoringPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <p className="u-label">Recent events</p>
-          <span className="u-label-txt !text-dim">{counts.slowPages > 0 ? `${counts.slowPages} slow page report(s) in 24h` : ""}</span>
+          <span className="u-label-txt text-dim!">{counts.slowPages > 0 ? `${counts.slowPages} slow page report(s) in 24h` : ""}</span>
         </div>
         {events.length === 0 ? (
           <p className="u-label-txt">Nothing recorded in the window — quiet pit wall.</p>
@@ -118,11 +118,11 @@ export default function MonitoringPage() {
           <Table head={["When", "Level", "Type", "Where", "Message"]}>
             {events.map((e) => (
               <tr key={e.id}>
-                <Td className="u-mono !text-[12px] whitespace-nowrap">{ago(e.createdAt)}</Td>
+                <Td className="u-mono text-[12px]! whitespace-nowrap">{ago(e.createdAt)}</Td>
                 <Td><span className={`u-badge ${LEVEL_TONE[e.level] ?? ""}`}>{e.level}</span></Td>
-                <Td className="u-mono !text-[12px]">{e.type}</Td>
-                <Td className="u-mono !text-[12px] max-w-[160px] truncate" title={e.path}>{e.path}</Td>
-                <Td className="!text-[12.5px] text-fog"><span title={e.meta}>{e.message}</span></Td>              </tr>
+                <Td className="u-mono text-[12px]!">{e.type}</Td>
+                <Td className="u-mono text-[12px]! max-w-[160px] truncate" title={e.path}>{e.path}</Td>
+                <Td className="text-[12.5px]! text-fog"><span title={e.meta}>{e.message}</span></Td>              </tr>
             ))}
           </Table>
         )}
@@ -139,9 +139,9 @@ export default function MonitoringPage() {
               {syncs.map((s) => (
                 <li key={s.id} className="flex items-center gap-3 px-4 py-3 text-[13px]">
                   {s.status === "OK" ? <CheckCircle2 className="size-4 shrink-0 text-mint" aria-hidden /> : <XCircle className="size-4 shrink-0 text-red" aria-hidden />}
-                  <span className="u-mono !text-[12px]">{s.job}</span>
+                  <span className="u-mono text-[12px]!">{s.job}</span>
                   <span className="truncate text-fog">{s.detail || `${s.items} rows`}</span>
-                  <span className="u-label ml-auto !text-dim">{ago(s.createdAt)}</span>
+                  <span className="u-label ml-auto text-dim!">{ago(s.createdAt)}</span>
                 </li>
               ))}
             </ul>
@@ -158,9 +158,9 @@ export default function MonitoringPage() {
                   {m.delivered ? <CheckCircle2 className="size-4 shrink-0 text-mint" aria-hidden /> : <AlertTriangle className="size-4 shrink-0 text-yellow" aria-hidden />}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{m.subject}</span>
-                    <span className="u-label-txt !text-dim">{m.toEmail}</span>
+                    <span className="u-label-txt text-dim!">{m.toEmail}</span>
                   </span>
-                  <span className="u-label !text-dim">{ago(m.createdAt)}</span>
+                  <span className="u-label text-dim!">{ago(m.createdAt)}</span>
                 </li>
               ))}
             </ul>
@@ -179,7 +179,7 @@ export default function MonitoringPage() {
               {low.map((p) => (
                 <li key={p.id} className="flex items-center gap-3 px-4 py-3 text-[13px]">
                   <span className="u-mono text-yellow">{p.stock}</span> {p.name}
-                  <span className="u-label ml-auto !text-dim">threshold {p.lowStockThreshold}</span>
+                  <span className="u-label ml-auto text-dim!">threshold {p.lowStockThreshold}</span>
                 </li>
               ))}
             </ul>

@@ -65,14 +65,14 @@ export function DiscountsPanel({ rows }: { rows: DiscountRow[] }) {
   return (
     <div className="flex flex-col gap-8">
       <form onSubmit={create} className="u-card grid items-end gap-3 p-5 md:grid-cols-[1fr_120px_120px_140px_140px_auto]">
-        <label><span className="u-label-txt">Code</span><input value={code} onChange={(e) => setCode(e.target.value)} required className="u-input mt-1.5 !uppercase" placeholder="WELCOME10" /></label>
+        <label><span className="u-label-txt">Code</span><input value={code} onChange={(e) => setCode(e.target.value)} required className="u-input mt-1.5 uppercase!" placeholder="WELCOME10" /></label>
         <label><span className="u-label-txt">Type</span>
           <select value={type} onChange={(e) => setType(e.target.value as never)} className="u-select mt-1.5"><option value="PERCENT">%</option><option value="FLAT">₹ flat</option></select>
         </label>
         <label><span className="u-label-txt">Value</span><input type="number" min="0" value={value} onChange={(e) => setValue(e.target.value)} required className="u-input mt-1.5" /></label>
         <label><span className="u-label-txt">Min cart ₹</span><input type="number" min="0" value={min} onChange={(e) => setMin(e.target.value)} className="u-input mt-1.5" /></label>
         <label><span className="u-label-txt">Max uses (0=∞)</span><input type="number" min="0" value={maxUses} onChange={(e) => setMaxUses(e.target.value)} className="u-input mt-1.5" /></label>
-        <button disabled={busy} className="u-btn u-btn-primary !py-3"><Plus className="size-4" /> Create</button>
+        <button disabled={busy} className="u-btn u-btn-primary py-3!"><Plus className="size-4" /> Create</button>
         {err && <p role="alert" className="text-[12px] text-red md:col-span-5">{err}</p>}
       </form>
 
@@ -89,8 +89,8 @@ export function DiscountsPanel({ rows }: { rows: DiscountRow[] }) {
               <Td><span className={cn("u-badge", d.active ? "border-mint text-mint" : "border-dim text-dim")}>{d.active ? "ACTIVE" : "OFF"}</span></Td>
               <Td>
                 <div className="flex gap-1.5">
-                  <button onClick={() => toggle(d)} className="u-btn u-btn-ghost !px-2 !py-2" aria-label="Toggle active">{d.active ? "Disable" : "Enable"}</button>
-                  <button onClick={() => setDelId(d.id)} className="u-btn u-btn-danger !px-2 !py-2" aria-label="Delete code"><Trash2 className="size-3.5" /></button>
+                  <button onClick={() => toggle(d)} className="u-btn u-btn-ghost px-2! py-2!" aria-label="Toggle active">{d.active ? "Disable" : "Enable"}</button>
+                  <button onClick={() => setDelId(d.id)} className="u-btn u-btn-danger px-2! py-2!" aria-label="Delete code"><Trash2 className="size-3.5" /></button>
                 </div>
               </Td>
             </tr>

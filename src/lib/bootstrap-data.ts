@@ -1,14 +1,16 @@
 import type { DatabaseSync } from "node:sqlite";
 import bcrypt from "bcryptjs";
 import { nowIso } from "./db";
+import { SEED_PRODUCTS } from "./seed-catalog";
 
 /**
- * Cold-start bootstrap for ephemeral hosting (Netlify/Lambda).
- * Runs ONLY when the database has no users yet — locally the seeded DB exists and
- * this never fires. Creates: owner from env, default settings, and the demo RB20
- * product with real Wikimedia photography. No fake orders, visits, reviews or chats.
- * Storefront shows a real product, checkout works, and every number that appears
- * is one a real customer made.
+ * Cold-start bootstrap for ephemeral hosting (Netlify/Lambda, Vercel /tmp).
+ * Runs ONLY when the database has no users yet — locally the live DB exists and
+ * this never fires. Creates: owner from env, default settings, and the real
+ * catalog (SEED_PRODUCTS — committed listings, photography from public/uploads).
+ * Storefront shows exactly the catalog the operator sees locally. Every range
+ * the site shows afterwards comes from real rows: no fake orders, no invented
+ * visits, no seeded reviews, Trustpilot stays "coming soon".
  */
 export function bootstrapStore(db: DatabaseSync): void {
   const ts = nowIso();
@@ -53,43 +55,33 @@ export function bootstrapStore(db: DatabaseSync): void {
     ts
   );
 
-  // 3. demo product — real photos, honest description, honest stock of 3
-  const IMG = (f: string) => `https://thumb.wikimedia.org/wikipedia/commons/thumb/${f}/1920px-${f.split("/").pop()!}`;
-  const slug = "red-bull-racing-rb20-f1-die-cast";
-  if (!db.prepare("SELECT 1 FROM products WHERE slug = ?").get(slug)) {
-    db.prepare(
-      `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images,
-        priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, createdAt, updatedAt)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-    ).run(
-      slug,
-      "Red Bull Racing RB20 F1 Die-Cast",
-      "Bburago",
-      "Formula 1",
-      "1:43",
-      "NEW",
-      "The RB20 took Red Bull Racing back-to-back constructors' championships, and this 1:43 die-cast by Bburago puts it at desk height. Cast in zinc alloy with the full Red Bull livery, the model rides on detailed wheels with rubber-style tyres and a moulded front-wing assembly. Reference-grade hobby metal: sharp graphics and correct sponsor placement down to the air-intake livery. Sold exactly as pictured — one unit, inspected at the pit bench, boxed with an inspection card.",
-      JSON.stringify([
-        "1:43 scale — 11.5 cm of officially liveried zinc alloy",
-        "Rolling wheels with rubber-style tyres",
-        "Pit-inspected and shipped in an impact-sleeve box",
-        "Serial-logged sourcing — one allocation, then it's gone",
-      ]),
-      "red bull, f1, 2024 season, 1:43",
-      JSON.stringify([
-        IMG("5/57/Red_Bull_RB20_show_car%2C_2024_Singapore_Grand_Prix_%28cropped%29.jpg"),
-        IMG("6/6e/Red_Bull_RB20_%2816038586806%29.jpg"),
-        IMG("d/d9/Red_Bull_RB20_%2816038599054%29.jpg"),
-        IMG("b/b3/2024-08-25_Motorsport%2C_Formel_1%2C_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3937_by_Stepro.jpg"),
-      ]),
-      89900,
-      52000,
-      2,
-      3,
-      5,
-      "ACTIVE",
-      1,
-      ts.slice(0, 10),
+  // 3. catalog — the operator's real listings; image files ship from public/uploads
+  const insert = db.prepare(
+    `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images,
+       priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, createdAt, updatedAt)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     ON CONFLICT(slug) DO NOTHING`
+  );
+  for (const p of SEED_PRODUCTS) {
+    insert.run(
+      p.slug,
+      p.name,
+      p.brand,
+      p.category,
+      p.scale,
+      p.condition,
+      p.description,
+      JSON.stringify(p.highlights),
+      p.tags,
+      JSON.stringify(p.images),
+      p.priceSale,
+      p.priceCost,
+      p.feePercent,
+      p.stock,
+      p.lowStockThreshold,
+      p.status,
+      p.featured,
+      p.dropAt,
       ts,
       ts
     );

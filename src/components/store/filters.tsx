@@ -65,26 +65,26 @@ export function ShopFilters({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search this grid…"
-            className="u-input !py-2.5 !pl-9"
+            className="u-input py-2.5! pl-9!"
             aria-label="Search products"
           />
         </div>
 
-        <select value={activeCategory} onChange={(e) => toggle("cat", e.target.value, activeCategory === "")} className="u-select !w-auto !py-2.5" aria-label="Category">
+        <select value={activeCategory} onChange={(e) => toggle("cat", e.target.value, activeCategory === "")} className="u-select w-auto! py-2.5!" aria-label="Category">
           <option value="">All categories</option>
           {categories.map((c) => (
             <option key={c.value} value={c.value}>{c.label} ({c.count})</option>
           ))}
         </select>
 
-        <select value={activeCondition} onChange={(e) => toggle("cond", e.target.value, activeCondition === "")} className="u-select !w-auto !py-2.5" aria-label="Condition">
+        <select value={activeCondition} onChange={(e) => toggle("cond", e.target.value, activeCondition === "")} className="u-select w-auto! py-2.5!" aria-label="Condition">
           <option value="">All conditions</option>
           {conditions.map((c) => (
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
 
-        <select value={activeSort} onChange={(e) => push((p) => p.set("sort", e.target.value))} className="u-select !w-auto !py-2.5" aria-label="Sort">
+        <select value={activeSort} onChange={(e) => push((p) => p.set("sort", e.target.value))} className="u-select w-auto! py-2.5!" aria-label="Sort">
           <option value="newest">Newest first</option>
           <option value="price-asc">Price: low → high</option>
           <option value="price-desc">Price: high → low</option>
@@ -104,7 +104,7 @@ export function ShopFilters({
           <button
             type="button"
             onClick={() => { setQ(""); router.push(pathname, { scroll: false }); }}
-            className="u-chip !text-red"
+            className="u-chip text-red!"
           >
             <X className="size-3" aria-hidden /> Reset
           </button>

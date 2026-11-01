@@ -137,13 +137,13 @@ export function SettingsPanel({
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="block"><span className="u-label-txt">Razorpay key id</span>
-            <input value={pay.keyId} onChange={(e) => setPay({ ...pay, keyId: e.target.value })} placeholder="rzp_live_… or rzp_test_…" className="u-input mt-1.5 !font-mono !text-[13px]" />
+            <input value={pay.keyId} onChange={(e) => setPay({ ...pay, keyId: e.target.value })} placeholder="rzp_live_… or rzp_test_…" className="u-input mt-1.5 font-mono! text-[13px]!" />
           </label>
           <label className="block"><span className="u-label-txt">Key secret {pay.secretSet && <span className="u-badge ml-2 border-mint text-mint">saved</span>}</span>
-            <input type="password" value={secretRaw} onChange={(e) => setSecretRaw(e.target.value)} placeholder={pay.secretSet ? "•••••••• (leave blank to keep)" : "paste the secret"} className="u-input mt-1.5 !font-mono !text-[13px]" />
+            <input type="password" value={secretRaw} onChange={(e) => setSecretRaw(e.target.value)} placeholder={pay.secretSet ? "•••••••• (leave blank to keep)" : "paste the secret"} className="u-input mt-1.5 font-mono! text-[13px]!" />
           </label>
           <label className="block md:col-span-2"><span className="u-label-txt">Manual UPI VPA (fallback — used if Razorpay is off or down)</span>
-            <input value={pay.upiVpa} onChange={(e) => setPay({ ...pay, upiVpa: e.target.value })} placeholder="burnoutwheels@upi" className="u-input mt-1.5 !font-mono !text-[13px]" />
+            <input value={pay.upiVpa} onChange={(e) => setPay({ ...pay, upiVpa: e.target.value })} placeholder="burnoutwheels@upi" className="u-input mt-1.5 font-mono! text-[13px]!" />
           </label>
         </div>
         <button onClick={savePay} disabled={busy} className="u-btn u-btn-primary mt-6">Save payment keys</button>

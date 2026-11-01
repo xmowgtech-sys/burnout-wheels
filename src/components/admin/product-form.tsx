@@ -115,7 +115,7 @@ export function ProductForm({ initial }: { initial: Product | null }) {
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Name *"><input value={f.name} onChange={(e) => set("name", e.target.value)} required minLength={3} className="u-input" /></Field>
         <Field label="Slug" hint={`Auto: ${slugSuggestion || "—"}`}>
-          <input value={f.slug} onChange={(e) => set("slug", e.target.value)} placeholder={slugSuggestion} className="u-input !font-mono !text-[13px]" />
+          <input value={f.slug} onChange={(e) => set("slug", e.target.value)} placeholder={slugSuggestion} className="u-input font-mono! text-[13px]!" />
         </Field>
         <Field label="Brand"><input value={f.brand} onChange={(e) => set("brand", e.target.value)} className="u-input" /></Field>
         <Field label="Scale"><input value={f.scale} onChange={(e) => set("scale", e.target.value)} placeholder="1:43" className="u-input" /></Field>

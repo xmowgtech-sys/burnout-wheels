@@ -91,16 +91,16 @@ export function ShopifyPanel({ connected, domain, apiVersion, secretSet, logs }:
             </p>
           </div>
           {connected && (
-            <button onClick={disconnect} className="u-btn u-btn-danger !text-[12px]"><Trash2 className="size-3.5" aria-hidden /> Disconnect</button>
+            <button onClick={disconnect} className="u-btn u-btn-danger text-[12px]!"><Trash2 className="size-3.5" aria-hidden /> Disconnect</button>
           )}
         </div>
 
         {!connected && (
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <Field label="Shop domain *"><input value={form.shopDomain} onChange={(e) => setForm((f) => ({ ...f, shopDomain: e.target.value }))} placeholder="pit-lane.myshopify.com" className="u-input" /></Field>
-            <Field label="Admin API token *"><input value={form.adminToken} onChange={(e) => setForm((f) => ({ ...f, adminToken: e.target.value }))} placeholder="shpat_…" className="u-input !font-mono !text-[13px]" /></Field>
+            <Field label="Admin API token *"><input value={form.adminToken} onChange={(e) => setForm((f) => ({ ...f, adminToken: e.target.value }))} placeholder="shpat_…" className="u-input font-mono! text-[13px]!" /></Field>
             <Field label="Webhook secret" hint="From your Shopify webhook notification — verifies every incoming event">
-              <input value={form.webhookSecret} onChange={(e) => setForm((f) => ({ ...f, webhookSecret: e.target.value }))} className="u-input !font-mono !text-[13px]" />
+              <input value={form.webhookSecret} onChange={(e) => setForm((f) => ({ ...f, webhookSecret: e.target.value }))} className="u-input font-mono! text-[13px]!" />
             </Field>
             <Field label="API version"><input value={form.apiVersion} onChange={(e) => setForm((f) => ({ ...f, apiVersion: e.target.value }))} placeholder="2024-10" className="u-input" /></Field>
             <div className="md:col-span-2">
@@ -118,13 +118,13 @@ export function ShopifyPanel({ connected, domain, apiVersion, secretSet, logs }:
           </div>
           <div className="flex flex-wrap gap-2">
             {(Object.keys(JOB_LABELS) as Job[]).map((j) => (
-              <button key={j} disabled={!connected || busyJob !== null} onClick={() => runJob(j)} className="u-btn u-btn-ghost !text-[12px] disabled:opacity-40">
+              <button key={j} disabled={!connected || busyJob !== null} onClick={() => runJob(j)} className="u-btn u-btn-ghost text-[12px]! disabled:opacity-40">
                 {busyJob === j ? <RefreshCcw className="size-3.5 animate-spin" aria-hidden /> : null} {JOB_LABELS[j]}
               </button>
             ))}
           </div>
         </div>
-        <p className="u-label-txt mt-3 !text-dim">Store currency must be INR — this ledger is minor-paise. Synced rows are tagged <span className="u-mono">SHOPIFY</span> and kept even after disconnect.</p>
+        <p className="u-label-txt mt-3 text-dim!">Store currency must be INR — this ledger is minor-paise. Synced rows are tagged <span className="u-mono">SHOPIFY</span> and kept even after disconnect.</p>
       </section>
 
       <section>
@@ -135,7 +135,7 @@ export function ShopifyPanel({ connected, domain, apiVersion, secretSet, logs }:
           <Table head={["When", "Job", "Status", "Rows", "Duration", "Detail"]}>
             {logs.map((l) => (
               <tr key={l.id}>
-                <Td className="u-mono !text-[12px]">{new Date(l.createdAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</Td>
+                <Td className="u-mono text-[12px]!">{new Date(l.createdAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</Td>
                 <Td>{l.job}</Td>
                 <Td>
                   <span className={`u-badge ${l.status === "OK" ? "border-mint text-mint" : "border-red text-red"}`}>
@@ -144,8 +144,8 @@ export function ShopifyPanel({ connected, domain, apiVersion, secretSet, logs }:
                   </span>
                 </Td>
                 <Td className="u-mono">{l.items}</Td>
-                <Td className="u-mono !text-[12px]">{(l.durationMs / 1000).toFixed(1)}s</Td>
-                <Td className="max-w-xs truncate !text-[12px] text-fog" title={l.detail}>{l.detail}</Td>
+                <Td className="u-mono text-[12px]!">{(l.durationMs / 1000).toFixed(1)}s</Td>
+                <Td className="max-w-xs truncate text-[12px]! text-fog" title={l.detail}>{l.detail}</Td>
               </tr>
             ))}
           </Table>
