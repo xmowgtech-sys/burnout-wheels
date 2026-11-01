@@ -14,6 +14,7 @@ const KEY = "bw:announce:v2";
 export function AnnounceBanner() {
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
+  const [compact, setCompact] = useState(false);
 
   useEffect(() => {
     try {
@@ -22,6 +23,13 @@ export function AnnounceBanner() {
       setOpen(true);
     }
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setCompact(window.scrollY > 16);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   const close = () => {
@@ -37,9 +45,12 @@ export function AnnounceBanner() {
 
   return (
     <div
-      className="relative z-[70] flex w-full items-center justify-center gap-2 overflow-hidden bg-red pl-4 pr-9 text-white sm:gap-3"
+      className={`relative z-[70] flex w-full items-center justify-center gap-2 overflow-hidden bg-red pl-4 pr-9 text-white transition-[max-height,opacity] duration-300 ease-out sm:gap-3 ${
+        compact ? "pointer-events-none invisible max-h-0 opacity-0" : "visible max-h-12 opacity-100"
+      }`}
       role="region"
       aria-label="Announcement"
+      aria-hidden={compact}
     >
       {/* checker accent on the left edge — visible brand cue even when the text truncates */}
       <span aria-hidden className="hidden shrink-0 md:absolute md:left-0 md:inset-y-0 md:block md:w-10 md:bg-[repeating-conic-gradient(#fff_0%_25%,#e10600_0%_50%)] md:bg-[length:10px_10px] md:opacity-40" />
@@ -59,7 +70,7 @@ export function AnnounceBanner() {
       <button
         onClick={close}
         aria-label="Dismiss announcement"
-        className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1.5 text-white/90 transition-colors hover:bg-black/25 hover:text-white"
+        className="absolute right-0.5 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded text-white/90 transition-colors hover:bg-black/25 hover:text-white"
       >
         <X className="size-3.5" aria-hidden />
       </button>

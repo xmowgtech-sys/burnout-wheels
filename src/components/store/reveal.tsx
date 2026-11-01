@@ -2,17 +2,24 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 
-/** IO-based scroll reveal. Uses CSS classes, so reduced-motion UX is handled in globals. */
+type RevealVariant = "up" | "curtain" | "scale" | "fade";
+
+/**
+ * IO-based scroll reveal. CSS classes handle the animation, so reduced-motion
+ * users get the final state instantly (see globals.css).
+ */
 export function Reveal({
   children,
   delay = 0,
   className = "",
+  variant = "up",
   as: Tag = "div",
 }: {
   children: ReactNode;
   delay?: number;
   className?: string;
-  as?: "div" | "section" | "li" | "article";
+  variant?: RevealVariant;
+  as?: "div" | "section" | "li" | "article" | "figure" | "span";
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -38,8 +45,15 @@ export function Reveal({
     return () => io.disconnect();
   }, []);
 
+  const variantClass =
+    variant === "curtain" ? "reveal-curtain" : variant === "scale" ? "reveal-scale" : variant === "fade" ? "reveal-dim" : "reveal";
+
   return (
-    <Tag ref={ref as never} className={`reveal ${className}`} style={{ "--reveal-delay": `${delay}ms` } as React.CSSProperties}>
+    <Tag
+      ref={ref as never}
+      className={`${variantClass} ${className}`}
+      style={{ "--reveal-delay": `${delay}ms` } as React.CSSProperties}
+    >
       {children}
     </Tag>
   );

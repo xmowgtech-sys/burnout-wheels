@@ -8,6 +8,7 @@ import { useStore, useToast } from "./providers";
 import { trackFlow } from "@/components/store/site-monitor";
 import { fmtUSD } from "@/lib/money";
 import { CONDITION_LABELS, type Product } from "@/lib/types";
+import { COD_ADVANCE_LABEL } from "@/lib/payments";
 import { cn, prefersReducedMotion, clamp } from "@/lib/utils";
 
 /* ---------------- gallery ---------------- */
@@ -160,7 +161,8 @@ export function BuyPanel({ product }: { product: Product }) {
       )}
 
       <p className="u-label-txt">
-        Payment: UPI or Cash on Delivery · <Link href="/shipping" className="underline underline-offset-4 hover:text-bone">Shipping</Link> ·{" "}
+        Payment: UPI · COD ({COD_ADVANCE_LABEL} online advance) · PayPal via WhatsApp/Discord ·{" "}
+        <Link href="/shipping" className="underline underline-offset-4 hover:text-bone">Shipping</Link> ·{" "}
         <Link href="/refund-cancellation" className="underline underline-offset-4 hover:text-bone">Cancellation & refund rules</Link>
       </p>
     </div>

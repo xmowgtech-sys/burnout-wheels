@@ -64,9 +64,12 @@ export default async function ShopPage({
         />
 
         <section className="py-8 md:py-14" aria-label="Products">
-          <p className="u-label" aria-live="polite">
-            {products.length} {products.length === 1 ? "unit" : "units"} on grid{q ? ` for “${q}”` : ""}
-          </p>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <p className="u-label" aria-live="polite">
+              {products.length} {products.length === 1 ? "unit" : "units"} on grid{q ? ` for “${q}”` : ""}
+            </p>
+            <p className="u-label hidden sm:block">Sorted · {sort === "price-asc" ? "price low → high" : sort === "price-desc" ? "price high → low" : "newest first"}</p>
+          </div>
 
           {products.length === 0 ? (
             <div className="mt-10">
@@ -81,7 +84,7 @@ export default async function ShopPage({
               />
             </div>
           ) : (
-            <div className="mt-6 grid content-start gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-6 md:gap-y-12 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="mt-6 grid grid-cols-2 content-start gap-x-3 gap-y-8 sm:gap-x-6 md:gap-y-12 lg:grid-cols-3 xl:grid-cols-4">
               {products.map((p, i) => (
                 <div key={p.id} className="page-in" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
                   <ProductCard product={p} priority={i < 4} />

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { CONTACT } from "@/lib/contact";
+import { COD_ADVANCE_LABEL } from "@/lib/payments";
+import { Marquee } from "./marquee";
 
 const COLS: { title: string; links: { href: string; label: string; external?: boolean }[] }[] = [
   {
@@ -36,21 +38,27 @@ const COLS: { title: string; links: { href: string; label: string; external?: bo
   },
 ];
 
+const TICKER = ["Formula 1", "Motorsport", "Rare drops", "Sealed & inspected", "Join the Discord for drops", "Track every order"];
+
 export function Footer() {
   return (
-    <footer className="border-t border-line bg-coal">
-      <div className="u-marquee border-b border-line py-3" aria-hidden>
-        {Array.from({ length: 2 }).map((_, copy) => (
-          <div key={copy} className="flex shrink-0 items-center gap-8 pr-8">
-            {["Formula 1", "Motorsport", "Rare drops", "Sealed & inspected", "Join the Discord for drops", "Track every order"].map(
-              (word) => (
-                <span key={word} className="u-label text-dim! whitespace-nowrap">
-                  {word} <span className="text-red">◦</span>
-                </span>
-              )
-            )}
-          </div>
-        ))}
+    <footer className="relative overflow-hidden border-t border-line bg-coal">
+      <div className="border-b border-line py-3">
+        <Marquee speed={38}>
+          {TICKER.map((word, i) => (
+            <span
+              key={word}
+              className={`flex items-center gap-8 pr-8 text-xl font-extrabold uppercase tracking-tight md:text-3xl ${
+                i % 2 === 1 ? "u-outline" : "text-bone"
+              }`}
+            >
+              {word}
+              <span className="text-red" aria-hidden>
+                ◦
+              </span>
+            </span>
+          ))}
+        </Marquee>
       </div>
 
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 md:grid-cols-[1.4fr_repeat(2,1fr)_1.4fr] md:px-8">
@@ -67,7 +75,8 @@ export function Footer() {
             Die-cast racing metal for collectors who read telemetry. One product at a time, inspected before it leaves
             the paddock.
           </p>
-          <p className="u-label mt-6">UPI · COD · Order-by-order confirmation</p>
+          <p className="u-label mt-6">UPI · COD ({COD_ADVANCE_LABEL} advance) · PayPal live</p>
+          <p className="u-label-txt mt-2">Human-confirmed payments on WhatsApp or Discord.</p>
         </div>
 
         {COLS.map((col) => (
@@ -108,6 +117,24 @@ export function Footer() {
               Join Discord
             </a>
           </div>
+        </div>
+      </div>
+
+      {/* oversized wordmark — the last thing on the page */}
+      <div className="mx-auto max-w-7xl px-4 md:px-8">
+        <div className="u-spectrum h-px w-full" aria-hidden />
+        <p
+          aria-hidden
+          className="u-display mt-5 select-none whitespace-nowrap text-[clamp(2.6rem,10.6vw,9.5rem)]! leading-[0.78] text-bone"
+        >
+          Burnout<span className="text-red">/</span>
+          <span className="u-outline">Wheels</span>
+        </p>
+        <div className="flex items-center justify-between gap-4 py-4">
+          <p className="u-label">Die-cast pit lane — Mohali, India</p>
+          <a href="#main" className="u-label transition-colors hover:text-bone">
+            Back to top ↑
+          </a>
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import { PageHero, SectionHead } from "@/components/ui";
 import { Reveal } from "@/components/store/reveal";
 import { getTrustpilot } from "@/lib/settings";
 import { CONTACT } from "@/lib/contact";
+import { COD_ADVANCE_LABEL } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -24,7 +25,7 @@ export default function TrustPage() {
         <div className="grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-2">
           {[
             { icon: ShieldCheck, k: "Authenticity", v: ["Pieces are sourced sealed from authorised die-cast suppliers.", "Every unit is inspected against the factory box, casting and livery before it lists.", "Anything pre-owned or graded is described honestly — condition labels are never guesses."] },
-            { icon: Lock, k: "Secure shopping", v: ["No card is ever stored — payments run on UPI or cash on delivery.", "Order payment is confirmed person-by-person; a human checks every transaction before dispatch.", "Your data lives in one database on this store only, never sold or shared."] },
+            { icon: Lock, k: "Secure shopping", v: ["No card is ever stored — payments run on UPI, cash on delivery, or PayPal arranged live with a human on WhatsApp/Discord.", `COD orders require a ${COD_ADVANCE_LABEL} online advance before packing; it is adjusted against your total, and the balance is paid at the door.`, "Order payment is confirmed person-by-person; a human checks every transaction before dispatch.", "Your data lives in one database on this store only, never sold or shared."] },
             { icon: Undo2, k: "Cancellation & refunds", v: ["Cancel any order until the moment it ships — free, no theatre.", "After dispatch the parcel can't be cancelled; it travels.", "Refunds open only when a piece is proven waste with video proof — every claim gets a written decision."] },
             { icon: Star, k: "Reviews & scores", v: ["Every review is submitted by a real person and human-checked before it publishes.", "No seeded testimonials, no purchased ratings, no invented sales numbers — anywhere.", t.mode === "coming_soon" ? "“Trustpilot coming soon”: the moment a real profile is connected, it appears here. Nothing before then." : `Live Trustpilot profile is connected.`] },
           ].map((c, i) => (

@@ -16,6 +16,12 @@ export const CONTACT = {
     `https://wa.me/${PHONE_E164}?text=` +
     encodeURIComponent("Hi Burnout Wheels — I have an enquiry:"),
   whatsappHref: `https://wa.me/${PHONE_E164}?text=Hi%20Burnout%20Wheels%20%E2%80%94%20I%20have%20an%20enquiry%3A`,
+  whatsappCod: `https://wa.me/${PHONE_E164}?text=${encodeURIComponent(
+    "Hi Burnout Wheels — I want to pay the ₹200 online advance for a COD order."
+  )}`,
+  whatsappPayment: `https://wa.me/${PHONE_E164}?text=${encodeURIComponent(
+    "Hi Burnout Wheels — I need help completing a payment for my order."
+  )}`,
   discord: "https://discord.gg/wwUHm5MaK7",
   discordLabel: "discord.gg/wwUHm5MaK7",
   email: "theburnoutwheels@gmail.com",

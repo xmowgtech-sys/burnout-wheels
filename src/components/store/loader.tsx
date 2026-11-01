@@ -11,6 +11,18 @@ const SEED_KEY = "bw:lights:done";
  */
 export function RaceLoader() {
   const [phase, setPhase] = useState<"idle" | "lights" | "out" | "done">("idle");
+  const [pct, setPct] = useState(0);
+
+  useEffect(() => {
+    if (phase !== "lights") return;
+    const started = performance.now();
+    const id = window.setInterval(() => {
+      const p = Math.min(100, Math.round(((performance.now() - started) / 2600) * 100));
+      setPct(p);
+      if (p >= 100) window.clearInterval(id);
+    }, 80);
+    return () => window.clearInterval(id);
+  }, [phase]);
 
   useEffect(() => {
     try {
@@ -52,6 +64,12 @@ export function RaceLoader() {
       aria-label="Burnout Wheels loading"
     >
       <div className="u-gridlines" aria-hidden />
+      <div className="u-spectrum absolute inset-x-0 top-0 h-[2px] origin-left" style={{ transform: `scaleX(${pct / 100})` }} aria-hidden />
+
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between p-5 md:p-8">
+        <p className="u-label">Burnout/wheels</p>
+        <p className="u-label">Pit lane — Mohali</p>
+      </div>
 
       {/* badge reveal */}
       <div className="bw-badge-reveal relative mb-9">
@@ -88,6 +106,14 @@ export function RaceLoader() {
       <button onClick={() => setPhase("done")} className="u-label mt-14 underline-offset-4 hover:underline">
         Skip
       </button>
+
+      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-5 md:p-8">
+        <p className="u-label">Lights sequence / 001</p>
+        <p className="u-mono text-3xl font-bold tabular-nums">
+          {String(pct).padStart(3, "0")}
+          <span className="ml-1 text-sm text-dim">%</span>
+        </p>
+      </div>
     </div>
   );
 }

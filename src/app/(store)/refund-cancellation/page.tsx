@@ -1,4 +1,5 @@
 import { PageHero, SectionHead } from "@/components/ui";
+import { COD_ADVANCE_LABEL, PAYMENT_HELP } from "@/lib/payments";
 
 export const metadata = {
   title: "Refund & Cancellation",
@@ -25,6 +26,9 @@ export default function RefundCancellationPage() {
             </li>
             <li>
               <strong className="text-bone">COD refusal.</strong> Refusing COD at the door two times closes your account to COD — the courier bills us for rejections twice over.
+            </li>
+            <li>
+              <strong className="text-bone">COD advance.</strong> COD orders carry a {COD_ADVANCE_LABEL} online advance, adjusted against the total. If the order is cancelled before dispatch — by you or by us — the advance is returned to the source it came from. The balance is paid to the courier at the door.
             </li>
           </ul>
         </div>
@@ -62,7 +66,9 @@ export default function RefundCancellationPage() {
         </div>
 
         <div className="mt-12 flex flex-wrap gap-3">
-          <a href="mailto:theburnoutwheels@gmail.com" className="u-btn u-btn-primary">Email the crew</a>
+          <a href={PAYMENT_HELP.whatsapp} target="_blank" rel="noopener noreferrer" className="u-btn u-btn-primary">WhatsApp the crew</a>
+          <a href={PAYMENT_HELP.discord} target="_blank" rel="noopener noreferrer" className="u-btn u-btn-ghost">Discord</a>
+          <a href="mailto:theburnoutwheels@gmail.com" className="u-btn u-btn-ghost">Email the crew</a>
           <a href="/terms" className="u-btn u-btn-ghost">Full terms</a>
         </div>
       </div>

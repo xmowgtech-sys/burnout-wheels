@@ -12,6 +12,7 @@ import { getShopifyConfig } from "@/lib/shopify";
 import { getTrustpilot } from "@/lib/settings";
 import { fmtUSD } from "@/lib/money";
 import { CONDITION_LABELS } from "@/lib/types";
+import { COD_ADVANCE_LABEL, PAYMENT_HELP } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-24 pt-24 md:px-8 md:pt-32">
+    <div className="mx-auto max-w-7xl px-4 pb-32 pt-28 md:px-8 md:pb-24 md:pt-36">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
 
       <nav className="u-label mb-8 flex items-center gap-2" aria-label="Breadcrumb">
@@ -86,7 +87,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <h1 className="u-h2 mt-4">{product.name}</h1>
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <span className="u-badge border-red text-red">{CONDITION_LABELS[product.condition]}</span>
+            <span className="u-badge u-badge-cond" data-condition={product.condition}>{CONDITION_LABELS[product.condition]}</span>
             {product.tags.slice(0, 3).map((t) => (
               <span key={t} className="u-chip">{t}</span>
             ))}
@@ -100,6 +101,37 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <div className="mt-10">
             <BuyPanel product={product} />
           </div>
+
+          {/* COD protocol — the owner's real rule, stated before the order */}
+          {product.stock > 0 && (
+            <div className="mt-6 border border-yellow/30 bg-yellow/[0.045] p-4">
+              <p className="u-label flex items-center gap-2 text-yellow!">
+                <span className="size-1.5 bg-yellow" aria-hidden /> COD protocol
+              </p>
+              <p className="mt-2 text-[12.5px] leading-relaxed text-fog">
+                COD orders need a {COD_ADVANCE_LABEL} online advance before we pack. Pay it live with a human on
+                WhatsApp or Discord — the balance goes to the courier. The advance is adjusted against your total.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a
+                  href={PAYMENT_HELP.whatsappCod}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="u-btn u-btn-ghost px-3! py-2! text-[10px]!"
+                >
+                  Pay advance on WhatsApp
+                </a>
+                <a
+                  href={PAYMENT_HELP.discord}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="u-btn u-btn-ghost px-3! py-2! text-[10px]!"
+                >
+                  Discord
+                </a>
+              </div>
+            </div>
+          )}
 
           {shopPay && (
             <div className="mt-6 border-t border-line pt-6">
@@ -210,7 +242,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       </section>
 
       {/* mobile sticky buy */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-ink/95 p-4 backdrop-blur-md lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-ink/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
         <div className="flex items-center gap-4">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-semibold">{product.name}</p>

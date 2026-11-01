@@ -40,7 +40,7 @@ export function bootstrapStore(db: DatabaseSync): void {
       handoffWebhook: "",
       faqs: [
         { keywords: ["ship", "dispatch", "deliver", "courier", "track"], answer: "Dispatch runs every working morning. Standard delivery is 2–4 business days with door-step tracking." },
-        { keywords: ["cod", "cash on delivery", "cash"], answer: "Yes — cash on delivery is available pan-India. Keep the exact amount ready for the courier." },
+        { keywords: ["cod", "cash on delivery", "cash"], answer: "Yes — cash on delivery is available pan-India. COD orders need a ₹200 online advance before packing (adjusted against your total); the balance is paid to the courier. Pay the advance live with a human on WhatsApp or Discord." },
       ],
     }),
     ts

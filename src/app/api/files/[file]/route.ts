@@ -17,15 +17,21 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ fil
   }
   const ext = path.extname(file).toLowerCase();
   if (!TYPES[ext]) return new Response("Unsupported", { status: 415 });
-  try {
-    const buf = await readFile(path.join(UPLOADS_DIR, file));
-    return new Response(new Uint8Array(buf), {
-      headers: {
-        "content-type": TYPES[ext],
-        "cache-control": "public, max-age=31536000, immutable",
-      },
-    });
-  } catch {
-    return new Response("Not found", { status: 404 });
+  // Uploaded files live in the writable data dir. Bundled demo images also ship
+  // in public/uploads so a cold serverless start (/tmp is empty) still has them.
+  const candidates = [path.join(UPLOADS_DIR, file), path.join(process.cwd(), "public", "uploads", file)];
+  for (const candidate of candidates) {
+    try {
+      const buf = await readFile(candidate);
+      return new Response(new Uint8Array(buf), {
+        headers: {
+          "content-type": TYPES[ext],
+          "cache-control": "public, max-age=31536000, immutable",
+        },
+      });
+    } catch {
+      // try the next location
+    }
   }
+  return new Response("Not found", { status: 404 });
 }

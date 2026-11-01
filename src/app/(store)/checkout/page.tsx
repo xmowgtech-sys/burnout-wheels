@@ -10,6 +10,7 @@ import { useStore, useToast } from "@/components/store/providers";
 import { ShopPayButton } from "@/components/store/shop-pay-button";
 import { trackFlow } from "@/components/store/site-monitor";
 import { fmtUSD } from "@/lib/money";
+import { COD_ADVANCE_LABEL, COD_ADVANCE_PAISE, PAYMENT_HELP, codBalance } from "@/lib/payments";
 
 type Stage = "cart" | "details" | "placing" | "paying" | "error";
 
@@ -221,7 +222,7 @@ export default function CheckoutPage() {
 
   return (
     <>
-      <PageHero label="Checkout" title="Settle the order" sub="Stock reserves the second this lands. No card storage — UPI confirmation or cash on delivery." />
+      <PageHero label="Checkout" title="Settle the order" sub={`Stock reserves the second this lands. No card storage — UPI, COD with a ${COD_ADVANCE_LABEL} online advance, or PayPal arranged live with a human.`} />
       <div className="mx-auto grid max-w-7xl gap-12 px-4 py-12 md:px-8 lg:grid-cols-[1fr_420px]">
         <form onSubmit={placeOrder} className="flex flex-col gap-10" noValidate={false}>
           {/* express checkout — Shop Pay (only when the whole cart is Shopify-connected) */}
@@ -283,7 +284,7 @@ export default function CheckoutPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {[
                 { id: "UPI", label: "UPI", note: "Pay on confirmation — we hold your unit while it clears" },
-                { id: "COD", label: "Cash on delivery", note: "Pay the courier. ₹0 stored card data, ever" },
+                { id: "COD", label: "Cash on delivery", note: `${COD_ADVANCE_LABEL} online advance, balance at the door` },
               ].map((opt) => (
                 <label key={opt.id} className={`u-card flex cursor-pointer items-start gap-4 p-4 transition-colors ${paymentMethod === opt.id ? "border-red" : ""}`}>
                   <input type="radio" name="pm" value={opt.id} checked={paymentMethod === opt.id} onChange={() => setPaymentMethod(opt.id as never)} className="mt-1 accent-red" />
@@ -294,7 +295,49 @@ export default function CheckoutPage() {
                 </label>
               ))}
             </div>
+            <p className="u-label-txt mt-3">
+              PayPal or a live UPI assist? Arrange it with a human on{" "}
+              <a href={PAYMENT_HELP.whatsapp} target="_blank" rel="noopener noreferrer" className="text-bone underline underline-offset-4">WhatsApp</a>{" "}
+              or{" "}
+              <a href={PAYMENT_HELP.discord} target="_blank" rel="noopener noreferrer" className="text-bone underline underline-offset-4">Discord</a>{" "}
+              before placing the order.
+            </p>
           </fieldset>
+
+          {paymentMethod === "COD" && (
+            <div className="border border-yellow/30 bg-yellow/[0.045] p-5">
+              <p className="u-label text-yellow!">COD security advance — {COD_ADVANCE_LABEL} online</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-fog">
+                We pack COD orders only after the {COD_ADVANCE_LABEL} advance lands. Pay it live with a human on
+                WhatsApp or Discord (UPI or PayPal). It is part of your total, not an extra fee — the balance of{" "}
+                <span className="u-mono text-bone">{fmt(codBalance(total))}</span> is paid to the courier.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a
+                  href={PAYMENT_HELP.whatsappCod}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="u-btn u-btn-ghost px-3! py-2! text-[10px]!"
+                >
+                  Pay {COD_ADVANCE_LABEL} on WhatsApp
+                </a>
+                <a
+                  href={PAYMENT_HELP.discord}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="u-btn u-btn-ghost px-3! py-2! text-[10px]!"
+                >
+                  Discord
+                </a>
+              </div>
+              <label className="mt-4 flex items-start gap-3 text-[12.5px] leading-relaxed text-fog">
+                <input type="checkbox" name="codAdvanceAck" required className="mt-0.5 size-4 accent-red" />
+                <span>
+                  I understand the {COD_ADVANCE_LABEL} advance must be paid online before this COD order is packed.
+                </span>
+              </label>
+            </div>
+          )}
 
           {stage === "error" && error && (
             <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[13px] text-red">{error}</p>
@@ -302,9 +345,16 @@ export default function CheckoutPage() {
 
           <button type="submit" disabled={stage === "placing"} className="u-btn u-btn-primary w-full py-4! md:w-auto">
             <Lock className="size-4" aria-hidden />
-            {stage === "placing" ? "Placing order…" : `Place order — ${fmt(total)}`}
+            {stage === "placing"
+              ? "Placing order…"
+              : paymentMethod === "COD"
+                ? `Place COD order — ${fmt(total)}`
+                : `Place order — ${fmt(total)}`}
           </button>
-          <p className="u-label-txt">By placing the order the piece is reserved under your name. Payment completes on UPI confirmation or at the door (COD).</p>
+          <p className="u-label-txt">
+            By placing the order the piece is reserved under your name. UPI completes on confirmation. COD completes
+            only after the {COD_ADVANCE_LABEL} online advance lands; the balance is paid at the door.
+          </p>
         </form>
 
         {/* summary */}
@@ -344,7 +394,47 @@ export default function CheckoutPage() {
               {applied && <div className="flex justify-between text-mint"><dt>Code {applied.code}</dt><dd className="u-mono">−{fmt(applied.amount)}</dd></div>}
               <div className="flex justify-between"><dt className="text-fog">Shipping</dt><dd className="u-mono">{shippingFee === 0 ? "FREE" : fmt(shippingFee)}</dd></div>
               <div className="flex justify-between border-t border-line pt-3 text-base font-bold"><dt>Total</dt><dd className="u-mono">{fmt(total)}</dd></div>
+              {paymentMethod === "COD" && (
+                <>
+                  <div className="flex justify-between text-yellow">
+                    <dt>COD advance (online)</dt>
+                    <dd className="u-mono">{fmt(Math.min(COD_ADVANCE_PAISE, total))}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-fog">Balance on delivery</dt>
+                    <dd className="u-mono">{fmt(codBalance(total))}</dd>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-dim">
+                    The advance is part of the total, not an extra fee. We pack only after it lands.
+                  </p>
+                </>
+              )}
             </dl>
+          </div>
+
+          <div className="mt-4 border border-line bg-panel p-4">
+            <p className="u-label">Payment help — live human</p>
+            <p className="mt-2 text-[12.5px] leading-relaxed text-fog">
+              UPI, COD advance or PayPal: talk to the crew and pay live. No bot, no fake gateway.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a
+                href={PAYMENT_HELP.whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="u-btn u-btn-ghost px-3! py-2! text-[10px]!"
+              >
+                WhatsApp
+              </a>
+              <a
+                href={PAYMENT_HELP.discord}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="u-btn u-btn-ghost px-3! py-2! text-[10px]!"
+              >
+                Discord
+              </a>
+            </div>
           </div>
           <p className="u-label mt-4 flex items-center gap-2"><ShoppingBag className="size-3.5 text-red" aria-hidden /> Items reserved at placement</p>
         </aside>

@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { Heart, Menu, Search, ShoppingBag, X, UserRound } from "lucide-react";
 import { useStore } from "./providers";
+import { ScrollProgress } from "./scroll-progress";
+import { CONTACT } from "@/lib/contact";
+import { COD_ADVANCE_LABEL } from "@/lib/payments";
 import { fmtUSD } from "@/lib/money";
 
 interface QuickResult {
@@ -46,6 +49,10 @@ export function Header() {
         setMenuOpen(false);
         setSearchOpen(false);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -58,10 +65,10 @@ export function Header() {
           scrolled ? "border-b border-line bg-ink/85 backdrop-blur-md" : "border-b border-transparent"
         }`}
       >
-        <div className="relative mx-auto flex h-16 max-w-7xl items-center px-3 sm:px-4 md:h-[72px] md:gap-3 md:px-8">
-          {/* menu — floats over the left edge on phones, joins the flow on desktop */}
+        <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-1 px-3 sm:px-4 md:h-[72px] md:gap-3 md:px-8">
+          {/* menu — in the flow on phones so the wordmark can sit left, like a pit board */}
           <button
-            className="u-btn u-btn-ghost absolute left-3 top-1/2 -translate-y-1/2 border-line! p-2.5! md:hidden"
+            className="grid size-11 shrink-0 place-items-center border border-line text-bone transition-colors hover:border-line-strong md:hidden"
             onClick={() => setMenuOpen(true)}
             aria-label="Open menu"
             aria-expanded={menuOpen}
@@ -69,10 +76,10 @@ export function Header() {
             <Menu className="size-4" aria-hidden />
           </button>
 
-          {/* brand — center-locked on phones so the wordmark never bunches or clips */}
+          {/* brand */}
           <Link
             href="/"
-            className="group absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 md:static md:translate-x-0 md:translate-y-0 md:gap-2.5"
+            className="group flex shrink-0 items-center gap-2 md:gap-2.5"
             aria-label="Burnout Wheels home"
           >
             {/* brand mark — badge from the logo sheet */}
@@ -89,7 +96,7 @@ export function Header() {
                 <text x="30" y="54" transform="rotate(-8 32 32)" fontFamily="'Arial Black',system-ui,sans-serif" fontSize="30" fontWeight="900" fill="url(#hdr-r)" stroke="#470402" strokeWidth="1.6" paintOrder="stroke" letterSpacing="-2">W</text>
               </svg>
             </span>
-            <span className="whitespace-nowrap text-[11px] font-extrabold uppercase tracking-[0.08em] sm:text-sm sm:tracking-[0.18em]">
+            <span className="whitespace-nowrap text-[10.5px] font-extrabold uppercase tracking-[0.08em] min-[380px]:text-[11px] sm:text-sm sm:tracking-[0.18em]">
               Burnout<span className="text-red">/</span>Wheels
             </span>
           </Link>
@@ -99,9 +106,13 @@ export function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="u-label px-3 py-2 transition-colors hover:text-bone!"
+                className="group relative px-3 py-2 u-label transition-colors hover:text-bone!"
               >
                 {item.label}
+                <span
+                  aria-hidden
+                  className="absolute inset-x-3 -bottom-0.5 h-px origin-right scale-x-0 bg-red transition-transform duration-300 group-hover:origin-left group-hover:scale-x-100"
+                />
               </Link>
             ))}
           </nav>
@@ -110,31 +121,41 @@ export function Header() {
             <Link href="/account" className="hidden px-2 py-2.5 text-fog transition-colors hover:text-bone sm:block" aria-label="Your account">
               <UserRound className="size-4 md:size-[17px]" aria-hidden />
             </Link>
-            <button onClick={() => setSearchOpen(true)} className="u-label hidden px-2 py-2.5 hover:text-bone sm:block" aria-label="Search">
-              <Search className="size-4 md:size-[17px]" aria-hidden />
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="group hidden items-center gap-2 border border-line px-3 py-2 text-fog transition-colors hover:border-line-strong hover:text-bone md:flex"
+              aria-label="Search products (Ctrl K)"
+            >
+              <Search className="size-3.5" aria-hidden />
+              <span className="u-label transition-colors group-hover:text-bone">Search</span>
+              <kbd className="u-mono border border-line px-1 py-0.5 text-[9px] leading-none text-dim">⌘K</kbd>
             </button>
-            <Link href="/wishlist" className="relative hidden min-[360px]:block px-2 py-2.5 text-fog transition-colors hover:text-bone" aria-label="Wishlist">
+            <button onClick={() => setSearchOpen(true)} className="grid size-10 place-items-center text-fog transition-colors hover:text-bone md:hidden" aria-label="Search">
+              <Search className="size-4" aria-hidden />
+            </button>
+            <Link href="/wishlist" className="relative hidden size-10 place-items-center text-fog transition-colors hover:text-bone min-[360px]:grid" aria-label="Wishlist">
               <Heart className="size-4 md:size-[17px]" aria-hidden />
               {store.wishlist.length > 0 && (
-                <span className="absolute -right-0.5 top-1 grid size-4 place-items-center rounded-full bg-yellow text-[9px] font-bold text-ink">
+                <span className="absolute right-0 top-0 grid size-4 place-items-center rounded-full bg-yellow text-[9px] font-bold text-ink">
                   {store.wishlist.length}
                 </span>
               )}
             </Link>
             <button
               onClick={store.openCart}
-              className="relative px-2 py-2.5 text-fog transition-colors hover:text-bone"
+              className="relative grid size-10 place-items-center text-fog transition-colors hover:text-bone"
               aria-label={`Cart, ${store.count()} items`}
             >
               <ShoppingBag className="size-4 md:size-[17px]" aria-hidden />
               {store.count() > 0 && (
-                <span className="absolute -right-0.5 top-1 grid size-4 place-items-center rounded-full bg-red text-[9px] font-bold text-white">
+                <span className="absolute right-0 top-0 grid size-4 place-items-center rounded-full bg-red text-[9px] font-bold text-white">
                   {store.count()}
                 </span>
               )}
             </button>
           </div>
         </div>
+        <ScrollProgress />
       </header>
 
       {/* mobile menu */}
@@ -142,12 +163,16 @@ export function Header() {
         <div className="fixed inset-0 z-[60] anim-fade md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
           <div className="flex h-full flex-col bg-ink">
             <div className="flex items-center justify-between border-b border-line px-4 py-4">
-              <span className="u-label">Pit lane index</span>
+              <span className="u-label flex items-center gap-2">
+                <span className="u-live-dot" aria-hidden /> Pit lane index
+              </span>
               <button onClick={() => setMenuOpen(false)} className="u-btn u-btn-ghost px-2.5! py-2!" aria-label="Close menu">
                 <X className="size-4" aria-hidden />
               </button>
             </div>
-            <nav className="stagger flex flex-col px-6 py-10" aria-label="Mobile">
+            <div className="u-spectrum h-[2px] w-full" aria-hidden />
+
+            <nav className="stagger flex flex-col px-6 py-6" aria-label="Mobile">
               {[
                 { href: "/", label: "Home" },
                 ...NAV,
@@ -158,14 +183,37 @@ export function Header() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="u-h2 border-b border-line py-5 transition-colors hover:text-red"
+                  className="u-h2 border-b border-line py-4 transition-colors hover:text-red"
                 >
                   {item.label}
                 </Link>
               ))}
             </nav>
-            <div className="mt-auto px-6 pb-10">
-              <p className="u-label">Burnout/wheels — die-cast pit lane</p>
+
+            <div className="mt-auto border-t border-line px-6 py-6">
+              <p className="u-label">Need a human?</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a
+                  href={CONTACT.whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="u-btn u-btn-primary px-3! py-2! text-[11px]!"
+                >
+                  WhatsApp
+                </a>
+                <a
+                  href={CONTACT.discord}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="u-btn u-btn-ghost px-3! py-2! text-[11px]!"
+                >
+                  Discord
+                </a>
+              </div>
+              <p className="u-label-txt mt-4">
+                COD needs a {COD_ADVANCE_LABEL} online advance — adjusted against your total. Balance on delivery.
+              </p>
+              <p className="u-label mt-4">Burnout/wheels — die-cast pit lane</p>
             </div>
           </div>
         </div>

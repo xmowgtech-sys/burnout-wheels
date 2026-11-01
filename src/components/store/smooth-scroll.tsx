@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import Lenis from "lenis";
 
-/** Momentum smooth-scrolling, disabled for prefers-reduced-motion users. */
+/**
+ * Momentum smooth-scrolling. Tuned for a cinematic, weighty feel without the
+ * floaty lag that makes forms feel broken. Native touch inertia stays on
+ * (syncTouch: false) — phones scroll the way thumbs expect.
+ * Disabled entirely for prefers-reduced-motion users.
+ */
 export function SmoothScroll() {
   const rlaf = useRef<number>(0);
 
@@ -11,10 +16,13 @@ export function SmoothScroll() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const lenis = new Lenis({
-      duration: 1.1,
-      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      lerp: 0.09,
+      wheelMultiplier: 1,
+      touchMultiplier: 1.6,
       smoothWheel: true,
-      touchMultiplier: 1.4,
+      syncTouch: false,
+      overscroll: false,
+      anchors: { offset: -88, duration: 1.1 },
     });
 
     const raf = (time: number) => {

@@ -45,7 +45,7 @@ export function OrderActions({ order }: { order: OrderWithRelations }) {
           <p className="u-label-txt mt-2">
             {order.paymentMethod === "UPI"
               ? `Confirm only after the UPI payment lands. Customer email: ${order.email}.`
-              : "COD order — it flips to PAID when the courier hands over the cash. Confirm carefully."}
+              : "COD order — confirm only after the ₹200 online advance lands. The balance is collected by the courier at the door."}
           </p>
         )}
         <div className="mt-4 flex flex-wrap gap-2">

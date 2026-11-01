@@ -7,6 +7,7 @@ import {
 import Link from "next/link";
 import { X, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import { trackFlow } from "@/components/store/site-monitor";
+import { COD_ADVANCE_LABEL } from "@/lib/payments";
 
 /* ========= toast ========= */
 
@@ -226,6 +227,7 @@ function CartDrawer() {
             <X className="size-4" aria-hidden />
           </button>
         </div>
+        <div className="u-spectrum h-[2px] w-full" aria-hidden />
 
         {lines.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
@@ -287,7 +289,7 @@ function CartDrawer() {
                 </div>
               ))}
             </div>
-            <div className="border-t border-line px-5 py-4">
+            <div className="border-t border-line px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               {remaining > 0 ? (
                 <p className="u-label-txt">Add {fmt(remaining)} more for free shipping</p>
               ) : (
@@ -295,7 +297,7 @@ function CartDrawer() {
               )}
               <div className="mt-2 h-1 w-full bg-white/10">
                 <div
-                  className="h-full bg-mint transition-all"
+                  className="u-spectrum h-full transition-[width] duration-500"
                   style={{ width: `${Math.min(100, (subtotal() / freeOver) * 100)}%` }}
                 />
               </div>
@@ -309,6 +311,9 @@ function CartDrawer() {
               <Link href="/shop" onClick={closeCart} className="u-btn u-btn-ghost mt-2 w-full">
                 Keep browsing
               </Link>
+              <p className="u-label-txt mt-3">
+                COD needs a {COD_ADVANCE_LABEL} online advance before packing — adjusted against your total.
+              </p>
             </div>
           </>
         )}

@@ -48,11 +48,12 @@ export function PageHero({ label, title, sub }: { label: string; title: string; 
   return (
     <header className="relative overflow-hidden border-b border-line">
       <div className="u-gridlines" aria-hidden />
-      <div className="mx-auto max-w-7xl px-4 pb-9 pt-24 md:px-8 md:pb-20 md:pt-40">
+      <div className="mx-auto max-w-7xl px-4 pb-9 pt-28 md:px-8 md:pb-20 md:pt-40">
         <p className="u-label anim-rise">{label}</p>
         <h1 className="u-h1 mt-3 anim-rise" style={{ animationDelay: "60ms" }}>{title}</h1>
         <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-fog anim-rise md:mt-6" style={{ animationDelay: "120ms" }}>{sub}</p>
       </div>
+      <div className="u-spectrum absolute inset-x-0 bottom-0 h-px" aria-hidden />
     </header>
   );
 }

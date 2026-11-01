@@ -24,7 +24,7 @@ export const DEFAULT_CHATBOT: ChatbotSettings = {
     {
       keywords: ["return", "refund", "exchange", "change my mind"],
       answer:
-        "Sealed pieces can be returned within 7 days of delivery — just reply to your order confirmation mail with the order number and we'll sort a pickup. Refunds land once the box is back and checked.",
+        "Cancellation is free until the parcel ships. After delivery, refunds are only for proven damage or a not-as-listed item, claimed with an unboxing video within 48 hours. There are no general returns — the full protocol is on the Refund & cancellation page.",
     },
     {
       keywords: ["authentic", "original", "hypershop", "fake", "real"],
@@ -33,7 +33,8 @@ export const DEFAULT_CHATBOT: ChatbotSettings = {
     },
     {
       keywords: ["cod", "cash on delivery", "cash"],
-      answer: "Yes — cash on delivery is available across India. Keep the exact amount ready for the courier, and every order ships with a GST invoice.",
+      answer:
+        "Yes — cash on delivery is available pan-India. COD orders need a ₹200 online advance before we pack; it is adjusted against your total, and the balance is paid to the courier. Pay the advance live with a human on WhatsApp or Discord.",
     },
   ],
   leadCapture: true,

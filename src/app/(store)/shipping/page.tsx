@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageHero, SectionHead } from "@/components/ui";
 import { getStorefront } from "@/lib/settings";
 import { fmtUSD } from "@/lib/money";
+import { COD_ADVANCE_LABEL, PAYMENT_HELP } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -38,7 +39,7 @@ export default function ShippingPage() {
         <ol className="mt-8 flex flex-col gap-4">
           {[
             ["Reservation", "Your piece is reserved the moment the order is placed — no mid-checkout surprises."],
-            ["Payment window", "UPI orders ship after payment confirmation; COD rides with the courier, cash on the door."],
+            ["Payment window", "UPI orders ship after payment confirmation. COD ships only after the ₹200 online advance lands; the balance is cash on the door."],
             ["Packing", "Corner protection, box-in-box for graded and sealed pieces, then a signed-off inspection card."],
             ["Tracking", "Tracking lands on your order the moment the courier scans it — follow it on the Track page."],
           ].map(([k, v], i) => (
@@ -51,6 +52,35 @@ export default function ShippingPage() {
             </li>
           ))}
         </ol>
+
+        <SectionHead index="03" title={`COD security advance — ${COD_ADVANCE_LABEL} online`} />
+        <div className="u-card mt-8 p-6">
+          <p className="text-[14px] leading-relaxed text-fog">
+            A COD order is packed only after a <strong className="text-bone">{COD_ADVANCE_LABEL} online advance</strong>{" "}
+            lands. It is part of your order total, not an extra fee — the remaining balance is paid to the courier at
+            the door. Pay the advance live with a human on WhatsApp or Discord (UPI or PayPal), quoting your order
+            number. This protects both sides: we do not pack a parcel that gets refused, and you do not pay the full
+            amount before the piece is in your hands.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href={PAYMENT_HELP.whatsappCod}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="u-btn u-btn-primary px-3! py-2! text-[11px]!"
+            >
+              Pay advance on WhatsApp
+            </a>
+            <a
+              href={PAYMENT_HELP.discord}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="u-btn u-btn-ghost px-3! py-2! text-[11px]!"
+            >
+              Discord
+            </a>
+          </div>
+        </div>
 
         <div className="mt-12 flex gap-3">
           <Link href="/track" className="u-btn u-btn-primary">Track an order</Link>

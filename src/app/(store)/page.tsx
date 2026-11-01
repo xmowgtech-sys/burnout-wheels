@@ -1,16 +1,19 @@
 import DevModal from "@/components/DevModal";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, ShieldCheck, Undo2, Lock } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ShieldCheck, Undo2, Lock } from "lucide-react";
 import { Hero } from "@/components/store/hero";
 import { ProductCard } from "@/components/store/product-card";
 import { Reveal } from "@/components/store/reveal";
 import { NewsletterForm } from "@/components/store/newsletter-form";
-import { SectionHead } from "@/components/ui";
+import { Marquee } from "@/components/store/marquee";
+import { PitWall } from "@/components/store/pit-wall";
+import { ProductIndex } from "@/components/store/product-index";
 import { categoryCounts, featuredProduct, listProducts } from "@/lib/catalog";
 import { getTrustpilot } from "@/lib/settings";
 import { fmtUSD } from "@/lib/money";
 import { CONDITION_LABELS } from "@/lib/types";
+import { COD_ADVANCE_LABEL } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -29,50 +32,102 @@ export default async function HomePage() {
 
   return (
     <>
-    <DevModal />
+      <DevModal />
       <Hero
         heroImage={HERO_IMG}
         headlineParts={["Raw metal.", "Racing blood."]}
         subline="Die-cast built to race-lace spec: sealed, inspected and catalogued like telemetry. One drop at a time — when it's gone, it's gone."
-        dropName={heroDrop ? "RB20" : undefined}
+        dropName={heroDrop?.name}
         dropPrice={heroDrop ? fmtUSD(heroDrop.priceSale) : undefined}
+        dropStock={heroDrop?.stock}
         dropSlug={heroDrop?.slug}
       />
 
+      {/* TICKER */}
+      <section id="next" className="relative border-b border-line bg-red text-white" aria-label="Store ticker">
+        <Marquee speed={30} className="py-2.5">
+          {[
+            "Sealed & inspected",
+            "1:18 / 1:43 / 1:64",
+            "UPI · COD · PayPal live",
+            "Free shipping over ₹2,499",
+            "Mohali → pan-India",
+            "Drop calls first on Discord",
+          ].map((t) => (
+            <span key={t} className="flex items-center gap-6 pr-6 u-mono text-[10.5px] uppercase tracking-[0.2em]">
+              {t}
+              <span className="text-white/55" aria-hidden>
+                ◆
+              </span>
+            </span>
+          ))}
+        </Marquee>
+      </section>
+
       {/* FEATURED DROP */}
       {heroDrop && (
-        <section className="relative border-t border-line">
-          <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 md:grid-cols-2 md:items-center md:px-8 md:py-28">
-            <Reveal>
+        <section className="relative border-t border-line" aria-label="Featured drop">
+          <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 md:px-8 md:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:gap-16">
+            <Reveal variant="curtain" className="lg:sticky lg:top-28">
               <Link href={`/product/${heroDrop.slug}`} className="u-media u-media-hover relative block aspect-[4/3]">
                 <Image
                   src={heroDrop.images[0] ?? HERO_IMG}
                   alt={heroDrop.name}
                   fill
-                  sizes="(min-width: 768px) 50vw, 95vw"
+                  sizes="(min-width: 1024px) 52vw, 95vw"
                   priority
                 />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/65 via-transparent to-transparent" aria-hidden />
                 <span className="u-badge absolute left-4 top-4 border-red bg-red text-white">Drop 001 — live</span>
+                <span className="u-badge absolute bottom-4 left-4 border-white/15 bg-ink/65 text-bone backdrop-blur-sm">
+                  Reference photography
+                </span>
               </Link>
+              <div className="mt-3 flex items-center justify-between">
+                <p className="u-label">BW-{String(heroDrop.id).padStart(3, "0")}</p>
+                <p className="u-label">{heroDrop.images.length || 1} frame{(heroDrop.images.length || 1) === 1 ? "" : "s"}</p>
+              </div>
             </Reveal>
+
             <div>
               <Reveal>
-                <SectionHead index="002" title="Featured drop" />
-                <h2 className="u-h2 mt-6">
-                  {heroDrop.name}
-                </h2>
+                <div className="flex items-center gap-4">
+                  <p className="u-label">
+                    <span className="text-red">01</span> — Featured drop
+                  </p>
+                  <span className="h-px flex-1 bg-line" aria-hidden />
+                  <span className="u-mono flex items-center gap-2 text-[10px] tracking-[0.18em] text-dim">
+                    <span className="u-live-dot" aria-hidden /> LIVE
+                  </span>
+                </div>
+
+                <h2 className="u-h2 mt-6 text-[clamp(2rem,5vw,3.6rem)]!">{heroDrop.name}</h2>
                 <p className="u-mono mt-3 text-sm text-fog">
                   {heroDrop.brand} · {heroDrop.scale} · {CONDITION_LABELS[heroDrop.condition]}
                 </p>
-                <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-fog">{heroDrop.description.slice(0, 320)}</p>
+                <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-fog">{heroDrop.description.slice(0, 340)}</p>
+
+                <dl className="mt-8 grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-4">
+                  {[
+                    ["Brand", heroDrop.brand || "—"],
+                    ["Scale", heroDrop.scale || "—"],
+                    ["Condition", CONDITION_LABELS[heroDrop.condition]],
+                    ["Paddock", heroDrop.stock > 0 ? `${heroDrop.stock} units` : "Sold out"],
+                  ].map(([k, v]) => (
+                    <div key={k} className="bg-coal p-4">
+                      <dt className="u-label">{k}</dt>
+                      <dd className="mt-2 text-[12.5px] font-semibold leading-snug">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+
                 <div className="mt-8 flex flex-wrap items-center gap-6">
                   <p className="u-mono text-4xl font-bold">{fmtUSD(heroDrop.priceSale)}</p>
                   <p className="u-label">
-                    {heroDrop.stock > 0
-                      ? `${heroDrop.stock} IN THE PADDOCK`
-                      : "SOLD OUT — NEXT ALLOCATION SOON"}
+                    {heroDrop.stock > 0 ? `${heroDrop.stock} IN THE PADDOCK` : "SOLD OUT — NEXT ALLOCATION SOON"}
                   </p>
                 </div>
+
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link href={`/product/${heroDrop.slug}`} className="u-btn u-btn-primary">
                     Inspect the piece <ArrowRight className="size-4" aria-hidden />
@@ -81,20 +136,37 @@ export default async function HomePage() {
                     Full grid
                   </Link>
                 </div>
+                <p className="u-label-txt mt-6">
+                  COD needs a {COD_ADVANCE_LABEL} online advance — adjusted against the total. Balance on delivery.
+                </p>
               </Reveal>
             </div>
           </div>
         </section>
       )}
 
+      {/* STICKY HORIZONTAL PIT WALL */}
+      <PitWall />
+
+      {/* HOVER-SWAP PRODUCT INDEX */}
+      <ProductIndex products={grid.slice(0, 6)} />
+
       {/* SHOP THE GRID */}
-      <section className="border-t border-line">
+      <section className="border-t border-line" aria-label="Shop the grid">
         <div className="mx-auto max-w-7xl px-4 py-20 md:px-8 md:py-24">
           <Reveal>
             <div className="flex flex-wrap items-end justify-between gap-6">
-              <SectionHead index="003" title="Shop the grid" sub="Every unit is hand-checked against the box, the casting and the livery before it lists." />
+              <div>
+                <p className="u-label">
+                  <span className="text-red">04</span> — The grid
+                </p>
+                <h2 className="u-h2 mt-3">Shop the grid</h2>
+                <p className="mt-3 max-w-md text-[14px] leading-relaxed text-fog">
+                  Every unit is hand-checked against the box, the casting and the livery before it lists.
+                </p>
+              </div>
               <Link href="/shop" className="u-btn u-btn-ghost">
-                View all <ArrowRight className="size-4" aria-hidden />
+                View all <ArrowUpRight className="size-4" aria-hidden />
               </Link>
             </div>
           </Reveal>
@@ -102,9 +174,9 @@ export default async function HomePage() {
           {grid.length === 0 ? (
             <p className="u-label mt-16">Grid empty — first drop lands soon.</p>
           ) : (
-            <div className="mt-12 grid content-start gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-10 grid grid-cols-2 content-start gap-x-3 gap-y-8 sm:gap-x-6 md:mt-12 md:grid-cols-4 md:gap-y-12">
               {grid.map((p, i) => (
-                <Reveal key={p.id} delay={i * 60}>
+                <Reveal key={p.id} delay={i * 55}>
                   <ProductCard product={p} priority={i < 2} />
                 </Reveal>
               ))}
@@ -126,46 +198,94 @@ export default async function HomePage() {
       </section>
 
       {/* TRUST */}
-      <section className="border-t border-line bg-coal">
+      <section className="border-t border-line bg-coal" aria-label="Trust protocol">
         <div className="mx-auto max-w-7xl px-4 py-20 md:px-8 md:py-24">
           <Reveal>
-            <SectionHead index="004" title="Trust, not tapes" sub="No star inflation, no invented reviews. Policies and proof do the talking." />
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              <div>
+                <p className="u-label">
+                  <span className="text-red">05</span> — Trust protocol
+                </p>
+                <h2 className="u-h2 mt-3">Trust, not tapes.</h2>
+                <p className="mt-3 max-w-md text-[14px] leading-relaxed text-fog">
+                  No star inflation, no invented reviews. Policies and proof do the talking.
+                </p>
+              </div>
+              <Link href="/trust" className="u-btn u-btn-ghost">
+                Read the protocol
+              </Link>
+            </div>
           </Reveal>
-          <div className="mt-12 grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-2 md:grid-cols-4">
+
+          <div className="mt-10 grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-2 md:mt-12 md:grid-cols-4">
             {[
-              { icon: ShieldCheck, k: "Authenticity", v: "Sealed sourcing, serials logged, every unit pit-inspected before dispatch." },
-              { icon: Lock, k: "Secure shopping", v: "No card data is ever stored. UPI and COD, confirmed order-by-order." },
-              { icon: Undo2, k: "Cancellation built in", v: "Cancel free any time before the parcel ships. After dispatch, the rules live on the Refund & Cancellation page — written, not implied." },
-              { icon: ArrowRight, k: "Trustpilot", v: trust.mode === "coming_soon" ? "Coming soon — real profile, then real scores." : "Live profile linked." },
+              {
+                icon: ShieldCheck,
+                k: "Authenticity",
+                v: "Sealed sourcing, serials logged, every unit pit-inspected before dispatch.",
+                tint: "border-mint/40 bg-mint/10 text-mint",
+              },
+              {
+                icon: Lock,
+                k: "Secure shopping",
+                v: `No card data stored. UPI, COD with a ${COD_ADVANCE_LABEL} online advance, or PayPal arranged live on WhatsApp/Discord.`,
+                tint: "border-sky/40 bg-sky/10 text-sky",
+              },
+              {
+                icon: Undo2,
+                k: "Cancellation built in",
+                v: "Cancel free any time before the parcel ships. After dispatch, the written rules take over.",
+                tint: "border-yellow/40 bg-yellow/10 text-yellow",
+              },
+              {
+                icon: ArrowRight,
+                k: "Trustpilot",
+                v: trust.mode === "coming_soon" ? "Coming soon — real profile, then real scores." : "Live profile linked.",
+                tint: "border-violet/40 bg-violet/10 text-violet",
+              },
             ].map((c, i) => (
-              <Reveal key={c.k} delay={i * 70} className="bg-coal">
-                <div className="flex h-full flex-col gap-4 p-7">
-                  <c.icon className="size-5 text-red" aria-hidden />
+              <Reveal key={c.k} delay={i * 60} className="bg-coal">
+                <div className="flex h-full flex-col gap-4 p-6 md:p-7">
+                  <span className={`grid size-9 place-items-center border ${c.tint}`}>
+                    <c.icon className="size-4" aria-hidden />
+                  </span>
                   <p className="u-h3">{c.k}</p>
                   <p className="text-[13px] leading-relaxed text-fog">{c.v}</p>
                 </div>
               </Reveal>
             ))}
           </div>
-          <Reveal className="mt-8">
-            <Link href="/trust" className="u-label underline-offset-4 hover:underline">
-              Read the full trust protocol →
-            </Link>
-          </Reveal>
+          <div className="u-spectrum mt-8 h-px w-full" aria-hidden />
         </div>
       </section>
 
       {/* NEWSLETTER */}
-      <section className="relative overflow-hidden border-t border-line">
+      <section className="relative overflow-hidden border-t border-line" aria-label="Paddock radio">
         <div className="u-gridlines" aria-hidden />
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-20 md:grid-cols-2 md:items-center md:px-8">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 md:grid-cols-[1.1fr_0.9fr] md:items-end md:px-8 md:py-28">
           <Reveal>
-            <p className="u-label"><span className="text-red">005</span> — Paddock radio</p>
-            <h2 className="u-h2 mt-4">First call on drops. Zero spam laps.</h2>
-            <p className="mt-4 max-w-md text-[15px] text-fog">Drop windows sell through in minutes. The list hears first, always with dates and units — never with invented hype.</p>
+            <p className="u-label">
+              <span className="text-red">06</span> — Paddock radio
+            </p>
+            <h2 className="u-h2 mt-4 max-w-xl">First call on drops. Zero spam laps.</h2>
+            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-fog">
+              Drop windows sell through in minutes. The list hears first, always with dates and units — never with
+              invented hype.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2">
+              <span className="u-label">Discord for discounts</span>
+              <span className="u-label">WhatsApp 24/7</span>
+              <span className="u-label">Email the crew</span>
+            </div>
           </Reveal>
           <Reveal delay={80}>
-            <NewsletterForm />
+            <div className="border border-line bg-panel p-6 md:p-8">
+              <p className="u-label">Join the list</p>
+              <div className="mt-4">
+                <NewsletterForm />
+              </div>
+              <p className="u-label-txt mt-4">One email per drop window. Unsubscribe in a click.</p>
+            </div>
           </Reveal>
         </div>
       </section>
