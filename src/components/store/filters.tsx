@@ -46,7 +46,7 @@ export function ShopFilters({
   const hasFilters = activeCategory || activeCondition || activeStock || activeSort !== "newest" || activeQ;
 
   return (
-    <div className="sticky top-16 z-30 -mx-4 border-y border-line bg-ink/90 px-4 py-3 backdrop-blur-md md:top-[72px] md:-mx-8 md:px-8">
+    <div className="sticky top-16 z-30 -mx-4 border-y border-line bg-ink/90 px-4 py-2.5 backdrop-blur-md md:top-[72px] md:-mx-8 md:px-8 md:py-3">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -65,26 +65,26 @@ export function ShopFilters({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search this grid…"
-            className="u-input py-2.5! pl-9!"
+            className="u-input py-2! pl-9! text-[12px]! sm:py-2.5! sm:pl-9! sm:text-[13px]!"
             aria-label="Search products"
           />
         </div>
 
-        <select value={activeCategory} onChange={(e) => toggle("cat", e.target.value, activeCategory === "")} className="u-select w-auto! py-2.5!" aria-label="Category">
+        <select value={activeCategory} onChange={(e) => toggle("cat", e.target.value, activeCategory === "")} className="u-select w-[calc(50%-0.25rem)]! py-2! pl-2.5! pr-7! text-[12px]! sm:w-auto! sm:pl-3! sm:py-2.5! sm:text-[13px]!" aria-label="Category">
           <option value="">All categories</option>
           {categories.map((c) => (
             <option key={c.value} value={c.value}>{c.label} ({c.count})</option>
           ))}
         </select>
 
-        <select value={activeCondition} onChange={(e) => toggle("cond", e.target.value, activeCondition === "")} className="u-select w-auto! py-2.5!" aria-label="Condition">
+        <select value={activeCondition} onChange={(e) => toggle("cond", e.target.value, activeCondition === "")} className="u-select w-[calc(50%-0.25rem)]! py-2! pl-2.5! pr-7! text-[12px]! sm:w-auto! sm:pl-3! sm:py-2.5! sm:text-[13px]! sm:pr-8!" aria-label="Condition">
           <option value="">All conditions</option>
           {conditions.map((c) => (
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
 
-        <select value={activeSort} onChange={(e) => push((p) => p.set("sort", e.target.value))} className="u-select w-auto! py-2.5!" aria-label="Sort">
+        <select value={activeSort} onChange={(e) => push((p) => p.set("sort", e.target.value))} className="u-select w-[calc(50%-0.25rem)]! py-2! pl-2.5! pr-7! text-[12px]! sm:w-auto! sm:pl-3! sm:py-2.5! sm:text-[13px]!" aria-label="Sort">
           <option value="newest">Newest first</option>
           <option value="price-asc">Price: low → high</option>
           <option value="price-desc">Price: high → low</option>

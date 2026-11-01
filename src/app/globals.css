@@ -107,6 +107,13 @@ body {
   line-height: 1.05;
   font-size: clamp(1.2rem, 2.4vw, 1.6rem);
 }
+/* Phones: keep the racing-poster voice but compact — the desktop clamps eat
+   a 390px viewport. Desktop (≥ md) keeps the poster scale unchanged. */
+@media (width < 768px) {
+  .u-h1 { font-size: clamp(1.65rem, 7.2vw, 2.35rem); }
+  .u-h2 { font-size: clamp(1.3rem, 5.4vw, 1.9rem); }
+  .u-h3 { font-size: clamp(1.02rem, 3.6vw, 1.2rem); }
+}
 .u-outline {
   color: transparent;
   -webkit-text-stroke: 1.5px rgba(244, 244, 240, 0.65);

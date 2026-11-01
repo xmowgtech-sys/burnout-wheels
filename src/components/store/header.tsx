@@ -58,9 +58,10 @@ export function Header() {
           scrolled ? "border-b border-line bg-ink/85 backdrop-blur-md" : "border-b border-transparent"
         }`}
       >
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 md:h-[72px] md:px-8">
+        <div className="relative mx-auto flex h-16 max-w-7xl items-center px-3 sm:px-4 md:h-[72px] md:gap-3 md:px-8">
+          {/* menu — floats over the left edge on phones, joins the flow on desktop */}
           <button
-            className="u-btn u-btn-ghost border-line! px-2.5! py-2.5! md:hidden"
+            className="u-btn u-btn-ghost absolute left-3 top-1/2 -translate-y-1/2 border-line! p-2.5! md:hidden"
             onClick={() => setMenuOpen(true)}
             aria-label="Open menu"
             aria-expanded={menuOpen}
@@ -68,10 +69,15 @@ export function Header() {
             <Menu className="size-4" aria-hidden />
           </button>
 
-          <Link href="/" className="group flex items-center gap-2.5" aria-label="Burnout Wheels home">
+          {/* brand — center-locked on phones so the wordmark never bunches or clips */}
+          <Link
+            href="/"
+            className="group absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 md:static md:translate-x-0 md:translate-y-0 md:gap-2.5"
+            aria-label="Burnout Wheels home"
+          >
             {/* brand mark — badge from the logo sheet */}
-            <span className="relative grid size-9 place-items-center overflow-hidden rounded-sm bg-[#101114] transition-transform group-hover:rotate-[-6deg]">
-              <svg viewBox="0 0 64 64" className="size-8" aria-hidden>
+            <span className="relative grid size-8 place-items-center overflow-hidden rounded-sm bg-[#101114] transition-transform group-hover:rotate-[-6deg] sm:size-9">
+              <svg viewBox="0 0 64 64" className="size-7 sm:size-8" aria-hidden>
                 <defs>
                   <linearGradient id="hdr-c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f2f5f8" /><stop offset="0.55" stopColor="#8e959c" /><stop offset="1" stopColor="#6d747b" /></linearGradient>
                   <linearGradient id="hdr-r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ff5a48" /><stop offset="0.5" stopColor="#e10600" /><stop offset="1" stopColor="#b00400" /></linearGradient>
@@ -83,7 +89,7 @@ export function Header() {
                 <text x="30" y="54" transform="rotate(-8 32 32)" fontFamily="'Arial Black',system-ui,sans-serif" fontSize="30" fontWeight="900" fill="url(#hdr-r)" stroke="#470402" strokeWidth="1.6" paintOrder="stroke" letterSpacing="-2">W</text>
               </svg>
             </span>
-            <span className="whitespace-nowrap text-[12.5px] font-extrabold uppercase tracking-[0.12em] sm:text-sm sm:tracking-[0.18em]">
+            <span className="whitespace-nowrap text-[11px] font-extrabold uppercase tracking-[0.08em] sm:text-sm sm:tracking-[0.18em]">
               Burnout<span className="text-red">/</span>Wheels
             </span>
           </Link>
@@ -100,15 +106,15 @@ export function Header() {
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
-            <Link href="/account" className="px-2 py-2.5 text-fog transition-colors hover:text-bone" aria-label="Your account">
-              <UserRound className="size-[17px]" aria-hidden />
+          <div className="ml-auto flex items-center gap-0 sm:gap-1 md:gap-2">
+            <Link href="/account" className="hidden px-2 py-2.5 text-fog transition-colors hover:text-bone sm:block" aria-label="Your account">
+              <UserRound className="size-4 md:size-[17px]" aria-hidden />
             </Link>
-            <button onClick={() => setSearchOpen(true)} className="u-label px-2 py-2.5 hover:text-bone" aria-label="Search">
-              <Search className="size-[17px]" aria-hidden />
+            <button onClick={() => setSearchOpen(true)} className="u-label hidden px-2 py-2.5 hover:text-bone sm:block" aria-label="Search">
+              <Search className="size-4 md:size-[17px]" aria-hidden />
             </button>
-            <Link href="/wishlist" className="relative px-2 py-2.5 text-fog transition-colors hover:text-bone" aria-label="Wishlist">
-              <Heart className="size-[17px]" aria-hidden />
+            <Link href="/wishlist" className="relative hidden min-[360px]:block px-2 py-2.5 text-fog transition-colors hover:text-bone" aria-label="Wishlist">
+              <Heart className="size-4 md:size-[17px]" aria-hidden />
               {store.wishlist.length > 0 && (
                 <span className="absolute -right-0.5 top-1 grid size-4 place-items-center rounded-full bg-yellow text-[9px] font-bold text-ink">
                   {store.wishlist.length}
@@ -120,7 +126,7 @@ export function Header() {
               className="relative px-2 py-2.5 text-fog transition-colors hover:text-bone"
               aria-label={`Cart, ${store.count()} items`}
             >
-              <ShoppingBag className="size-[17px]" aria-hidden />
+              <ShoppingBag className="size-4 md:size-[17px]" aria-hidden />
               {store.count() > 0 && (
                 <span className="absolute -right-0.5 top-1 grid size-4 place-items-center rounded-full bg-red text-[9px] font-bold text-white">
                   {store.count()}
@@ -142,7 +148,13 @@ export function Header() {
               </button>
             </div>
             <nav className="stagger flex flex-col px-6 py-10" aria-label="Mobile">
-              {[{ href: "/", label: "Home" }, ...NAV, { href: "/wishlist", label: "Wishlist" }].map((item) => (
+              {[
+                { href: "/", label: "Home" },
+                ...NAV,
+                { href: "/search", label: "Search" },
+                { href: "/wishlist", label: "Wishlist" },
+                { href: "/account", label: "Account" },
+              ].map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}

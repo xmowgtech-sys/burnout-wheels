@@ -63,7 +63,7 @@ export default async function ShopPage({
           activeQ={q}
         />
 
-        <section className="py-10 md:py-14" aria-label="Products">
+        <section className="py-8 md:py-14" aria-label="Products">
           <p className="u-label" aria-live="polite">
             {products.length} {products.length === 1 ? "unit" : "units"} on grid{q ? ` for “${q}”` : ""}
           </p>
@@ -81,7 +81,7 @@ export default async function ShopPage({
               />
             </div>
           ) : (
-            <div className="mt-8 grid content-start gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="mt-6 grid content-start gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-6 md:gap-y-12 lg:grid-cols-3 xl:grid-cols-4">
               {products.map((p, i) => (
                 <div key={p.id} className="page-in" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
                   <ProductCard product={p} priority={i < 4} />
