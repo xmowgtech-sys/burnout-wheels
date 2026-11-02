@@ -5,6 +5,7 @@ import { ArrowUpRight, Heart, Plus } from "lucide-react";
 import Image from "next/image";
 import { useStore, useToast } from "./providers";
 import { fmtUSD } from "@/lib/money";
+import { imageFitClass } from "@/lib/images";
 import { CONDITION_LABELS, type Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +74,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
               alt={product.name}
               fill
               sizes="(min-width: 1024px) 25vw, (min-width: 640px) 45vw, 46vw"
-              className="object-cover"
+              className={imageFitClass(product.imageFit, product.imagePosition)}
               priority={priority}
             />
           ) : (

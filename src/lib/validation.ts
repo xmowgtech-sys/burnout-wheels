@@ -44,7 +44,9 @@ export const productInputSchema = z.object({
   description: z.string().trim().max(4000),
   highlights: z.array(z.string().trim().max(220)).max(8),
   tags: z.array(z.string().trim().max(40)).max(12),
-  images: z.array(z.string().trim().url("Image URLs must be valid links").or(z.string().regex(/^\/api\/files\//, "Upload a new image or use a valid URL"))).max(10),
+  images: z.array(z.string().trim().url("Image URLs must be valid links").or(z.string().regex(/^\/(api\/files|uploads)\//, "Upload a new image or use a valid URL"))).max(10),
+  imageFit: z.enum(["cover", "contain"]).default("cover"),
+  imagePosition: z.enum(["center", "top", "bottom", "left", "right"]).default("center"),
   priceSale: z
     .number({ invalid_type_error: "Sale price is required" })
     .int("Sale price must be whole paise")
@@ -109,6 +111,32 @@ export const chatSettingsSchema = z.object({
     .max(16),
 });
 
+const homeImage = z.string().trim().max(2000);
+const productIdOrNull = z.union([z.number().int().positive(), z.null()]);
+
+const homeSettingsSchema = z.object({
+  heroDesktopImage: homeImage,
+  heroMobileImage: homeImage,
+  heroFit: z.enum(["cover", "contain"]),
+  heroPosition: z.enum(["center", "top", "bottom", "left", "right"]),
+  heroKicker: z.string().trim().max(120),
+  heroHeadline: z.string().trim().max(160),
+  heroSubline: z.string().trim().max(600),
+  heroDropProductId: productIdOrNull,
+  featuredProductId: productIdOrNull,
+  featuredLabel: z.string().trim().max(60),
+  tickerItems: z.array(z.string().trim().max(120)).max(16),
+  gridProductIds: z.array(z.number().int().positive()).max(24),
+  gridTitle: z.string().trim().max(80),
+  gridSubline: z.string().trim().max(400),
+  trustTitle: z.string().trim().max(80),
+  trustSubline: z.string().trim().max(400),
+  newsletterTitle: z.string().trim().max(120),
+  newsletterSubline: z.string().trim().max(400),
+  showPitWall: z.boolean(),
+  showProductIndex: z.boolean(),
+});
+
 export const storefrontSettingsSchema = z.object({
   shipping: z.object({
     standard: z.number({ invalid_type_error: "Standard shipping fee is required" }).int().min(0).max(5000000),
@@ -117,6 +145,7 @@ export const storefrontSettingsSchema = z.object({
   }),
   returnsDays: z.coerce.number().int().min(0).max(90),
   paymentMethods: z.array(z.enum(["UPI", "COD"])).min(1, "Pick at least one payment method"),
+  home: homeSettingsSchema.optional(),
 });
 
 export const trustpilotSettingsSchema = z.object({

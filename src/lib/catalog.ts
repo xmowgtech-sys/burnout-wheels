@@ -4,11 +4,12 @@ import type { ProductInput } from "./validation";
 import { escapeLike, randomSuffix } from "./utils";
 
 const COLS =
-  "id, slug, name, brand, category, scale, condition, description, highlights, tags, images, priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, source, shopifyVariantId, createdAt, updatedAt";
+  "id, slug, name, brand, category, scale, condition, description, highlights, tags, images, imageFit, imagePosition, priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, source, shopifyVariantId, createdAt, updatedAt";
 
 type ProductRow = Record<string, unknown> & {
   id: number; slug: string; name: string; brand: string | null; category: string; scale: string | null;
   condition: string; description: string; highlights: string; tags: string; images: string;
+  imageFit: string | null; imagePosition: string | null;
   priceSale: number; priceCost: number; feePercent: number; stock: number; lowStockThreshold: number;
   status: string; featured: number; dropAt: string | null; source: string | null; shopifyVariantId: string | null; createdAt: string; updatedAt: string;
 };
@@ -44,6 +45,11 @@ export function parseProduct(row: ProductRow): Product {
     highlights: safeArr(row.highlights),
     tags: parseTags(),
     images: safeArr(row.images),
+    imageFit: row.imageFit === "contain" ? "contain" : "cover",
+    imagePosition:
+      row.imagePosition === "top" || row.imagePosition === "bottom" || row.imagePosition === "left" || row.imagePosition === "right"
+        ? row.imagePosition
+        : "center",
     priceSale: row.priceSale,
     priceCost: row.priceCost,
     feePercent: row.feePercent,
@@ -193,9 +199,9 @@ export function createProduct(input: ProductInput): Product {
   const db = getDb();
   const ts = nowIso();
   const stmt = db.prepare(
-    `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images,
+    `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images, imageFit, imagePosition,
       priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, createdAt, updatedAt)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   );
   const res = run(
     stmt,
@@ -209,6 +215,8 @@ export function createProduct(input: ProductInput): Product {
     JSON.stringify(input.highlights),
     input.tags.join(","),
     JSON.stringify(input.images),
+    input.imageFit,
+    input.imagePosition,
     input.priceSale,
     input.priceCost,
     input.feePercent,
@@ -233,11 +241,12 @@ export function updateProduct(id: number, input: ProductInput, actor: string): P
     const slug = uniqueSlug(input.slug, id);
     db.prepare(
       `UPDATE products SET slug=?, name=?, brand=?, category=?, scale=?, condition=?, description=?, highlights=?,
-        tags=?, images=?, priceSale=?, priceCost=?, feePercent=?, stock=?, lowStockThreshold=?, status=?, featured=?,
+        tags=?, images=?, imageFit=?, imagePosition=?, priceSale=?, priceCost=?, feePercent=?, stock=?, lowStockThreshold=?, status=?, featured=?,
         dropAt=?, updatedAt=? WHERE id=?`
     ).run(
       slug, input.name, input.brand || null, input.category, input.scale || null, input.condition, input.description,
       JSON.stringify(input.highlights), input.tags.join(","), JSON.stringify(input.images),
+      input.imageFit, input.imagePosition,
       input.priceSale, input.priceCost, input.feePercent, input.stock, input.lowStockThreshold,
       input.status, input.featured ? 1 : 0, input.dropAt || null, nowIso(), id
     );
@@ -258,16 +267,22 @@ export function updateProduct(id: number, input: ProductInput, actor: string): P
   return product;
 }
 
-/** Hard-deletes only if no order history exists; otherwise archives to protect order integrity. */
-export function deleteProduct(id: number): { mode: "deleted" | "archived" } {
+/** Deletes the product row. Order history keeps its name/slug/image snapshot, so the
+ *  only link we sever is orderItems.productId (nullable by design). This is what the
+ *  owner expects from "Delete" — archiving left the row visible and looked like a failure. */
+export function deleteProduct(id: number): { mode: "deleted" } {
   const db = getDb();
-  const ref = db.prepare("SELECT COUNT(*) as n FROM orderItems WHERE productId = ?").get(id) as { n: number };
-  if (ref.n > 0) {
-    db.prepare("UPDATE products SET status='ARCHIVED', featured=0, updatedAt=? WHERE id=?").run(nowIso(), id);
-    return { mode: "archived" };
+  beginWrite(db);
+  try {
+    // Detach history first; the FK-free productId column is nullable for exactly this.
+    db.prepare("UPDATE orderItems SET productId = NULL WHERE productId = ?").run(id);
+    db.prepare("DELETE FROM reviews WHERE productId = ?").run(id);
+    db.prepare("DELETE FROM products WHERE id = ?").run(id);
+    db.exec("COMMIT;");
+  } catch (err) {
+    db.exec("ROLLBACK;");
+    throw err;
   }
-  db.prepare("DELETE FROM reviews WHERE productId = ?").run(id);
-  db.prepare("DELETE FROM products WHERE id = ?").run(id);
   return { mode: "deleted" };
 }
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, ImagePlus, Link2, RefreshCcw, Star, Trash2, Upload, X,
+  AlertTriangle, ArrowLeft, ArrowRight, ImagePlus, Link2, RefreshCcw, Star, Trash2, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -209,13 +209,13 @@ export function ImageUploader({ images, onChange, productName }: Props) {
     inputRef.current?.click();
   }, []);
 
+  const next = onChange;
+
   const setCover = useCallback((index: number) => {
     if (index === 0) return;
     next([...images.slice(0, index), ...images.slice(index + 1), images[index]!]); // rotate to front
     // cover = position 0 — keep list order otherwise
-  }, [images]);
-
-  const next = onChange;
+  }, [images, next]);
 
   const move = useCallback((i: number, dir: -1 | 1) => {
     const j = i + dir;
@@ -246,7 +246,7 @@ export function ImageUploader({ images, onChange, productName }: Props) {
 
   const addUrl = useCallback(() => {
     const raw = urlInput.trim();
-    const ok = /^https?:\/\/.+/i.test(raw) || raw.startsWith("/api/files/");
+    const ok = /^https?:\/\/.+/i.test(raw) || raw.startsWith("/api/files/") || raw.startsWith("/uploads/");
     if (!ok) {
       setNotice("That doesn't look like an image URL — it should start with https://");
       return;
@@ -392,7 +392,7 @@ export function ImageUploader({ images, onChange, productName }: Props) {
                   </span>
                 )}
                 {i > 0 && <span className="u-badge absolute left-2 top-2 bg-ink/80">{i + 1}</span>}
-                <div className="absolute inset-x-0 bottom-0 z-10 hidden gap-1 bg-ink/90 p-2 group-hover:flex group-focus-within:flex" aria-label={`Actions for image ${i + 1}`}>
+                <div className="absolute inset-x-0 bottom-0 z-10 flex flex-wrap gap-1 bg-ink/90 p-2" aria-label={`Actions for image ${i + 1}`}>
                   {i !== 0 && (
                     <button type="button" onClick={() => setCover(i)} className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-bone hover:text-yellow" title="Set as cover">
                       <Star className="size-3.5" aria-hidden /> Cover
@@ -410,11 +410,6 @@ export function ImageUploader({ images, onChange, productName }: Props) {
                   <button type="button" onClick={() => remove(i)} className="flex items-center gap-1 px-2 py-1 text-[11px] text-bone hover:text-red" title="Delete photo">
                     <Trash2 className="size-3" aria-hidden /> Delete
                   </button>
-                </div>
-                <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 lg:hidden">
-                  <button type="button" onClick={() => move(i, -1)} className="grid size-6 place-items-center bg-ink/80 text-white" aria-label="Move earlier"><ArrowUp className="size-3" /></button>
-                  <button type="button" onClick={() => move(i, 1)} className="grid size-6 place-items-center bg-ink/80 text-white" aria-label="Move later"><ArrowDown className="size-3" /></button>
-                  <button type="button" onClick={() => remove(i)} className="grid size-6 place-items-center bg-ink/80 text-white hover:text-red" aria-label="Delete photo"><X className="size-3" /></button>
                 </div>
               </li>
             ))}

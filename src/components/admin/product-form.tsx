@@ -6,7 +6,7 @@ import { Field } from "@/components/admin/admin-ui";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { fmtUSD } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import type { Product, ProductStatus, ProductCondition } from "@/lib/types";
+import type { ImageFit, ImagePosition, Product, ProductStatus, ProductCondition } from "@/lib/types";
 
 interface FormState {
   name: string; slug: string; brand: string; scale: string; category: string;
@@ -14,7 +14,7 @@ interface FormState {
   priceSale: string; priceCost: string; feePercent: string;
   stock: string; lowStockThreshold: string; dropAt: string;
   description: string; highlights: string; tags: string;
-  images: string[];
+  images: string[]; imageFit: ImageFit; imagePosition: ImagePosition;
 }
 
 function toState(p: Product | null): FormState {
@@ -25,7 +25,7 @@ function toState(p: Product | null): FormState {
       priceSale: "", priceCost: "", feePercent: "2",
       stock: "5", lowStockThreshold: "3", dropAt: "",
       description: "", highlights: "", tags: "",
-      images: [],
+      images: [], imageFit: "cover", imagePosition: "center",
     };
   }
   return {
@@ -40,6 +40,8 @@ function toState(p: Product | null): FormState {
     highlights: p.highlights.join("\n"),
     tags: p.tags.join(", "),
     images: p.images,
+    imageFit: p.imageFit,
+    imagePosition: p.imagePosition,
   };
 }
 
@@ -90,6 +92,8 @@ export function ProductForm({ initial }: { initial: Product | null }) {
         highlights: f.highlights.split("\n").map((x) => x.trim()).filter(Boolean),
         tags: f.tags.split(",").map((x) => x.trim()).filter(Boolean),
         images: f.images,
+        imageFit: f.imageFit,
+        imagePosition: f.imagePosition,
       };
       const res = await fetch(editing ? `/api/products?id=${initial!.id}` : "/api/products", {
         method: editing ? "PATCH" : "POST",
@@ -183,6 +187,27 @@ export function ProductForm({ initial }: { initial: Product | null }) {
         <legend className="u-label px-1">Images ({f.images.length})</legend>
         <div className="mt-4">
           <ImageUploader images={f.images} onChange={(next) => set("images", next)} productName={f.name || undefined} />
+        </div>
+        <div className="mt-6 grid gap-4 border-t border-line pt-5 md:grid-cols-2">
+          <Field label="Image fit" hint="Cover fills the frame; contain shows the whole photo inside it.">
+            <select value={f.imageFit} onChange={(e) => set("imageFit", e.target.value as ImageFit)} className="u-select">
+              <option value="cover">Cover — fill the frame</option>
+              <option value="contain">Contain — show the whole photo</option>
+            </select>
+          </Field>
+          <Field label="Crop anchor" hint="Which edge stays in view when a cover crop trims the photo.">
+            <select value={f.imagePosition} onChange={(e) => set("imagePosition", e.target.value as ImagePosition)} className="u-select">
+              <option value="center">Centre</option>
+              <option value="top">Top</option>
+              <option value="bottom">Bottom</option>
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+            </select>
+          </Field>
+          <p className="u-label-txt md:col-span-2">
+            First attached photo is the cover — it drives cards, the product index and the gallery.
+            Use the cover/arrow controls in the gallery below to reorder or promote another frame.
+          </p>
         </div>
       </fieldset>
 

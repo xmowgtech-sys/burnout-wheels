@@ -19,7 +19,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ fil
   if (!TYPES[ext]) return new Response("Unsupported", { status: 415 });
   // Uploaded files live in the writable data dir. Bundled demo images also ship
   // in public/uploads so a cold serverless start (/tmp is empty) still has them.
-  const candidates = [path.join(UPLOADS_DIR, file), path.join(process.cwd(), "public", "uploads", file)];
+  const candidates = [
+    path.join(UPLOADS_DIR, file),
+    // Bundled demo images ship in both data/uploads (repo checkout) and
+    // public/uploads (deployment). data/ is gitignored but still present locally.
+    path.join(process.cwd(), "data", "uploads", file),
+    path.join(process.cwd(), "public", "uploads", file),
+  ];
   for (const candidate of candidates) {
     try {
       const buf = await readFile(candidate);

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { fmtUSD } from "@/lib/money";
+import { imageFitClass } from "@/lib/images";
 import { CONDITION_LABELS, type Product } from "@/lib/types";
 
 /**
@@ -53,7 +54,7 @@ export function ProductIndex({ products }: { products: Product[] }) {
                   <span className="flex min-w-0 items-center gap-3">
                     {p.images[0] ? (
                       <span className="u-media relative hidden h-12 w-16 shrink-0 min-[380px]:block">
-                        <Image src={p.images[0]} alt="" fill sizes="64px" className="object-cover" />
+                        <Image src={p.images[0]} alt="" fill sizes="64px" className={imageFitClass(p.imageFit, p.imagePosition)} />
                       </span>
                     ) : null}
                     <span className="min-w-0">
@@ -97,7 +98,7 @@ export function ProductIndex({ products }: { products: Product[] }) {
                       alt=""
                       fill
                       sizes="(min-width: 1024px) 44vw, 90vw"
-                      className={`object-cover transition-[opacity,transform] duration-700 ${
+                      className={`${imageFitClass(p.imageFit, p.imagePosition)} transition-[opacity,transform] duration-700 ${
                         i === active ? "scale-100 opacity-100" : "scale-105 opacity-0"
                       }`}
                     />

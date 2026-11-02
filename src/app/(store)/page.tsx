@@ -10,33 +10,46 @@ import { Marquee } from "@/components/store/marquee";
 import { PitWall } from "@/components/store/pit-wall";
 import { ProductIndex } from "@/components/store/product-index";
 import { categoryCounts, featuredProduct, listProducts } from "@/lib/catalog";
-import { getTrustpilot } from "@/lib/settings";
+import { getStorefront, getTrustpilot, DEFAULT_HERO_IMAGE } from "@/lib/settings";
 import { fmtUSD } from "@/lib/money";
+import { imageFitClass } from "@/lib/images";
 import { CONDITION_LABELS } from "@/lib/types";
 import { COD_ADVANCE_LABEL } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
-const HERO_IMG =
-  "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b3/2024-08-25_Motorsport%2C_Formel_1%2C_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3937_by_Stepro.jpg/1920px-2024-08-25_Motorsport%2C_Formel_1%2C_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3937_by_Stepro.jpg";
-
 export default async function HomePage() {
-  const [featured, grid, categories, trust] = await Promise.all([
+  const storefront = getStorefront();
+  const home = storefront.home;
+  const [featured, allProducts, categories, trust] = await Promise.all([
     featuredProduct(),
-    Promise.resolve(listProducts({ status: "ACTIVE", limit: 8, sort: "featured" })),
+    Promise.resolve(listProducts({ status: "ACTIVE", limit: 100, sort: "featured" })),
     Promise.resolve(categoryCounts()),
     getTrustpilot(),
   ]);
 
-  const heroDrop = featured ?? null;
+  const byId = new Map(allProducts.map((p) => [p.id, p]));
+  const heroDrop = (home.heroDropProductId ? byId.get(home.heroDropProductId) : undefined) ?? featured ?? allProducts[0] ?? null;
+  const featuredDrop = (home.featuredProductId ? byId.get(home.featuredProductId) : undefined) ?? heroDrop;
+  const pinnedGrid = home.gridProductIds
+    .map((id) => byId.get(id))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p));
+  const grid = pinnedGrid.length ? pinnedGrid : allProducts.slice(0, 8);
+  const heroLines = home.heroHeadline.split("\n").map((line) => line.trim()).filter(Boolean);
+  const heroHeadline: [string, string] = [heroLines[0] ?? "Raw metal.", heroLines[1] ?? "Racing blood."];
+  const ticker = home.tickerItems.length ? home.tickerItems : ["Sealed & inspected", "UPI · COD · PayPal live"];
 
   return (
     <>
       <DevModal />
       <Hero
-        heroImage={HERO_IMG}
-        headlineParts={["Raw metal.", "Racing blood."]}
-        subline="Die-cast built to race-lace spec: sealed, inspected and catalogued like telemetry. One drop at a time — when it's gone, it's gone."
+        heroImage={home.heroDesktopImage || DEFAULT_HERO_IMAGE}
+        mobileImage={home.heroMobileImage || undefined}
+        imageFit={home.heroFit}
+        imagePosition={home.heroPosition}
+        kicker={home.heroKicker}
+        headlineParts={heroHeadline}
+        subline={home.heroSubline}
         dropName={heroDrop?.name}
         dropPrice={heroDrop ? fmtUSD(heroDrop.priceSale) : undefined}
         dropStock={heroDrop?.stock}
@@ -46,14 +59,7 @@ export default async function HomePage() {
       {/* TICKER */}
       <section id="next" className="relative border-b border-line bg-red text-white" aria-label="Store ticker">
         <Marquee speed={30} className="py-2.5">
-          {[
-            "Sealed & inspected",
-            "1:18 / 1:43 / 1:64",
-            "UPI · COD · PayPal live",
-            "Free shipping over ₹2,499",
-            "Mohali → pan-India",
-            "Drop calls first on Discord",
-          ].map((t) => (
+          {ticker.map((t) => (
             <span key={t} className="flex items-center gap-6 pr-6 u-mono text-[10.5px] uppercase tracking-[0.2em]">
               {t}
               <span className="text-white/55" aria-hidden>
@@ -65,27 +71,28 @@ export default async function HomePage() {
       </section>
 
       {/* FEATURED DROP */}
-      {heroDrop && (
+      {featuredDrop && (
         <section className="relative border-t border-line" aria-label="Featured drop">
           <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 md:px-8 md:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:gap-16">
             <Reveal variant="curtain" className="lg:sticky lg:top-28">
-              <Link href={`/product/${heroDrop.slug}`} className="u-media u-media-hover relative block aspect-[4/3]">
+              <Link href={`/product/${featuredDrop.slug}`} className="u-media u-media-hover relative block aspect-[4/3]">
                 <Image
-                  src={heroDrop.images[0] ?? HERO_IMG}
-                  alt={heroDrop.name}
+                  src={featuredDrop.images[0] || home.heroDesktopImage || DEFAULT_HERO_IMAGE}
+                  alt={featuredDrop.name}
                   fill
                   sizes="(min-width: 1024px) 52vw, 95vw"
                   priority
+                  className={imageFitClass(featuredDrop.imageFit, featuredDrop.imagePosition)}
                 />
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/65 via-transparent to-transparent" aria-hidden />
                 <span className="u-badge absolute left-4 top-4 border-red bg-red text-white">Drop 001 — live</span>
                 <span className="u-badge absolute bottom-4 left-4 border-white/15 bg-ink/65 text-bone backdrop-blur-sm">
-                  Reference photography
+                  {home.featuredLabel}
                 </span>
               </Link>
               <div className="mt-3 flex items-center justify-between">
-                <p className="u-label">BW-{String(heroDrop.id).padStart(3, "0")}</p>
-                <p className="u-label">{heroDrop.images.length || 1} frame{(heroDrop.images.length || 1) === 1 ? "" : "s"}</p>
+                <p className="u-label">BW-{String(featuredDrop.id).padStart(3, "0")}</p>
+                <p className="u-label">{featuredDrop.images.length || 1} frame{(featuredDrop.images.length || 1) === 1 ? "" : "s"}</p>
               </div>
             </Reveal>
 
@@ -93,7 +100,7 @@ export default async function HomePage() {
               <Reveal>
                 <div className="flex items-center gap-4">
                   <p className="u-label">
-                    <span className="text-red">01</span> — Featured drop
+                    <span className="text-red">01</span> — {home.featuredLabel}
                   </p>
                   <span className="h-px flex-1 bg-line" aria-hidden />
                   <span className="u-mono flex items-center gap-2 text-[10px] tracking-[0.18em] text-dim">
@@ -101,18 +108,18 @@ export default async function HomePage() {
                   </span>
                 </div>
 
-                <h2 className="u-h2 mt-6 text-[clamp(2rem,5vw,3.6rem)]!">{heroDrop.name}</h2>
+                <h2 className="u-h2 mt-6 text-[clamp(2rem,5vw,3.6rem)]!">{featuredDrop.name}</h2>
                 <p className="u-mono mt-3 text-sm text-fog">
-                  {heroDrop.brand} · {heroDrop.scale} · {CONDITION_LABELS[heroDrop.condition]}
+                  {featuredDrop.brand} · {featuredDrop.scale} · {CONDITION_LABELS[featuredDrop.condition]}
                 </p>
-                <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-fog">{heroDrop.description.slice(0, 340)}</p>
+                <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-fog">{featuredDrop.description.slice(0, 340)}</p>
 
                 <dl className="mt-8 grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-4">
                   {[
-                    ["Brand", heroDrop.brand || "—"],
-                    ["Scale", heroDrop.scale || "—"],
-                    ["Condition", CONDITION_LABELS[heroDrop.condition]],
-                    ["Paddock", heroDrop.stock > 0 ? `${heroDrop.stock} units` : "Sold out"],
+                    ["Brand", featuredDrop.brand || "—"],
+                    ["Scale", featuredDrop.scale || "—"],
+                    ["Condition", CONDITION_LABELS[featuredDrop.condition]],
+                    ["Paddock", featuredDrop.stock > 0 ? `${featuredDrop.stock} units` : "Sold out"],
                   ].map(([k, v]) => (
                     <div key={k} className="bg-coal p-4">
                       <dt className="u-label">{k}</dt>
@@ -122,14 +129,14 @@ export default async function HomePage() {
                 </dl>
 
                 <div className="mt-8 flex flex-wrap items-center gap-6">
-                  <p className="u-mono text-4xl font-bold">{fmtUSD(heroDrop.priceSale)}</p>
+                  <p className="u-mono text-4xl font-bold">{fmtUSD(featuredDrop.priceSale)}</p>
                   <p className="u-label">
-                    {heroDrop.stock > 0 ? `${heroDrop.stock} IN THE PADDOCK` : "SOLD OUT — NEXT ALLOCATION SOON"}
+                    {featuredDrop.stock > 0 ? `${featuredDrop.stock} IN THE PADDOCK` : "SOLD OUT — NEXT ALLOCATION SOON"}
                   </p>
                 </div>
 
                 <div className="mt-8 flex flex-wrap gap-3">
-                  <Link href={`/product/${heroDrop.slug}`} className="u-btn u-btn-primary">
+                  <Link href={`/product/${featuredDrop.slug}`} className="u-btn u-btn-primary">
                     Inspect the piece <ArrowRight className="size-4" aria-hidden />
                   </Link>
                   <Link href="/shop" className="u-btn u-btn-ghost">
@@ -146,10 +153,10 @@ export default async function HomePage() {
       )}
 
       {/* STICKY HORIZONTAL PIT WALL */}
-      <PitWall />
+      {home.showPitWall && <PitWall />}
 
       {/* HOVER-SWAP PRODUCT INDEX */}
-      <ProductIndex products={grid.slice(0, 6)} />
+      {home.showProductIndex && <ProductIndex products={grid.slice(0, 6)} />}
 
       {/* SHOP THE GRID */}
       <section className="border-t border-line" aria-label="Shop the grid">
@@ -160,9 +167,9 @@ export default async function HomePage() {
                 <p className="u-label">
                   <span className="text-red">04</span> — The grid
                 </p>
-                <h2 className="u-h2 mt-3">Shop the grid</h2>
+                <h2 className="u-h2 mt-3">{home.gridTitle}</h2>
                 <p className="mt-3 max-w-md text-[14px] leading-relaxed text-fog">
-                  Every unit is hand-checked against the box, the casting and the livery before it lists.
+                  {home.gridSubline}
                 </p>
               </div>
               <Link href="/shop" className="u-btn u-btn-ghost">
@@ -206,9 +213,9 @@ export default async function HomePage() {
                 <p className="u-label">
                   <span className="text-red">05</span> — Trust protocol
                 </p>
-                <h2 className="u-h2 mt-3">Trust, not tapes.</h2>
+                <h2 className="u-h2 mt-3">{home.trustTitle}</h2>
                 <p className="mt-3 max-w-md text-[14px] leading-relaxed text-fog">
-                  No star inflation, no invented reviews. Policies and proof do the talking.
+                  {home.trustSubline}
                 </p>
               </div>
               <Link href="/trust" className="u-btn u-btn-ghost">
@@ -267,10 +274,9 @@ export default async function HomePage() {
             <p className="u-label">
               <span className="text-red">06</span> — Paddock radio
             </p>
-            <h2 className="u-h2 mt-4 max-w-xl">First call on drops. Zero spam laps.</h2>
+            <h2 className="u-h2 mt-4 max-w-xl">{home.newsletterTitle}</h2>
             <p className="mt-4 max-w-md text-[15px] leading-relaxed text-fog">
-              Drop windows sell through in minutes. The list hears first, always with dates and units — never with
-              invented hype.
+              {home.newsletterSubline}
             </p>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2">
               <span className="u-label">Discord for discounts</span>

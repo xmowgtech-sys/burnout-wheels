@@ -60,7 +60,7 @@ export async function DELETE(req: NextRequest) {
     const product = getProductById(id);
     if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
     const res = deleteProduct(id);
-    logActivity(me.email, res.mode === "archived" ? "product.archive" : "product.delete", product.slug, product.name);
+    logActivity(me.email, "product.delete", product.slug, product.name);
     return Response.json({ ok: true, mode: res.mode });
   } catch (err) {
     return apiErrorResponse(err);

@@ -2,10 +2,44 @@ import { cache } from "react";
 import { getDb, nowIso, run } from "./db";
 import type { ChatbotSettings, StorefrontSettings, TrustpilotSettings } from "./types";
 
+export const DEFAULT_HERO_IMAGE =
+  "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b3/2024-08-25_Motorsport%2C_Formel_1%2C_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3937_by_Stepro.jpg/1920px-2024-08-25_Motorsport%2C_Formel_1%2C_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3937_by_Stepro.jpg";
+
 export const DEFAULT_STOREFRONT: StorefrontSettings = {
   shipping: { standard: 9900, express: 19900, freeOver: 249900 },
   returnsDays: 7,
   paymentMethods: ["UPI", "COD"],
+  home: {
+    heroDesktopImage: DEFAULT_HERO_IMAGE,
+    heroMobileImage: "",
+    heroFit: "cover",
+    heroPosition: "center",
+    heroKicker: "Die-cast pit lane — live from Mohali",
+    heroHeadline: "Raw metal.\nRacing blood.",
+    heroSubline:
+      "Die-cast built to race-lace spec: sealed, inspected and catalogued like telemetry. One drop at a time — when it's gone, it's gone.",
+    heroDropProductId: null,
+    featuredProductId: null,
+    featuredLabel: "Featured drop",
+    tickerItems: [
+      "Sealed & inspected",
+      "1:18 / 1:43 / 1:64",
+      "UPI · COD · PayPal live",
+      "Free shipping over ₹2,499",
+      "Mohali → pan-India",
+      "Drop calls first on Discord",
+    ],
+    gridProductIds: [],
+    gridTitle: "Shop the grid",
+    gridSubline: "Every unit is hand-checked against the box, the casting and the livery before it lists.",
+    trustTitle: "Trust, not tapes.",
+    trustSubline: "No star inflation, no invented reviews. Policies and proof do the talking.",
+    newsletterTitle: "First call on drops. Zero spam laps.",
+    newsletterSubline:
+      "Drop windows sell through in minutes. The list hears first, always with dates and units — never with invented hype.",
+    showPitWall: true,
+    showProductIndex: true,
+  },
 };
 
 export const DEFAULT_CHATBOT: ChatbotSettings = {
@@ -48,12 +82,27 @@ export const DEFAULT_TRUSTPILOT: TrustpilotSettings = {
   note: "Trustpilot profile is pending. Until a real profile is connected we show no customer scores anywhere on the site.",
 };
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+/** Merge saved settings over the current defaults so new fields ship without a migration step. */
+function mergeDefaults<T>(fallback: T, saved: unknown): T {
+  if (!isPlainObject(fallback) || !isPlainObject(saved)) return (saved ?? fallback) as T;
+  const out: Record<string, unknown> = { ...fallback };
+  for (const [key, value] of Object.entries(saved)) {
+    const base = (fallback as Record<string, unknown>)[key];
+    out[key] = isPlainObject(base) && isPlainObject(value) ? mergeDefaults(base, value) : value;
+  }
+  return out as T;
+}
+
 function readSetting<T>(key: string, fallback: T): T {
   const db = getDb();
   const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
   if (!row) return fallback;
   try {
-    return { ...fallback, ...(JSON.parse(row.value) as T) };
+    return mergeDefaults(fallback, JSON.parse(row.value));
   } catch {
     return fallback;
   }
@@ -71,7 +120,7 @@ export function saveSettings(key: string, patch: Record<string, unknown>): void 
   let merged: Record<string, unknown>;
   if (current) {
     try {
-      merged = { ...(JSON.parse(current.value) as Record<string, unknown>), ...patch };
+      merged = mergeDefaults(JSON.parse(current.value) as Record<string, unknown>, patch);
     } catch {
       merged = { ...patch };
     }

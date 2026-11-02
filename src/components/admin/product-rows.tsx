@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import { ConfirmDialog } from "./admin-ui";
 import { fmtUSD } from "@/lib/money";
+import { imageFitClass } from "@/lib/images";
 import { cn } from "@/lib/utils";
 import type { Product } from "@/lib/types";
 
@@ -21,6 +22,8 @@ const toPayload = (product: Product, status: Product["status"]) => ({
   highlights: product.highlights,
   tags: product.tags,
   images: product.images,
+  imageFit: product.imageFit,
+  imagePosition: product.imagePosition,
   priceSale: product.priceSale,
   priceCost: product.priceCost,
   feePercent: product.feePercent,
@@ -35,11 +38,21 @@ export function ProductRowActions({ product }: { product: Product }) {
   const router = useRouter();
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   const del = async () => {
     setBusy(true);
-    await fetch(`/api/products?id=${product.id}`, { method: "DELETE" });
-    router.refresh();
+    setError("");
+    try {
+      const res = await fetch(`/api/products?id=${product.id}`, { method: "DELETE" });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; mode?: string };
+      if (!res.ok) throw new Error(data.error || `Delete failed (${res.status})`);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const toggleStatus = async () => {
@@ -70,10 +83,11 @@ export function ProductRowActions({ product }: { product: Product }) {
         onClose={() => { setConfirm(false); setBusy(false); }}
         onConfirm={del}
         title={`Remove “${product.name}”?`}
-        body="If the product has orders it's archived (kept for finance history) instead of deleted."
+        body="The listing is deleted permanently. Past orders keep their item snapshot, so finance history stays intact."
         confirmLabel="Delete"
         danger
       />
+      {error && <p role="alert" className="u-label-txt text-red!">{error}</p>}
     </div>
   );
 }
@@ -86,7 +100,7 @@ export function ProductsGrid({ products }: { products: Product[] }) {
         return (
           <article key={p.id} className="u-card overflow-hidden">
             <Link href={`/admin/products/${p.id}`} className="u-media relative block aspect-[4/3]">
-              {p.images[0] ? <Image src={p.images[0]} alt={p.name} fill sizes="(min-width:1024px) 33vw, 100vw" className="object-cover" /> : null}
+              {p.images[0] ? <Image src={p.images[0]} alt={p.name} fill sizes="(min-width:1024px) 33vw, 100vw" className={imageFitClass(p.imageFit, p.imagePosition)} /> : null}
               <span className="u-badge absolute left-3 top-3 bg-ink/85">
                 {p.status === "ACTIVE" ? <span className="text-mint">LIVE</span> : <span className="text-yellow">{p.status}</span>}
               </span>

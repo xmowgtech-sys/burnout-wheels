@@ -1,5 +1,6 @@
 import { SettingsPanel } from "@/components/admin/settings-panel";
 import { getStorefront, getTrustpilot } from "@/lib/settings";
+import { listProducts } from "@/lib/catalog";
 import { getPayments } from "@/lib/razorpay";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default function SettingsAdminPage() {
       <SettingsPanel
         storefront={getStorefront()}
         trustpilot={getTrustpilot()}
+        products={listProducts({ status: "ACTIVE", limit: 200, sort: "newest" })}
         payments={{ keyId: pay?.razorpayKeyId ?? "", upiVpa: pay?.upiVpa ?? "", secretSet: Boolean(pay?.razorpayKeyId) }}
       />
     </div>

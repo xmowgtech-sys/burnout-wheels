@@ -1,14 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ArrowDown, ArrowUpRight } from "lucide-react";
+import { imageFitClass } from "@/lib/images";
+import type { ImageFit, ImagePosition } from "@/lib/types";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 interface HeroProps {
   heroImage: string;
+  mobileImage?: string;
+  imageFit?: ImageFit;
+  imagePosition?: ImagePosition;
+  kicker?: string;
   headlineParts: [string, string];
   subline: string;
   dropName?: string;
@@ -17,8 +23,21 @@ interface HeroProps {
   dropSlug?: string;
 }
 
-export function Hero({ heroImage, headlineParts, subline, dropName, dropPrice, dropStock, dropSlug }: HeroProps) {
+export function Hero({
+  heroImage,
+  mobileImage,
+  imageFit = "cover",
+  imagePosition = "center",
+  kicker = "Die-cast pit lane — live from Mohali",
+  headlineParts,
+  subline,
+  dropName,
+  dropPrice,
+  dropStock,
+  dropSlug,
+}: HeroProps) {
   const reduced = useReducedMotion();
+  const [posterFailed, setPosterFailed] = useState(false);
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   const bgY = useTransform(scrollYProgress, [0, 1], ["0%", reduced ? "0%" : "16%"]);
@@ -30,9 +49,23 @@ export function Hero({ heroImage, headlineParts, subline, dropName, dropPrice, d
   return (
     <section ref={ref} className="relative flex min-h-[100svh] flex-col overflow-hidden">
       {/* broadcast background */}
-      <motion.div style={{ y: bgY, scale: bgScale }} className="absolute inset-0" aria-hidden>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={heroImage} alt="" className="h-full w-full object-cover" fetchPriority="high" />
+      <motion.div
+        style={{ y: bgY, scale: bgScale }}
+        className="absolute inset-0 bg-[radial-gradient(120%_90%_at_70%_10%,#3a0b0b_0%,#141416_55%,#0a0a0c_100%)]"
+        aria-hidden
+      >
+        {!posterFailed && (
+          <picture>
+            <source media="(min-width: 768px)" srcSet={heroImage} />
+            <img
+              src={mobileImage || heroImage}
+              alt=""
+              className={`h-full w-full ${imageFitClass(imageFit, imagePosition)}`}
+              fetchPriority="high"
+              onError={() => setPosterFailed(true)}
+            />
+          </picture>
+        )}
         <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/80 to-ink/30 md:via-ink/60 md:to-ink/10" />
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/25 to-ink/75" />
         <div className="u-scan absolute inset-0 opacity-40" />
@@ -49,7 +82,7 @@ export function Hero({ heroImage, headlineParts, subline, dropName, dropPrice, d
               className="u-label flex items-center gap-2.5"
             >
               <span className="u-live-dot" aria-hidden />
-              Die-cast pit lane — live from Mohali
+              {kicker}
             </motion.p>
             <motion.p
               initial={{ opacity: 0 }}
@@ -66,7 +99,7 @@ export function Hero({ heroImage, headlineParts, subline, dropName, dropPrice, d
           <div className="mt-auto pt-10 md:pt-24">
             {/* editorial headline */}
             <h1 className="u-display max-w-[15ch] text-bone">
-              {headlineParts.map((part, i) => (
+              {headlineParts.filter(Boolean).map((part, i) => (
                 <span key={part} className="block overflow-hidden pb-[0.06em]">
                   <motion.span
                     className={`block ${i === 1 ? "u-outline-red" : ""}`}

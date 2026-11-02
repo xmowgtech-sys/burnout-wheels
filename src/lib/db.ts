@@ -78,6 +78,8 @@ export function migrate(db: DatabaseSync): void {
       highlights TEXT NOT NULL DEFAULT '[]',
       tags TEXT NOT NULL DEFAULT '',
       images TEXT NOT NULL DEFAULT '[]',
+      imageFit TEXT NOT NULL DEFAULT 'cover',
+      imagePosition TEXT NOT NULL DEFAULT 'center',
       priceSale INTEGER NOT NULL,
       priceCost INTEGER NOT NULL DEFAULT 0,
       feePercent REAL NOT NULL DEFAULT 2.0,
@@ -297,6 +299,9 @@ export function migrate(db: DatabaseSync): void {
 
   ensureColumn(db, "orders", "source", "source TEXT NOT NULL DEFAULT 'LOCAL'");
   ensureColumn(db, "products", "source", "source TEXT NOT NULL DEFAULT 'LOCAL'");
+  // Storefront framing controls — some photos are wide banners, some are tall box shots.
+  ensureColumn(db, "products", "imageFit", "imageFit TEXT NOT NULL DEFAULT 'cover'");
+  ensureColumn(db, "products", "imagePosition", "imagePosition TEXT NOT NULL DEFAULT 'center'");
   ensureColumn(db, "accounts", "phone", "phone TEXT");
   ensureColumn(db, "accounts", "picture", "picture TEXT");
   // Shop Pay express checkout needs each Shopify-sourced variant's numeric id.

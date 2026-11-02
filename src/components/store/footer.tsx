@@ -125,7 +125,7 @@ export function Footer() {
         <div className="u-spectrum h-px w-full" aria-hidden />
         <p
           aria-hidden
-          className="u-display mt-5 select-none whitespace-nowrap text-[clamp(2.6rem,10.6vw,9.5rem)]! leading-[0.78] text-bone"
+          className="u-display mt-5 w-full select-none whitespace-nowrap text-[clamp(1.75rem,8.6vw,7.5rem)]! leading-[0.78] text-bone"
         >
           Burnout<span className="text-red">/</span>
           <span className="u-outline">Wheels</span>

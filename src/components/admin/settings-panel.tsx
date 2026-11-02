@@ -2,16 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { StorefrontSettings, TrustpilotSettings } from "@/lib/types";
+import { ImageField } from "./image-field";
+import type { HomeSettings, Product, StorefrontSettings, TrustpilotSettings } from "@/lib/types";
 
 export function SettingsPanel({
   storefront,
   trustpilot,
   payments,
+  products,
 }: {
   storefront: StorefrontSettings;
   trustpilot: TrustpilotSettings;
   payments: { keyId: string; upiVpa: string; secretSet: boolean };
+  products: Product[];
 }) {
   const router = useRouter();
   const [store, setStore] = useState(storefront);
@@ -22,6 +25,14 @@ export function SettingsPanel({
   const [msg, setMsg] = useState("");
 
   const rupees = (v: string) => Math.max(0, Math.round(Number(v || 0) * 100));
+  const setHome = (patch: Partial<HomeSettings>) => setStore((s) => ({ ...s, home: { ...s.home, ...patch } }));
+  const productId = (value: string) => (value ? Number(value) : null);
+  const toggleGridProduct = (id: number) =>
+    setHome({
+      gridProductIds: store.home.gridProductIds.includes(id)
+        ? store.home.gridProductIds.filter((x) => x !== id)
+        : [...store.home.gridProductIds, id],
+    });
 
   const saveStore = async () => {
     setBusy(true); setMsg("");
@@ -33,6 +44,7 @@ export function SettingsPanel({
         shipping: { standard: rupees(String(store.shipping.standard)), express: rupees(String(store.shipping.express)), freeOver: rupees(String(store.shipping.freeOver)) },
         returnsDays: Number(store.returnsDays),
         paymentMethods: store.paymentMethods.length ? store.paymentMethods : ["UPI"],
+        home: store.home,
       }),
       });
       const data = (await res.json()) as { error?: string };
@@ -105,6 +117,142 @@ export function SettingsPanel({
           </div>
         </div>
         <button onClick={saveStore} disabled={busy} className="u-btn u-btn-primary mt-6">Save storefront</button>
+      </section>
+
+      {/* home page */}
+      <section className="u-card p-5" aria-labelledby="home-h">
+        <p id="home-h" className="u-label">Home page — posters, products & copy</p>
+        <p className="u-label-txt mt-2">
+          The storefront home page reads these values live. Pick a product for the hero drop and the featured
+          section, tick the units you want in the home grid, and upload different posters for desktop and phones.
+          Empty product pickers fall back to the featured/newest active unit.
+        </p>
+
+        <div className="mt-6 grid gap-6 md:grid-cols-2">
+          <ImageField
+            label="Hero poster — desktop"
+            hint="≤ 1920px wide"
+            value={store.home.heroDesktopImage}
+            onChange={(v) => setHome({ heroDesktopImage: v })}
+          />
+          <ImageField
+            label="Hero poster — mobile"
+            hint="falls back to desktop"
+            value={store.home.heroMobileImage}
+            onChange={(v) => setHome({ heroMobileImage: v })}
+          />
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="block"><span className="u-label-txt">Hero poster fit</span>
+            <select value={store.home.heroFit} onChange={(e) => setHome({ heroFit: e.target.value as HomeSettings["heroFit"] })} className="u-select mt-1.5">
+              <option value="cover">Cover — fill the screen</option>
+              <option value="contain">Contain — show the whole poster</option>
+            </select>
+          </label>
+          <label className="block"><span className="u-label-txt">Hero poster anchor</span>
+            <select value={store.home.heroPosition} onChange={(e) => setHome({ heroPosition: e.target.value as HomeSettings["heroPosition"] })} className="u-select mt-1.5">
+              <option value="center">Centre</option>
+              <option value="top">Top</option>
+              <option value="bottom">Bottom</option>
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="block md:col-span-2"><span className="u-label-txt">Hero kicker (small line above the headline)</span>
+            <input value={store.home.heroKicker} onChange={(e) => setHome({ heroKicker: e.target.value })} className="u-input mt-1.5" maxLength={120} />
+          </label>
+          <label className="block"><span className="u-label-txt">Hero headline — two poster lines</span>
+            <textarea value={store.home.heroHeadline} onChange={(e) => setHome({ heroHeadline: e.target.value })} className="u-textarea mt-1.5" rows={2} maxLength={160} />
+          </label>
+          <label className="block"><span className="u-label-txt">Hero subline</span>
+            <textarea value={store.home.heroSubline} onChange={(e) => setHome({ heroSubline: e.target.value })} className="u-textarea mt-1.5" rows={2} maxLength={600} />
+          </label>
+          <label className="block"><span className="u-label-txt">Hero drop product</span>
+            <select value={store.home.heroDropProductId ?? ""} onChange={(e) => setHome({ heroDropProductId: productId(e.target.value) })} className="u-select mt-1.5">
+              <option value="">Auto — featured product</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}{p.status !== "ACTIVE" ? ` (${p.status.toLowerCase()})` : ""}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block"><span className="u-label-txt">Featured section product</span>
+            <select value={store.home.featuredProductId ?? ""} onChange={(e) => setHome({ featuredProductId: productId(e.target.value) })} className="u-select mt-1.5">
+              <option value="">Auto — same as hero drop</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}{p.status !== "ACTIVE" ? ` (${p.status.toLowerCase()})` : ""}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block md:col-span-2"><span className="u-label-txt">Featured section label</span>
+            <input value={store.home.featuredLabel} onChange={(e) => setHome({ featuredLabel: e.target.value })} className="u-input mt-1.5" maxLength={60} placeholder="Featured drop" />
+          </label>
+        </div>
+
+        <label className="mt-4 block"><span className="u-label-txt">Ticker strip — one phrase per line</span>
+          <textarea
+            value={store.home.tickerItems.join("\n")}
+            onChange={(e) => setHome({ tickerItems: e.target.value.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 16) })}
+            className="u-textarea mt-1.5"
+            rows={4}
+          />
+        </label>
+
+        <div className="mt-6 border-t border-line pt-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="u-label">Home grid products</p>
+            <button type="button" onClick={() => setHome({ gridProductIds: [] })} className="u-label hover:text-bone">Clear — use newest active</button>
+          </div>
+          <p className="u-label-txt mt-1">Tick products to pin them to the home grid, in the order shown below. Unticked means auto.</p>
+          <div className="mt-3 grid max-h-72 gap-1.5 overflow-y-auto border border-line p-3 sm:grid-cols-2">
+            {products.length === 0 ? <p className="u-label-txt">No products yet — add one first.</p> : products.map((p) => (
+              <label key={p.id} className="flex cursor-pointer items-start gap-2 border border-transparent p-1.5 text-[12.5px] leading-snug hover:border-line">
+                <input type="checkbox" className="mt-0.5 accent-red" checked={store.home.gridProductIds.includes(p.id)} onChange={() => toggleGridProduct(p.id)} />
+                <span className="min-w-0">
+                  <span className="block truncate">{store.home.gridProductIds.indexOf(p.id) >= 0 ? `${store.home.gridProductIds.indexOf(p.id) + 1}. ` : ""}{p.name}</span>
+                  <span className="u-label-txt">{p.category} · {p.status.toLowerCase()}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="block"><span className="u-label-txt">Grid heading</span>
+            <input value={store.home.gridTitle} onChange={(e) => setHome({ gridTitle: e.target.value })} className="u-input mt-1.5" maxLength={80} />
+          </label>
+          <label className="block"><span className="u-label-txt">Grid subline</span>
+            <input value={store.home.gridSubline} onChange={(e) => setHome({ gridSubline: e.target.value })} className="u-input mt-1.5" maxLength={400} />
+          </label>
+          <label className="block"><span className="u-label-txt">Trust heading</span>
+            <input value={store.home.trustTitle} onChange={(e) => setHome({ trustTitle: e.target.value })} className="u-input mt-1.5" maxLength={80} />
+          </label>
+          <label className="block"><span className="u-label-txt">Trust subline</span>
+            <input value={store.home.trustSubline} onChange={(e) => setHome({ trustSubline: e.target.value })} className="u-input mt-1.5" maxLength={400} />
+          </label>
+          <label className="block"><span className="u-label-txt">Newsletter heading</span>
+            <input value={store.home.newsletterTitle} onChange={(e) => setHome({ newsletterTitle: e.target.value })} className="u-input mt-1.5" maxLength={120} />
+          </label>
+          <label className="block"><span className="u-label-txt">Newsletter subline</span>
+            <input value={store.home.newsletterSubline} onChange={(e) => setHome({ newsletterSubline: e.target.value })} className="u-input mt-1.5" maxLength={400} />
+          </label>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-5">
+          <label className="flex items-center gap-2 text-[13px]">
+            <input type="checkbox" className="accent-red" checked={store.home.showPitWall} onChange={(e) => setHome({ showPitWall: e.target.checked })} />
+            Show the Pit Wall section
+          </label>
+          <label className="flex items-center gap-2 text-[13px]">
+            <input type="checkbox" className="accent-red" checked={store.home.showProductIndex} onChange={(e) => setHome({ showProductIndex: e.target.checked })} />
+            Show the product index section
+          </label>
+        </div>
+
+        <button onClick={saveStore} disabled={busy} className="u-btn u-btn-primary mt-6">Save home page</button>
       </section>
 
       {/* trustpilot */}

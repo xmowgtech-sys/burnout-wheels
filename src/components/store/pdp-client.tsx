@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Heart, Minus, Plus, ShoppingCart, X, Star } from
 import { useStore, useToast } from "./providers";
 import { trackFlow } from "@/components/store/site-monitor";
 import { fmtUSD } from "@/lib/money";
+import { imageFitClass } from "@/lib/images";
 import { CONDITION_LABELS, type Product } from "@/lib/types";
 import { COD_ADVANCE_LABEL } from "@/lib/payments";
 import { cn, prefersReducedMotion, clamp } from "@/lib/utils";
@@ -46,7 +47,7 @@ export function Gallery({ product }: { product: Product }) {
           fill
           priority
           sizes="(min-width: 1024px) 60vw, 100vw"
-          className={cn("object-cover transition-transform duration-500", zoom && "scale-[2.2]")}
+          className={cn(imageFitClass(product.imageFit, product.imagePosition), "transition-transform duration-500", zoom && "scale-[2.2]")}
         />
         <div className="pointer-events-none absolute left-3 top-3 flex gap-2">
           <span className="u-badge bg-ink/70 backdrop-blur-sm">Reference photography</span>
@@ -71,7 +72,7 @@ export function Gallery({ product }: { product: Product }) {
                 aria-label={`Show image ${i + 1}`}
                 aria-current={i === idx}
               >
-                <Image src={src} alt="" fill sizes="80px" className="object-cover" />
+                <Image src={src} alt="" fill sizes="80px" className={imageFitClass(product.imageFit, product.imagePosition)} />
               </button>
             ))}
           </div>

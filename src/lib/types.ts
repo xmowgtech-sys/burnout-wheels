@@ -2,6 +2,8 @@ export type Role = "OWNER" | "ADMIN" | "STAFF";
 
 export type ProductStatus = "ACTIVE" | "DRAFT" | "ARCHIVED";
 export type ProductCondition = "NEW" | "LIKE_NEW" | "GRADED" | "PRE_OWNED";
+export type ImageFit = "cover" | "contain";
+export type ImagePosition = "center" | "top" | "bottom" | "left" | "right";
 export const CONDITION_LABELS: Record<ProductCondition, string> = {
   NEW: "New / Boxed",
   LIKE_NEW: "Like New",
@@ -21,6 +23,10 @@ export interface Product {
   highlights: string[];
   tags: string[];
   images: string[];
+  /** How photos sit inside cards/gallery: cover fills the frame, contain shows the whole shot. */
+  imageFit: ImageFit;
+  /** Crop anchor when the frame is a different shape to the photo. */
+  imagePosition: ImagePosition;
   priceSale: number; // minor units (paise)
   priceCost: number; // minor units
   feePercent: number;
@@ -185,10 +191,35 @@ export interface ConversationWithExcerpt extends Conversation {
   messageCount: number;
 }
 
+export interface HomeSettings {
+  heroDesktopImage: string;
+  heroMobileImage: string;
+  heroFit: ImageFit;
+  heroPosition: ImagePosition;
+  heroKicker: string;
+  /** Two poster lines, separated by a newline. */
+  heroHeadline: string;
+  heroSubline: string;
+  heroDropProductId: number | null;
+  featuredProductId: number | null;
+  featuredLabel: string;
+  tickerItems: string[];
+  gridProductIds: number[];
+  gridTitle: string;
+  gridSubline: string;
+  trustTitle: string;
+  trustSubline: string;
+  newsletterTitle: string;
+  newsletterSubline: string;
+  showPitWall: boolean;
+  showProductIndex: boolean;
+}
+
 export interface StorefrontSettings {
   shipping: { standard: number; express: number; freeOver: number };
   returnsDays: number;
   paymentMethods: ("UPI" | "COD")[];
+  home: HomeSettings;
 }
 
 export interface ChatbotSettings {
