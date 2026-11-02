@@ -1,8 +1,8 @@
 import DevModal from "@/components/DevModal";
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowRight, ArrowUpRight, ShieldCheck, Undo2, Lock } from "lucide-react";
 import { Hero } from "@/components/store/hero";
+import { FeaturedShot } from "@/components/store/featured-shot";
 import { ProductCard } from "@/components/store/product-card";
 import { Reveal } from "@/components/store/reveal";
 import { NewsletterForm } from "@/components/store/newsletter-form";
@@ -12,7 +12,6 @@ import { ProductIndex } from "@/components/store/product-index";
 import { categoryCounts, featuredProduct, listProducts } from "@/lib/catalog";
 import { getStorefront, getTrustpilot, DEFAULT_HERO_IMAGE } from "@/lib/settings";
 import { fmtUSD } from "@/lib/money";
-import { imageFitClass } from "@/lib/images";
 import { CONDITION_LABELS } from "@/lib/types";
 import { COD_ADVANCE_LABEL } from "@/lib/payments";
 
@@ -31,6 +30,15 @@ export default async function HomePage() {
   const byId = new Map(allProducts.map((p) => [p.id, p]));
   const heroDrop = (home.heroDropProductId ? byId.get(home.heroDropProductId) : undefined) ?? featured ?? allProducts[0] ?? null;
   const featuredDrop = (home.featuredProductId ? byId.get(home.featuredProductId) : undefined) ?? heroDrop;
+  const featuredSources = [
+    home.featuredImage,
+    featuredDrop?.images[0] ?? "",
+    home.heroDesktopImage,
+    DEFAULT_HERO_IMAGE,
+  ];
+  const featuredFit = home.featuredImage ? home.featuredImageFit : featuredDrop?.imageFit;
+  const featuredPosition = home.featuredImage ? home.featuredImagePosition : featuredDrop?.imagePosition;
+  const featuredFrames = home.featuredImage ? 1 : featuredDrop?.images.length || 1;
   const pinnedGrid = home.gridProductIds
     .map((id) => byId.get(id))
     .filter((p): p is NonNullable<typeof p> => Boolean(p));
@@ -76,13 +84,12 @@ export default async function HomePage() {
           <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 md:px-8 md:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:gap-16">
             <Reveal variant="curtain" className="lg:sticky lg:top-28">
               <Link href={`/product/${featuredDrop.slug}`} className="u-media u-media-hover relative block aspect-[4/3]">
-                <Image
-                  src={featuredDrop.images[0] || home.heroDesktopImage || DEFAULT_HERO_IMAGE}
+                <FeaturedShot
+                  sources={featuredSources}
                   alt={featuredDrop.name}
-                  fill
-                  sizes="(min-width: 1024px) 52vw, 95vw"
+                  fit={featuredFit}
+                  position={featuredPosition}
                   priority
-                  className={imageFitClass(featuredDrop.imageFit, featuredDrop.imagePosition)}
                 />
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/65 via-transparent to-transparent" aria-hidden />
                 <span className="u-badge absolute left-4 top-4 border-red bg-red text-white">Drop 001 — live</span>
@@ -92,7 +99,7 @@ export default async function HomePage() {
               </Link>
               <div className="mt-3 flex items-center justify-between">
                 <p className="u-label">BW-{String(featuredDrop.id).padStart(3, "0")}</p>
-                <p className="u-label">{featuredDrop.images.length || 1} frame{(featuredDrop.images.length || 1) === 1 ? "" : "s"}</p>
+                <p className="u-label">{featuredFrames} frame{featuredFrames === 1 ? "" : "s"}</p>
               </div>
             </Reveal>
 
@@ -112,7 +119,7 @@ export default async function HomePage() {
                 <p className="u-mono mt-3 text-sm text-fog">
                   {featuredDrop.brand} · {featuredDrop.scale} · {CONDITION_LABELS[featuredDrop.condition]}
                 </p>
-                <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-fog">{featuredDrop.description.slice(0, 340)}</p>
+                <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-fog">{featuredDrop.description}</p>
 
                 <dl className="mt-8 grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-4">
                   {[

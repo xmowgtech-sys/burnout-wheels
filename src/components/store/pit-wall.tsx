@@ -141,7 +141,7 @@ export function PitWall() {
                   <span className="text-red">02</span> — Pit wall
                 </p>
                 <div className="relative">
-                  <h2 className="u-display text-[clamp(3.4rem,6vw,6.2rem)]!">
+                  <h2 className="u-display text-[clamp(2.4rem,4.4vw,4.9rem)]!">
                     No
                     <br />
                     <span className="u-outline-red">shortcuts.</span>

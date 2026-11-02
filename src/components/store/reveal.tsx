@@ -54,7 +54,10 @@ export function Reveal({
       className={`${variantClass} ${className}`}
       style={{ "--reveal-delay": `${delay}ms` } as React.CSSProperties}
     >
-      {children}
+      {/* The curtain clip lives on an inner wrapper: clipping the observed
+          element itself makes IntersectionObserver report a zero ratio, so the
+          reveal would never fire and the image stayed invisible forever. */}
+      {variant === "curtain" ? <div className="reveal-curtain-inner">{children}</div> : children}
     </Tag>
   );
 }

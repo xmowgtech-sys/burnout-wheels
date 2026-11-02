@@ -20,6 +20,9 @@ export const DEFAULT_STOREFRONT: StorefrontSettings = {
       "Die-cast built to race-lace spec: sealed, inspected and catalogued like telemetry. One drop at a time — when it's gone, it's gone.",
     heroDropProductId: null,
     featuredProductId: null,
+    featuredImage: "",
+    featuredImageFit: "cover",
+    featuredImagePosition: "center",
     featuredLabel: "Featured drop",
     tickerItems: [
       "Sealed & inspected",

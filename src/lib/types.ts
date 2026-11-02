@@ -202,6 +202,10 @@ export interface HomeSettings {
   heroSubline: string;
   heroDropProductId: number | null;
   featuredProductId: number | null;
+  /** Optional override for the featured section shot. Empty = product cover. */
+  featuredImage: string;
+  featuredImageFit: ImageFit;
+  featuredImagePosition: ImagePosition;
   featuredLabel: string;
   tickerItems: string[];
   gridProductIds: number[];

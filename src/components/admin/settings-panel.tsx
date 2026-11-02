@@ -34,6 +34,12 @@ export function SettingsPanel({
         : [...store.home.gridProductIds, id],
     });
 
+  const featuredPick =
+    products.find((p) => p.id === (store.home.featuredProductId ?? store.home.heroDropProductId)) ??
+    products.find((p) => p.featured) ??
+    products[0];
+  const autoFeaturedImage = featuredPick?.images[0] || store.home.heroDesktopImage;
+
   const saveStore = async () => {
     setBusy(true); setMsg("");
     try {
@@ -190,6 +196,61 @@ export function SettingsPanel({
           <label className="block md:col-span-2"><span className="u-label-txt">Featured section label</span>
             <input value={store.home.featuredLabel} onChange={(e) => setHome({ featuredLabel: e.target.value })} className="u-input mt-1.5" maxLength={60} placeholder="Featured drop" />
           </label>
+        </div>
+
+        <div className="mt-6 border-t border-line pt-5">
+          <ImageField
+            label="Featured drop image — optional"
+            hint="blank = product cover photo"
+            value={store.home.featuredImage}
+            onChange={(v) => setHome({ featuredImage: v })}
+          />
+
+          <div className="mt-3 flex flex-wrap items-center gap-3 border border-line bg-ink/40 p-3">
+            {autoFeaturedImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={autoFeaturedImage} alt="" className="h-14 w-20 shrink-0 border border-line object-cover" />
+            ) : (
+              <span className="grid h-14 w-20 shrink-0 place-items-center border border-line text-dim" aria-hidden>—</span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="u-label">Automatic image</p>
+              <p className="u-label-txt mt-1">
+                {featuredPick
+                  ? `${featuredPick.name}${featuredPick.images[0] ? " — cover frame" : " — no product photo, site hero fallback"}`
+                  : "No product picked yet — site hero fallback"}
+              </p>
+            </div>
+            {autoFeaturedImage ? (
+              <button
+                type="button"
+                onClick={() => setHome({ featuredImage: autoFeaturedImage })}
+                disabled={store.home.featuredImage === autoFeaturedImage}
+                className="u-btn u-btn-ghost px-2.5! py-2! text-[11px]! disabled:opacity-40"
+              >
+                {store.home.featuredImage === autoFeaturedImage ? "Pinned" : "Use this image"}
+              </button>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="block"><span className="u-label-txt">Featured image fit</span>
+              <select value={store.home.featuredImageFit} onChange={(e) => setHome({ featuredImageFit: e.target.value as HomeSettings["featuredImageFit"] })} className="u-select mt-1.5">
+                <option value="cover">Cover — fill the frame</option>
+                <option value="contain">Contain — show the whole shot</option>
+              </select>
+            </label>
+            <label className="block"><span className="u-label-txt">Featured image anchor</span>
+              <select value={store.home.featuredImagePosition} onChange={(e) => setHome({ featuredImagePosition: e.target.value as HomeSettings["featuredImagePosition"] })} className="u-select mt-1.5">
+                <option value="center">Centre</option>
+                <option value="top">Top</option>
+                <option value="bottom">Bottom</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+            </label>
+          </div>
+          <p className="u-label-txt mt-2">Framing applies to the custom drop image. With the field empty, the product&apos;s own cover and framing are used automatically.</p>
         </div>
 
         <label className="mt-4 block"><span className="u-label-txt">Ticker strip — one phrase per line</span>
