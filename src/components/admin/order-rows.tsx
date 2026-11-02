@@ -217,36 +217,48 @@ export function OrderIntakeCard() {
   const [orderNumber, setOrderNumber] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [total, setTotal] = useState("1999");
   const [channel, setChannel] = useState<"DISCORD" | "WHATSAPP">("DISCORD");
+  const [status, setStatus] = useState<"PAID" | "PAYMENT_REVIEW">("PAID");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const handleIntake = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!orderNumber.trim()) return;
+    const cleanNum = orderNumber.trim();
+    if (!cleanNum) {
+      setError("Please enter the order number");
+      return;
+    }
     setBusy(true);
     setError("");
+    setSuccess("");
     try {
-      const res = await fetch("/api/orders", {
+      const res = await fetch("/api/orders/intake", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          orderNumber: orderNumber.trim().toUpperCase(),
-          name: name.trim() || "Racer",
-          email: email.trim() || "customer@burnoutwheels.com",
-          paymentChannel: channel,
-          paymentMethod: "UPI",
-          items: [{ productId: 1, qty: 1 }],
-          notes: `Intake from ${channel} #billing`,
+          orderNumber: cleanNum.toUpperCase(),
+          name: name.trim() || undefined,
+          email: email.trim() || undefined,
+          total: total ? Number(total) * 100 : 199900,
+          channel,
+          status,
         }),
       });
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json()) as { error?: string; ok?: boolean; order?: { number: string } };
       if (!res.ok) throw new Error(data.error || "Failed to intake order");
-      setOpen(false);
+      
+      setSuccess(`Order #${cleanNum.toUpperCase()} registered and marked ${status}!`);
       setOrderNumber("");
       setName("");
       setEmail("");
       router.refresh();
+      setTimeout(() => {
+        setSuccess("");
+        setOpen(false);
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to intake order");
     } finally {
@@ -263,7 +275,7 @@ export function OrderIntakeCard() {
         </div>
         <button
           type="button"
-          onClick={() => setOpen(!open)}
+          onClick={() => { setOpen(!open); setError(""); setSuccess(""); }}
           className="u-btn u-btn-primary px-3! py-1.5! text-xs font-bold"
         >
           {open ? "Close Intake" : "+ Intake Discord/WhatsApp Order"}
@@ -272,13 +284,13 @@ export function OrderIntakeCard() {
 
       {open && (
         <form onSubmit={handleIntake} className="mt-4 border-t border-line/60 pt-4 flex flex-col gap-3">
-          <div className="grid gap-3 sm:grid-cols-4">
-            <div>
+          <div className="grid gap-3 sm:grid-cols-5">
+            <div className="sm:col-span-1">
               <label className="u-label-txt block mb-1">Order Number *</label>
               <input
                 required
                 value={orderNumber}
-                onChange={(e) => setOrderNumber(e.target.value)}
+                onChange={(e) => { setOrderNumber(e.target.value); setError(""); }}
                 placeholder="BW-Z8NNPV-P7"
                 className="u-input uppercase font-mono text-xs"
               />
@@ -303,22 +315,44 @@ export function OrderIntakeCard() {
               />
             </div>
             <div>
-              <label className="u-label-txt block mb-1">Payment Route</label>
-              <select
-                value={channel}
-                onChange={(e) => setChannel(e.target.value as "DISCORD" | "WHATSAPP")}
-                className="u-input text-xs"
-              >
-                <option value="DISCORD">Discord (#billing)</option>
-                <option value="WHATSAPP">WhatsApp</option>
-              </select>
+              <label className="u-label-txt block mb-1">Amount (₹)</label>
+              <input
+                type="number"
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
+                placeholder="1999"
+                className="u-input text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="u-label-txt block mb-1">Route &amp; Status</label>
+              <div className="flex gap-1">
+                <select
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value as "DISCORD" | "WHATSAPP")}
+                  className="u-input text-xs w-1/2!"
+                >
+                  <option value="DISCORD">Discord</option>
+                  <option value="WHATSAPP">WhatsApp</option>
+                </select>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as "PAID" | "PAYMENT_REVIEW")}
+                  className="u-input text-xs w-1/2!"
+                >
+                  <option value="PAID">PAID</option>
+                  <option value="PAYMENT_REVIEW">Review</option>
+                </select>
+              </div>
             </div>
           </div>
-          {error && <p className="text-xs text-red">{error}</p>}
+          {error && <p className="text-xs text-red font-medium">{error}</p>}
+          {success && <p className="text-xs text-mint font-medium">{success}</p>}
           <div className="flex justify-end gap-2">
             <button
+              type="submit"
               disabled={busy || !orderNumber.trim()}
-              className="u-btn u-btn-primary bg-mint! text-ink! text-xs font-bold px-4! py-2!"
+              className="u-btn u-btn-primary bg-mint! text-ink! text-xs font-bold px-4! py-2! disabled:opacity-50"
             >
               {busy ? "Registering…" : "Register in Orders List →"}
             </button>

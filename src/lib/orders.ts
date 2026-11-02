@@ -449,6 +449,94 @@ export function updateShiprocket(
   return adminGetOrder(id)!;
 }
 
+/* ---------------- order intake & recovery ---------------- */
+
+export interface IntakeOrderInput {
+  orderNumber: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  total?: number;
+  paymentChannel?: "DISCORD" | "WHATSAPP";
+  status?: OrderStatus;
+  notes?: string;
+  actor: string;
+}
+
+export function intakeOrder(input: IntakeOrderInput): OrderWithRelations {
+  const db = getDb();
+  const numClean = input.orderNumber.trim().toUpperCase();
+  if (!numClean) throw new ApiError(400, "Order number is required");
+
+  const ts = nowIso();
+  const totalAmount = input.total && input.total > 0 ? (input.total < 1000 ? input.total * 100 : input.total) : 199900;
+  const channel = input.paymentChannel === "WHATSAPP" ? "WHATSAPP" : "DISCORD";
+  const initialStatus: OrderStatus = input.status || "PAID";
+  const customerName = input.name?.trim() || "Racer";
+  const customerEmail = input.email?.trim().toLowerCase() || "customer@burnoutwheels.com";
+
+  // Check if order already exists in DB
+  const existing = db.prepare("SELECT * FROM orders WHERE UPPER(number) = ?").get(numClean) as Record<string, unknown> | undefined;
+
+  let orderId: number;
+
+  if (existing) {
+    orderId = Number(existing.id);
+    db.prepare(`
+      UPDATE orders 
+      SET status = ?, paymentChannel = ?, paymentClaimedAt = COALESCE(paymentClaimedAt, ?), updatedAt = ?
+      WHERE id = ?
+    `).run(initialStatus, channel, ts, ts, orderId);
+
+    db.prepare("INSERT INTO orderEvents (orderId, status, note, actor, createdAt) VALUES (?, ?, ?, ?, ?)")
+      .run(orderId, initialStatus, `Order verified & accepted via ${channel} #billing`, input.actor, ts);
+  } else {
+    // Look up any active product for the orderItem link
+    const prod = db.prepare("SELECT * FROM products WHERE status = 'ACTIVE' LIMIT 1").get() as Record<string, unknown> | undefined;
+    const prodId = prod ? Number(prod.id) : null;
+    const prodName = prod ? String(prod.name) : "Red Bull Racing RB20 F1";
+    const prodSlug = prod ? String(prod.slug) : "red-bull-racing-rb20-f1";
+
+    const stmt = db.prepare(`
+      INSERT INTO orders (
+        number, status, paymentMethod, paymentChannel, paymentClaimedAt, shippingMethod,
+        email, name, phone, addressLine, city, state, pincode, country,
+        notes, subtotal, discountTotal, shippingFee, total, costTotal, feesTotal, profit,
+        source, placedAt, updatedAt
+      ) VALUES (
+        ?, ?, 'UPI', ?, ?, 'STANDARD',
+        ?, ?, ?, 'Delivery address confirmed via chat', 'India', 'Dispatch Zone', '110001', 'India',
+        ?, ?, 0, 0, ?, 0, 0, 0,
+        'INTAKE', ?, ?
+      )
+    `);
+
+    const res = run(
+      stmt,
+      numClean, initialStatus, channel, ts,
+      customerEmail, customerName, input.phone || null,
+      input.notes || `Order intake from ${channel} #billing`, totalAmount, totalAmount,
+      ts, ts
+    );
+
+    orderId = res.id;
+
+    db.prepare(`
+      INSERT INTO orderItems (orderId, productId, name, slug, condition, scale, price, qty)
+      VALUES (?, ?, ?, ?, 'NEW', '1:64', ?, 1)
+    `).run(orderId, prodId, prodName, prodSlug, totalAmount);
+
+    db.prepare("INSERT INTO orderEvents (orderId, status, note, actor, createdAt) VALUES (?, ?, ?, ?, ?)")
+      .run(orderId, initialStatus, `Order intaked into Pit Wall & verified via ${channel}`, input.actor, ts);
+  }
+
+  logActivity(input.actor, "order.intake", numClean, `Intaked order #${numClean} (${initialStatus})`);
+
+  const order = adminGetOrder(orderId);
+  if (!order) throw new Error("Order intake retrieval failed");
+  return order;
+}
+
 /* ---------------- customers ---------------- */
 
 export function listCustomers(q?: string): CustomerWithOrders[] {
