@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Check, Copy } from "lucide-react";
 import { StatusBadge, ConfirmDialog } from "@/components/admin/admin-ui";
 import { fmtUSD, fmtDate } from "@/lib/money";
 import type { OrderWithRelations, OrderStatus } from "@/lib/types";
@@ -189,24 +190,211 @@ const NEXT: Record<OrderStatus, OrderStatus[]> = {
 };
 
 export function OrdersTable({ orders }: { orders: OrderWithRelations[] }) {
+  const [items, setItems] = useState<OrderWithRelations[]>(orders);
+
+  // Sync with server props when filters change
+  const [prevProps, setPrevProps] = useState(orders);
+  if (orders !== prevProps) {
+    setPrevProps(orders);
+    setItems(orders);
+  }
+
+  const handleStatusChange = (orderId: number, nextStatus: OrderStatus) => {
+    setItems((current) =>
+      current.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
+    );
+  };
+
   return (
-    <div className="grid gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
-      {orders.map((o) => (
-        <Link key={o.id} href={`/admin/orders/${o.id}`} className="u-card p-4 transition-colors hover:border-line-strong">
-          <div className="flex items-center justify-between gap-3">
-            <span className="u-mono text-[13px] font-bold">{o.number}</span>
-            <div className="flex items-center gap-1.5">
-              {o.paymentChannel && (
-                <span className="u-badge border-line text-[10px] text-dim">{o.paymentChannel}</span>
-              )}
-              <StatusBadge status={o.status} />
-            </div>
-          </div>
-          <p className="mt-2 truncate text-[13px] font-medium">{o.name} <span className="text-dim">· {o.email}</span></p>
-          <p className="u-label-txt mt-1">{fmtDate(o.placedAt)} · {o.paymentMethod} · {o.shippingMethod}</p>
-          <p className="u-mono mt-2 text-lg font-bold">{fmtUSD(o.total)}</p>
-        </Link>
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {items.map((o) => (
+        <OrderCard key={o.id} order={o} onStatusChange={handleStatusChange} />
       ))}
+    </div>
+  );
+}
+
+function OrderCard({
+  order,
+  onStatusChange,
+}: {
+  order: OrderWithRelations;
+  onStatusChange: (id: number, s: OrderStatus) => void;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [err, setErr] = useState("");
+  const isAwaitingAcceptance = order.status === "PAYMENT_REVIEW" || order.status === "PENDING_PAYMENT";
+
+  const handleAccept = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await fetch(`/api/orders?id=${order.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ to: "PAID", note: "Accepted by operator from Pit Wall" }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Failed to accept order");
+      onStatusChange(order.id, "PAID");
+      router.refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to accept order");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyNumber = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(order.number);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div
+      className={`u-card p-5 flex flex-col justify-between transition-all ${
+        isAwaitingAcceptance ? "border-yellow/50 bg-panel shadow-lg" : "hover:border-line-strong"
+      }`}
+    >
+      <div>
+        {/* Header: Number + Badges */}
+        <div className="flex items-center justify-between gap-2 border-b border-line pb-3">
+          <div className="flex items-center gap-1.5">
+            <span className="u-mono text-sm font-black text-white">{order.number}</span>
+            <button
+              type="button"
+              onClick={copyNumber}
+              className="text-[11px] text-fog hover:text-white transition-colors"
+              title="Copy Order Number"
+            >
+              {copied ? <Check className="size-3 text-mint inline" /> : <Copy className="size-3 inline" />}
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {order.paymentChannel && (
+              <span
+                className={`u-badge text-[10px] font-bold ${
+                  order.paymentChannel === "DISCORD"
+                    ? "bg-red/20 text-red border-red/40"
+                    : "bg-mint/20 text-mint border-mint/40"
+                }`}
+              >
+                {order.paymentChannel}
+              </span>
+            )}
+            <StatusBadge status={order.status} />
+          </div>
+        </div>
+
+        {/* Customer & Address Details */}
+        <div className="mt-3 flex flex-col gap-1 text-[13px]">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-bone">{order.name}</span>
+            <span className="u-mono text-sm font-black text-white">{fmtUSD(order.total)}</span>
+          </div>
+          <p className="text-fog text-[12px]">{order.email}</p>
+          {order.phone && (
+            <p className="text-dim text-[11px] flex items-center gap-1">
+              <span>📞 {order.phone}</span>
+              <a
+                href={`https://wa.me/${order.phone.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-mint hover:underline ml-1"
+              >
+                (WhatsApp ↗)
+              </a>
+            </p>
+          )}
+          {order.addressLine && (
+            <p
+              className="text-[11px] text-dim mt-1 truncate"
+              title={`${order.addressLine}, ${order.city}, ${order.state} ${order.pincode}`}
+            >
+              📍 {order.city || "Pan-India"} · {order.pincode}
+            </p>
+          )}
+        </div>
+
+        {/* Items snapshot */}
+        {order.items && order.items.length > 0 && (
+          <div className="mt-2.5 rounded bg-surface/60 p-2 text-[11.5px] text-fog">
+            {order.items.map((it) => (
+              <p key={it.id} className="truncate">
+                ×{it.qty} {it.name} <span className="text-dim">({fmtUSD(it.price * it.qty)})</span>
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* Awaiting Acceptance Banner */}
+        {isAwaitingAcceptance && (
+          <div className="mt-3 rounded border border-yellow/40 bg-yellow/[0.06] p-2.5">
+            <p className="text-[11px] font-bold text-yellow flex items-center gap-1">
+              <span>⏳ Awaiting Your Acceptance</span>
+            </p>
+            <p className="text-[10.5px] text-fog mt-0.5 leading-snug">
+              Order placed by customer via {order.paymentChannel || "Discord/WhatsApp"}. Verify payment receipt, then click accept below.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Action Footer */}
+      <div className="mt-4 pt-3 border-t border-line flex flex-col gap-2">
+        {err && <p className="text-[11px] text-red">{err}</p>}
+
+        {isAwaitingAcceptance ? (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleAccept}
+              disabled={busy}
+              className="u-btn u-btn-primary bg-mint! text-ink! flex-1 py-2! text-xs font-bold flex items-center justify-center gap-1.5 transition-transform active:scale-95 shadow-md"
+            >
+              <Check className="size-3.5" />
+              <span>{busy ? "Accepting…" : "Accept Order (Mark Paid)"}</span>
+            </button>
+            <Link
+              href={`/admin/orders/${order.id}`}
+              className="u-btn u-btn-ghost px-2.5! py-2! text-xs"
+              title="View full order details"
+            >
+              Details →
+            </Link>
+          </div>
+        ) : order.status === "PAID" ? (
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-mint font-semibold flex items-center gap-1">
+              <Check className="size-3" /> Accepted &amp; Stock Reserved
+            </span>
+            <Link
+              href={`/admin/orders/${order.id}`}
+              className="u-btn u-btn-primary px-3! py-1.5! text-xs font-bold"
+            >
+              Pack &amp; Ship →
+            </Link>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-dim">{fmtDate(order.placedAt)}</span>
+            <Link
+              href={`/admin/orders/${order.id}`}
+              className="text-xs text-red hover:text-white underline underline-offset-2"
+            >
+              Manage order →
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

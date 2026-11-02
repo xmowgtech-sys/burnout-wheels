@@ -505,6 +505,11 @@ export default function CheckoutPage() {
 
   const handlePayDiscord = () => {
     if (!placedOrder) return;
+    fetch("/api/orders/channel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ orderNumber: placedOrder.number, channel: "discord" }),
+    }).catch(() => {});
     window.open("https://discord.gg/WRZDQEnA2", "_blank");
     router.push(
       `/checkout/success/${placedOrder.number}?email=${encodeURIComponent(placedOrder.email)}&channel=discord&name=${encodeURIComponent(
@@ -515,6 +520,11 @@ export default function CheckoutPage() {
 
   const handlePayWhatsApp = () => {
     if (!placedOrder) return;
+    fetch("/api/orders/channel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ orderNumber: placedOrder.number, channel: "whatsapp" }),
+    }).catch(() => {});
     const totalRupees = Math.round(placedOrder.total / 100);
     const waMsg = encodeURIComponent(
       `Hi Burnout Wheels! I placed Order #${placedOrder.number} for ₹${totalRupees.toLocaleString(
