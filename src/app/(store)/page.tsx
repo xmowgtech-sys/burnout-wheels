@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import DevModal from "@/components/DevModal";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, ShieldCheck, Undo2, Lock } from "lucide-react";
@@ -16,6 +17,12 @@ import { CONDITION_LABELS } from "@/lib/types";
 import { COD_ADVANCE_LABEL } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  other: {
+    "trustpilot-one-time-domain-verification-id": "5dc5a967-3ed5-468d-9cc8-f8777b1f2e0b",
+  },
+};
 
 export default async function HomePage() {
   const storefront = getStorefront();

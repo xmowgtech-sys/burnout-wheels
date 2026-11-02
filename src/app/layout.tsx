@@ -27,6 +27,9 @@ export const metadata: Metadata = {
     locale: "en_IN",
   },
   robots: { index: true, follow: true },
+  other: {
+    "trustpilot-one-time-domain-verification-id": "5dc5a967-3ed5-468d-9cc8-f8777b1f2e0b",
+  },
 };
 
 export const viewport: Viewport = {
