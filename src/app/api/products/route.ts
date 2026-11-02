@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { listProducts, getProductById, createProduct, updateProduct, deleteProduct } from "@/lib/catalog";
 import { requireApiUser, apiErrorResponse } from "@/lib/auth";
 import { normalizeProductInput } from "@/lib/validation";
@@ -26,6 +27,9 @@ export async function POST(req: NextRequest) {
     if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 422 });
     const product = createProduct(parsed.data);
     logActivity(me.email, "product.create", product.slug, product.name);
+    revalidatePath("/admin/products");
+    revalidatePath("/shop");
+    revalidatePath("/");
     return Response.json({ product }, { status: 201 });
   } catch (err) {
     return apiErrorResponse(err);
@@ -44,6 +48,9 @@ export async function PATCH(req: NextRequest) {
     const product = updateProduct(id, parsed.data, me.email);
     if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
     logActivity(me.email, "product.update", product.slug, product.name);
+    revalidatePath("/admin/products");
+    revalidatePath("/shop");
+    revalidatePath("/");
     return Response.json({ product });
   } catch (err) {
     return apiErrorResponse(err);
@@ -61,6 +68,9 @@ export async function DELETE(req: NextRequest) {
     if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
     const res = deleteProduct(id);
     logActivity(me.email, "product.delete", product.slug, product.name);
+    revalidatePath("/admin/products");
+    revalidatePath("/shop");
+    revalidatePath("/");
     return Response.json({ ok: true, mode: res.mode });
   } catch (err) {
     return apiErrorResponse(err);

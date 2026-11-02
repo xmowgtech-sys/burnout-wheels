@@ -27,11 +27,15 @@ export const ROLE_PERMS: Record<Role, readonly Perm[]> = {
   ADMIN: PERMS.filter((p) => p !== "team.manage"),
   STAFF: [
     "products.view",
+    "products.manage",
+    "products.delete",
     "orders.view",
     "orders.manage",
     "customers.view",
+    "discounts.manage",
     "reviews.moderate",
     "chatbot.view",
+    "chatbot.manage",
     "conversations.reply",
   ],
 };

@@ -96,7 +96,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             {order.notes ? (
               <p className="mt-3 border-l-2 border-yellow bg-yellow/5 px-3 py-2 text-[12px] italic text-fog">{order.notes}</p>
             ) : null}
-            <p className="u-label-txt mt-3">Payment {order.paymentMethod} · Delivery {order.shippingMethod}</p>
+            <p className="u-label-txt mt-3">Payment {order.paymentMethod}{order.paymentChannel ? ` · via ${order.paymentChannel}` : ""} · Delivery {order.shippingMethod}</p>
+            {order.shiprocketAwb ? (
+              <p className="mt-2 text-[12px] text-mint">
+                Shiprocket AWB: <strong className="font-mono">{order.shiprocketAwb}</strong>
+              </p>
+            ) : null}
             {order.refundedAt ? <p className="u-label-txt mt-1 text-red!">Refunded {fmtDate(order.refundedAt)}</p> : null}
           </div>
           <OrderActions order={order} />

@@ -9,7 +9,8 @@ import { orderNumber } from "./utils";
 /* ---------------- status flow ---------------- */
 
 export const ORDER_FLOW: Record<OrderStatus, OrderStatus[]> = {
-  PENDING_PAYMENT: ["PAID", "CANCELLED"],
+  PENDING_PAYMENT: ["PAYMENT_REVIEW", "PAID", "CANCELLED"],
+  PAYMENT_REVIEW: ["PAID", "CANCELLED"],
   PAID: ["PACKING", "CANCELLED", "REFUNDED"],
   PACKING: ["SHIPPED", "CANCELLED", "REFUNDED"],
   SHIPPED: ["DELIVERED", "REFUNDED"],
@@ -37,6 +38,7 @@ export interface CheckoutResult {
   total: number;
   status: OrderStatus;
   paymentMethod: string;
+  paymentChannel?: string | null;
 }
 
 export function createOrderFromCheckout(raw: unknown): CheckoutResult {
@@ -123,14 +125,15 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
 
     // 6. Insert order
     const number = orderNumber();
+    const initialStatus: OrderStatus = input.paymentChannel ? "PAYMENT_REVIEW" : "PENDING_PAYMENT";
     const orderRes = run(
       db.prepare(
-        `INSERT INTO orders (number, status, paymentMethod, shippingMethod, email, name, phone, addressLine, city, state,
+        `INSERT INTO orders (number, status, paymentMethod, paymentChannel, shippingMethod, email, name, phone, addressLine, city, state,
           pincode, country, notes, subtotal, discountTotal, discountCode, shippingFee, total, costTotal, feesTotal, profit,
           customerId, placedAt, updatedAt)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       ),
-      number, "PENDING_PAYMENT", input.paymentMethod, input.shippingMethod, input.email, input.name, input.phone || null,
+      number, initialStatus, input.paymentMethod, input.paymentChannel || null, input.shippingMethod, input.email, input.name, input.phone || null,
       input.addressLine, input.city, input.state, input.pincode, input.country || "India", input.notes || null,
       subtotal, discountTotal, discountCodeUsed, shippingFee, total, costTotal, feesTotal, total - costTotal - feesTotal,
       customerId, ts, ts
@@ -181,7 +184,7 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
 
   logActivity(input.email, "order.placed", order.number, `₹${(order.total / 100).toFixed(0)} · ${input.paymentMethod}`);
 
-  return { number: order.number, total: order.total, status: order.status, paymentMethod: order.paymentMethod };
+  return { number: order.number, total: order.total, status: order.status, paymentMethod: order.paymentMethod, paymentChannel: order.paymentChannel };
 }
 
 function safeImages(v: unknown): string[] {
@@ -348,6 +351,49 @@ export function updateTracking(id: number, carrier: string, number: string, acto
   if (carrier || number) {
     logActivity(actor, "order.tracking", order.number, `${carrier} · ${number}`);
   }
+  return adminGetOrder(id)!;
+}
+
+export function updateShiprocket(
+  id: number,
+  data: {
+    shiprocketOrderId?: string | null;
+    shiprocketShipmentId?: string | null;
+    shiprocketAwb?: string | null;
+    shiprocketStatus?: string | null;
+    shiprocketLabelUrl?: string | null;
+    trackingCarrier?: string | null;
+    trackingNumber?: string | null;
+  },
+  actor: string
+): OrderWithRelations {
+  const db = getDb();
+  const order = adminGetOrder(id);
+  if (!order) throw new ApiError(404, "Order not found");
+  const ts = nowIso();
+  db.prepare(
+    `UPDATE orders SET
+      shiprocketOrderId = COALESCE(?, shiprocketOrderId),
+      shiprocketShipmentId = COALESCE(?, shiprocketShipmentId),
+      shiprocketAwb = COALESCE(?, shiprocketAwb),
+      shiprocketStatus = COALESCE(?, shiprocketStatus),
+      shiprocketLabelUrl = COALESCE(?, shiprocketLabelUrl),
+      trackingCarrier = COALESCE(?, trackingCarrier),
+      trackingNumber = COALESCE(?, trackingNumber),
+      updatedAt = ?
+    WHERE id = ?`
+  ).run(
+    data.shiprocketOrderId ?? null,
+    data.shiprocketShipmentId ?? null,
+    data.shiprocketAwb ?? null,
+    data.shiprocketStatus ?? null,
+    data.shiprocketLabelUrl ?? null,
+    data.trackingCarrier || (data.shiprocketAwb ? "Shiprocket" : null),
+    data.trackingNumber || data.shiprocketAwb || null,
+    ts,
+    id
+  );
+  logActivity(actor, "order.shiprocket", order.number, data.shiprocketAwb ? `AWB: ${data.shiprocketAwb}` : "Shiprocket details updated");
   return adminGetOrder(id)!;
 }
 

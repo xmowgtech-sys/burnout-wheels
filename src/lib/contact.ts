@@ -22,8 +22,8 @@ export const CONTACT = {
   whatsappPayment: `https://wa.me/${PHONE_E164}?text=${encodeURIComponent(
     "Hi Burnout Wheels — I need help completing a payment for my order."
   )}`,
-  discord: "https://discord.gg/wwUHm5MaK7",
-  discordLabel: "discord.gg/wwUHm5MaK7",
+  discord: "https://discord.gg/WRZDQEnA2",
+  discordLabel: "discord.gg/WRZDQEnA2",
   email: "theburnoutwheels@gmail.com",
   address: "1-Floor, PP - 370, Greater Mohali, Emaar, Sector - 108, Mohali - 140307, Punjab, India",
 } as const;

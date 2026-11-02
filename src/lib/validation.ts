@@ -27,6 +27,7 @@ export const checkoutSchema = z.object({
   notes: z.string().trim().max(600).optional().or(z.literal("")),
   shippingMethod: z.enum(["STANDARD", "EXPRESS"]),
   paymentMethod: z.enum(["UPI", "COD"]),
+  paymentChannel: z.enum(["DISCORD", "WHATSAPP", "RAZORPAY"]).optional(),
   discountCode: z.string().trim().max(24).optional().or(z.literal("")),
 });
 

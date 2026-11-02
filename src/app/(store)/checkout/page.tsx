@@ -37,6 +37,8 @@ export default function CheckoutPage() {
   const [stage, setStage] = useState<Stage>("cart");
   const [error, setError] = useState("");
   const [shopPay, setShopPay] = useState<{ storeDomain: string; variantIds: number[] } | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
 
   const fmt = (n: number) => fmtUSD(n);
   const subtotal = store.subtotal();
@@ -131,11 +133,19 @@ export default function CheckoutPage() {
       w.__bwRzpLoading.then(() => resolve(w.Razorpay ?? null));
     });
 
-  const placeOrder = async (e: React.FormEvent<HTMLFormElement>) => {
+  const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-    setStage("placing");
     const form = new FormData(e.currentTarget);
+    setPendingFormData(form);
+    setShowPaymentModal(true);
+  };
+
+  const executePlaceOrder = async (channel: "DISCORD" | "WHATSAPP") => {
+    if (!pendingFormData) return;
+    setError("");
+    setStage("placing");
+    const form = pendingFormData;
     const email = String(form.get("email"));
     try {
       const res = await fetch("/api/orders", {
@@ -152,6 +162,7 @@ export default function CheckoutPage() {
           pincode: form.get("pincode"),
           shippingMethod,
           paymentMethod,
+          paymentChannel: channel,
           discountCode: applied?.code ?? "",
           notes: form.get("notes"),
         }),
@@ -165,66 +176,21 @@ export default function CheckoutPage() {
       } catch { /* private mode */ }
       trackFlow("order_placed", { orderNumber });
 
-      // UPI → try the real gateway first; fall back to honest manual UPI confirmation.
-      if (paymentMethod === "UPI") {
-        try {
-          const payRes = await fetch("/api/checkout/pay", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ number: orderNumber }) });
-          const pay = (await payRes.json()) as { gateway?: string; keyId?: string; razorpayOrderId?: string; amount?: number; error?: string };
-          if (payRes.ok && pay.gateway === "razorpay" && pay.razorpayOrderId && pay.keyId) {
-            setStage("paying");
-            const Rzp = await loadRazorpay();
-            if (!Rzp) throw new Error("gateway-unreachable");
-            const rzp = new Rzp({
-              key: pay.keyId,
-              amount: pay.amount,
-              currency: "INR",
-              name: "Burnout Wheels",
-              description: `Order ${orderNumber}`,
-              order_id: pay.razorpayOrderId,
-              prefill: { email, name: String(form.get("name")) ?? "", contact: String(form.get("phone")) ?? "" },
-              theme: { color: "#e10600" },
-              modal: { ondismiss: () => finish(orderNumber, email) },
-              handler: async (resp: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-                try {
-                  const confirm = await fetch("/api/checkout/confirm", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ number: orderNumber, ...resp }) });
-                  const c = (await confirm.json()) as { ok?: boolean; error?: string };
-                  if (!confirm.ok || !c.ok) throw new Error(c.error || "Payment confirmation failed");
-                } catch { /* order stays PENDING_PAYMENT — the truth is shown on the success page */ }
-                finish(orderNumber, email);
-              },
-            } as Record<string, unknown>);
-            rzp.open();
-            return;
-          }
-          // manual gateway (unconfigured/down) → order stays pending; success page explains payment
-          finish(orderNumber, email);
-          return;
-        } catch {
-          finish(orderNumber, email);
-          return;
-        }
-      }
-
-      // COD path — straight to confirmation
       store.clear();
-      router.push(`/checkout/success/${orderNumber}?email=${encodeURIComponent(email)}`);
+      router.push(`/checkout/success/${orderNumber}?email=${encodeURIComponent(email)}&channel=${channel.toLowerCase()}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Order failed");
       setStage("error");
+      setShowPaymentModal(false);
       toast("Order didn't land — check the message", "err");
     }
-  };
-
-  const finish = (number: string, email: string) => {
-    store.clear();
-    router.push(`/checkout/success/${number}?email=${encodeURIComponent(email)}`);
   };
 
   return (
     <>
       <PageHero label="Checkout" title="Settle the order" sub={`Stock reserves the second this lands. No card storage — UPI, COD with a ${COD_ADVANCE_LABEL} online advance, or PayPal arranged live with a human.`} />
       <div className="mx-auto grid max-w-7xl gap-12 px-4 py-12 md:px-8 lg:grid-cols-[1fr_420px]">
-        <form onSubmit={placeOrder} className="flex flex-col gap-10" noValidate={false}>
+        <form onSubmit={onFormSubmit} className="flex flex-col gap-10" noValidate={false}>
           {/* express checkout — Shop Pay (only when the whole cart is Shopify-connected) */}
           {shopPay && (
             <div className="u-card p-5">
@@ -439,6 +405,88 @@ export default function CheckoutPage() {
           <p className="u-label mt-4 flex items-center gap-2"><ShoppingBag className="size-3.5 text-red" aria-hidden /> Items reserved at placement</p>
         </aside>
       </div>
+
+      {/* WHERE TO PAY SELECTION MODAL */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/85 p-4 backdrop-blur-md anim-fade" role="dialog" aria-modal="true" aria-label="Select payment method">
+          <div className="u-card relative w-full max-w-lg border border-line bg-panel p-6 sm:p-8 anim-rise">
+            <button
+              type="button"
+              onClick={() => setShowPaymentModal(false)}
+              className="absolute right-4 top-4 text-dim hover:text-white text-base"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            <p className="u-label text-red">Payment Channel</p>
+            <h2 className="u-h2 mt-1 text-2xl font-bold">Where would you like to pay?</h2>
+            <p className="mt-2 text-xs text-fog leading-relaxed">
+              Stock reserves immediately once placed. Choose your payment method below:
+            </p>
+
+            <div className="mt-6 flex flex-col gap-4">
+              {/* Discord Option */}
+              <button
+                type="button"
+                onClick={() => executePlaceOrder("DISCORD")}
+                disabled={stage === "placing"}
+                className="u-card group relative flex flex-col items-start gap-2 border-2 border-red/40 bg-red/[0.04] p-5 text-left transition-all hover:border-red hover:bg-red/[0.08]"
+              >
+                <div className="flex w-full items-center justify-between">
+                  <span className="text-base font-bold text-bone">
+                    Pay on Discord
+                  </span>
+                  <span className="u-badge bg-red text-white text-[10px] font-bold">
+                    MOST POPULAR
+                  </span>
+                </div>
+                <p className="text-[12.5px] text-fog leading-relaxed">
+                  Drops you into our Discord server. Drop your order number inside the <strong className="text-white">#billing</strong> channel and scan the QR code to complete payment. A real agent verifies and accepts your order (up to 24h).
+                </p>
+                <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-red group-hover:translate-x-1 transition-transform">
+                  <span>Continue with Discord #billing</span>
+                  <span>→</span>
+                </div>
+              </button>
+
+              {/* WhatsApp Option */}
+              <button
+                type="button"
+                onClick={() => executePlaceOrder("WHATSAPP")}
+                disabled={stage === "placing"}
+                className="u-card group relative flex flex-col items-start gap-2 border border-line bg-surface p-5 text-left transition-all hover:border-mint hover:bg-mint/[0.04]"
+              >
+                <div className="flex w-full items-center justify-between">
+                  <span className="text-base font-bold text-bone">
+                    Pay on WhatsApp
+                  </span>
+                  <span className="u-badge border-mint text-mint text-[10px] font-bold">
+                    DIRECT CHAT
+                  </span>
+                </div>
+                <p className="text-[12.5px] text-fog leading-relaxed">
+                  Send a message quoting your order number. Our agent will send you the QR code for payment. Once confirmed, we accept and dispatch via <strong className="text-white">Shiprocket</strong>.
+                </p>
+                <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-mint group-hover:translate-x-1 transition-transform">
+                  <span>Continue with WhatsApp</span>
+                  <span>→</span>
+                </div>
+              </button>
+            </div>
+
+            {stage === "placing" && (
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-yellow">
+                <span className="size-3 animate-spin rounded-full border-2 border-line border-t-yellow" />
+                <span>Reserving stock &amp; creating order…</span>
+              </div>
+            )}
+
+            <p className="mt-6 border-t border-line pt-4 text-[11px] text-dim leading-relaxed">
+              Fulfilment: All verified orders are accepted inside our panel and dispatched pan-India through <strong>Shiprocket</strong> with doorstep tracking.
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 }

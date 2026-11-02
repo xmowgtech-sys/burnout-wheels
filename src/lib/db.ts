@@ -110,6 +110,9 @@ export function migrate(db: DatabaseSync): void {
       number TEXT NOT NULL UNIQUE,
       status TEXT NOT NULL DEFAULT 'PENDING_PAYMENT',
       paymentMethod TEXT NOT NULL DEFAULT 'UPI',
+      paymentChannel TEXT,
+      paymentReference TEXT,
+      paymentClaimedAt TEXT,
       shippingMethod TEXT NOT NULL DEFAULT 'STANDARD',
       email TEXT NOT NULL,
       name TEXT NOT NULL,
@@ -130,6 +133,11 @@ export function migrate(db: DatabaseSync): void {
       profit REAL NOT NULL DEFAULT 0,
       trackingCarrier TEXT,
       trackingNumber TEXT,
+      shiprocketOrderId TEXT,
+      shiprocketShipmentId TEXT,
+      shiprocketAwb TEXT,
+      shiprocketStatus TEXT,
+      shiprocketLabelUrl TEXT,
       refundedAt TEXT,
       customerId INTEGER,
       placedAt TEXT NOT NULL,
@@ -298,6 +306,14 @@ export function migrate(db: DatabaseSync): void {
   `);
 
   ensureColumn(db, "orders", "source", "source TEXT NOT NULL DEFAULT 'LOCAL'");
+  ensureColumn(db, "orders", "paymentChannel", "paymentChannel TEXT");
+  ensureColumn(db, "orders", "paymentReference", "paymentReference TEXT");
+  ensureColumn(db, "orders", "paymentClaimedAt", "paymentClaimedAt TEXT");
+  ensureColumn(db, "orders", "shiprocketOrderId", "shiprocketOrderId TEXT");
+  ensureColumn(db, "orders", "shiprocketShipmentId", "shiprocketShipmentId TEXT");
+  ensureColumn(db, "orders", "shiprocketAwb", "shiprocketAwb TEXT");
+  ensureColumn(db, "orders", "shiprocketStatus", "shiprocketStatus TEXT");
+  ensureColumn(db, "orders", "shiprocketLabelUrl", "shiprocketLabelUrl TEXT");
   ensureColumn(db, "products", "source", "source TEXT NOT NULL DEFAULT 'LOCAL'");
   // Storefront framing controls — some photos are wide banners, some are tall box shots.
   ensureColumn(db, "products", "imageFit", "imageFit TEXT NOT NULL DEFAULT 'cover'");

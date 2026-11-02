@@ -34,7 +34,7 @@ const toPayload = (product: Product, status: Product["status"]) => ({
   dropAt: product.dropAt ?? "",
 });
 
-export function ProductRowActions({ product }: { product: Product }) {
+export function ProductRowActions({ product, onDeleted }: { product: Product; onDeleted?: (id: number) => void }) {
   const router = useRouter();
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -47,9 +47,13 @@ export function ProductRowActions({ product }: { product: Product }) {
       const res = await fetch(`/api/products?id=${product.id}`, { method: "DELETE" });
       const data = (await res.json().catch(() => ({}))) as { error?: string; mode?: string };
       if (!res.ok) throw new Error(data.error || `Delete failed (${res.status})`);
+      setConfirm(false);
+      onDeleted?.(product.id);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed");
+      const msg = err instanceof Error ? err.message : "Delete failed";
+      setError(msg);
+      alert(`Could not delete product: ${msg}`);
     } finally {
       setBusy(false);
     }
@@ -77,14 +81,14 @@ export function ProductRowActions({ product }: { product: Product }) {
       <button onClick={toggleStatus} disabled={busy} className="u-btn u-btn-ghost px-2! py-2!" aria-label={product.status === "ACTIVE" ? "Unlist product" : "Publish product"}>
         {product.status === "ACTIVE" ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
       </button>
-      <button onClick={() => setConfirm(true)} className="u-btn u-btn-danger px-2! py-2!" aria-label={`Delete ${product.name}`}><Trash2 className="size-3.5" /></button>
+      <button onClick={() => setConfirm(true)} disabled={busy} className="u-btn u-btn-danger px-2! py-2!" aria-label={`Delete ${product.name}`}><Trash2 className="size-3.5" /></button>
       <ConfirmDialog
         open={confirm}
         onClose={() => { setConfirm(false); setBusy(false); }}
         onConfirm={del}
         title={`Remove “${product.name}”?`}
         body="The listing is deleted permanently. Past orders keep their item snapshot, so finance history stays intact."
-        confirmLabel="Delete"
+        confirmLabel={busy ? "Deleting…" : "Delete"}
         danger
       />
       {error && <p role="alert" className="u-label-txt text-red!">{error}</p>}
@@ -93,9 +97,22 @@ export function ProductRowActions({ product }: { product: Product }) {
 }
 
 export function ProductsGrid({ products }: { products: Product[] }) {
+  const [items, setItems] = useState<Product[]>(products);
+
+  // Sync with incoming server props when filters change
+  const [prevProps, setPrevProps] = useState(products);
+  if (products !== prevProps) {
+    setPrevProps(products);
+    setItems(products);
+  }
+
+  const handleDeleted = (id: number) => {
+    setItems((current) => current.filter((p) => p.id !== id));
+  };
+
   return (
     <div className="grid content-start gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-      {products.map((p) => {
+      {items.map((p) => {
         const margin = p.priceSale > 0 ? Math.round(((p.priceSale - p.priceCost - Math.round((p.priceSale * p.feePercent) / 100)) / p.priceSale) * 100) : 0;
         return (
           <article key={p.id} className="u-card overflow-hidden">
@@ -115,7 +132,7 @@ export function ProductsGrid({ products }: { products: Product[] }) {
                   {margin >= 0 ? margin : 0}% margin · {p.stock} on shelf
                 </p>
               </div>
-              <div className="mt-4 flow-item"><ProductRowActions product={p} /></div>
+              <div className="mt-4 flow-item"><ProductRowActions product={p} onDeleted={handleDeleted} /></div>
             </div>
           </article>
         );

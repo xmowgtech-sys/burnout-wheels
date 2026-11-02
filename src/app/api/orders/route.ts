@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
-import { adminListOrders, adminGetOrder, createOrderFromCheckout, updateOrderStatus, updateTracking, type StatusUpdate } from "@/lib/orders";
+import { revalidatePath } from "next/cache";
+import { adminListOrders, adminGetOrder, createOrderFromCheckout, updateOrderStatus, updateTracking, updateShiprocket, type StatusUpdate } from "@/lib/orders";
 import { requireApiUser, apiErrorResponse, rateLimit, ipOf } from "@/lib/auth";
 import type { OrderStatus } from "@/lib/types";
 
@@ -41,14 +42,32 @@ export async function PATCH(req: NextRequest) {
     const me = await requireApiUser("orders.manage");
     const id = Number(req.nextUrl.searchParams.get("id"));
     if (!id) return Response.json({ error: "id required" }, { status: 400 });
-    const body = (await req.json()) as Partial<StatusUpdate> & { trackingCarrier?: string; trackingNumber?: string };
+    const body = (await req.json()) as Partial<StatusUpdate> & {
+      trackingCarrier?: string;
+      trackingNumber?: string;
+      shiprocketOrderId?: string;
+      shiprocketShipmentId?: string;
+      shiprocketAwb?: string;
+      shiprocketStatus?: string;
+      shiprocketLabelUrl?: string;
+    };
 
     if (body.to) {
       const order = updateOrderStatus(id, { to: body.to as OrderStatus, note: body.note, actor: me.email, trackingCarrier: body.trackingCarrier ?? undefined, trackingNumber: body.trackingNumber ?? undefined });
+      revalidatePath(`/admin/orders`);
+      revalidatePath(`/admin/orders/${id}`);
+      return Response.json({ order });
+    }
+    if (body.shiprocketAwb !== undefined || body.shiprocketOrderId !== undefined || body.shiprocketStatus !== undefined || body.shiprocketLabelUrl !== undefined) {
+      const order = updateShiprocket(id, body, me.email);
+      revalidatePath(`/admin/orders`);
+      revalidatePath(`/admin/orders/${id}`);
       return Response.json({ order });
     }
     if (body.trackingCarrier !== undefined || body.trackingNumber !== undefined) {
       const order = updateTracking(id, body.trackingCarrier ?? "", body.trackingNumber ?? "", me.email);
+      revalidatePath(`/admin/orders`);
+      revalidatePath(`/admin/orders/${id}`);
       return Response.json({ order });
     }
     return Response.json({ error: "Nothing to update" }, { status: 422 });

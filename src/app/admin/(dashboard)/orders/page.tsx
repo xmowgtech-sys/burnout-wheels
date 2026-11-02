@@ -9,6 +9,7 @@ export const metadata = { title: "Orders · Pit wall", robots: { index: false } 
 const FILTERS: { key: string; label: string }[] = [
   { key: "", label: "All" },
   { key: "PENDING_PAYMENT", label: "Awaiting payment" },
+  { key: "PAYMENT_REVIEW", label: "Payment review" },
   { key: "PAID", label: "Paid" },
   { key: "PACKING", label: "Packing" },
   { key: "SHIPPED", label: "Shipped" },

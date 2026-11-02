@@ -9,7 +9,8 @@ import { ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/types";
 
 const STATUS_TONE: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "border-yellow text-yellow",
-  PAID: "border-sky text-sky",
+  PAYMENT_REVIEW: "border-sky text-sky",
+  PAID: "border-mint text-mint",
   PACKING: "border-purple text-purple",
   SHIPPED: "border-orange text-orange",
   DELIVERED: "border-mint text-mint",

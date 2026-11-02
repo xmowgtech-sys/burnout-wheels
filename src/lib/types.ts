@@ -41,8 +41,11 @@ export interface Product {
   updatedAt: string;
 }
 
+export type PaymentChannel = "DISCORD" | "WHATSAPP" | "RAZORPAY";
+
 export type OrderStatus =
   | "PENDING_PAYMENT"
+  | "PAYMENT_REVIEW"
   | "PAID"
   | "PACKING"
   | "SHIPPED"
@@ -52,6 +55,7 @@ export type OrderStatus =
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "Awaiting payment",
+  PAYMENT_REVIEW: "Payment in review",
   PAID: "Paid",
   PACKING: "Packing",
   SHIPPED: "Shipped",
@@ -67,6 +71,9 @@ export interface Order {
   number: string;
   status: OrderStatus;
   paymentMethod: "UPI" | "COD";
+  paymentChannel: PaymentChannel | null;
+  paymentReference: string | null;
+  paymentClaimedAt: string | null;
   shippingMethod: "STANDARD" | "EXPRESS";
   email: string;
   name: string;
@@ -87,6 +94,11 @@ export interface Order {
   profit: number;
   trackingCarrier: string | null;
   trackingNumber: string | null;
+  shiprocketOrderId: string | null;
+  shiprocketShipmentId: string | null;
+  shiprocketAwb: string | null;
+  shiprocketStatus: string | null;
+  shiprocketLabelUrl: string | null;
   refundedAt: string | null;
   customerId: number | null;
   source?: string; // LOCAL | SHOPIFY
