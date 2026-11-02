@@ -98,6 +98,7 @@ export default function CheckoutPage() {
   // Order confirmation modal
   const [placedOrder, setPlacedOrder] = useState<PlacedOrderState | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [upiCopied, setUpiCopied] = useState(false);
   const [pendingFormSubmit, setPendingFormSubmit] = useState(false);
 
   // Storage hydration fallback so cart is never lost on navigation/refresh
@@ -392,7 +393,7 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          items: activeLines.map((l) => ({ productId: l.productId, qty: l.qty })),
+          items: activeLines.map((l) => ({ productId: l.productId, slug: l.slug, qty: l.qty })),
           name: customerName,
           email: email.trim(),
           phone: phone.trim(),
@@ -465,6 +466,14 @@ export default function CheckoutPage() {
         window.sessionStorage.setItem("bw:lastOrder", JSON.stringify(orderSummary));
         window.sessionStorage.setItem("bw:orderPlaced", orderNumber);
         window.sessionStorage.removeItem("bw:cartAbandonedNoted");
+
+        // Save order to persistent customer orders list in localStorage
+        const existingRaw = window.localStorage.getItem("bw:customerOrders");
+        const list = existingRaw ? JSON.parse(existingRaw) : [];
+        if (!Array.isArray(list) || !list.some((x: { number: string }) => x.number === orderNumber)) {
+          const updated = Array.isArray(list) ? [orderSummary, ...list] : [orderSummary];
+          window.localStorage.setItem("bw:customerOrders", JSON.stringify(updated.slice(0, 50)));
+        }
       } catch {
         /* private mode */
       }
@@ -1227,6 +1236,39 @@ export default function CheckoutPage() {
                   </span>
                 </li>
               </ol>
+            </div>
+
+            {/* Fast Navi UPI QR Code Section */}
+            <div className="mt-5 rounded border border-line bg-surface p-4 text-center">
+              <p className="u-label text-mint flex items-center justify-center gap-1.5 font-bold">
+                ⚡ Fast Payment — Scan Navi UPI QR Code
+              </p>
+              <div className="mt-3 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <div className="rounded border border-line bg-white p-2 shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/images/upi-qr.png" alt="Navi UPI QR Code - Amanjot Singh" className="size-40 object-contain" />
+                </div>
+                <div className="text-left text-xs text-fog flex flex-col gap-1.5 min-w-0">
+                  <p>Payee: <strong className="text-white">AMANJOT SINGH</strong></p>
+                  <p>Bank: <span className="text-bone">Navi Axis Bank</span></p>
+                  <p>Amount: <strong className="text-mint text-sm">₹{Math.round(placedOrder.total / 100).toLocaleString("en-IN")}</strong></p>
+                  <div className="mt-1 flex items-center gap-2 rounded border border-line bg-ink px-2.5 py-1.5 font-mono text-white text-[12px]">
+                    <span className="truncate">7889079186@naviaxis</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText("7889079186@naviaxis");
+                        setUpiCopied(true);
+                        setTimeout(() => setUpiCopied(false), 2500);
+                      }}
+                      className="text-red hover:underline shrink-0 text-[11px] font-bold ml-auto"
+                    >
+                      {upiCopied ? "Copied ✓" : "Copy UPI"}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-dim mt-0.5">Pay using GPay, PhonePe, Paytm, or Navi UPI app.</p>
+                </div>
+              </div>
             </div>
 
             {/* Direct Action Buttons: Discord and WhatsApp */}

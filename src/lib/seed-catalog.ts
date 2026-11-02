@@ -47,8 +47,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     priceSale: 199900,
     priceCost: 89900,
     feePercent: 2,
-    stock: 1,
-    lowStockThreshold: 1,
+    stock: 100,
+    lowStockThreshold: 5,
     status: "ACTIVE",
     featured: 1,
     dropAt: null

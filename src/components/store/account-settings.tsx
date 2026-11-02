@@ -50,6 +50,66 @@ export function AccountSettings({ account, orders }: Props) {
 
   const [activeTab, setActiveTab] = useState<"profile" | "addresses" | "billing" | "orders" | "cart" | "track">("profile");
 
+  // Orders State (synced from server props + client storage fallback)
+  const [customerOrders, setCustomerOrders] = useState<OrderWithRelations[]>(orders);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("bw:customerOrders");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const userEmail = account.email.trim().toLowerCase();
+          const localMatching = parsed.filter(
+            (o: { email?: string; number?: string }) =>
+              o.number && (!o.email || o.email.trim().toLowerCase() === userEmail)
+          );
+          if (localMatching.length > 0) {
+            setCustomerOrders((prev) => {
+              const prevNumbers = new Set(prev.map((o) => o.number.toUpperCase()));
+              const toAdd: OrderWithRelations[] = [];
+              for (const lo of localMatching) {
+                if (!prevNumbers.has(lo.number.toUpperCase())) {
+                  toAdd.push({
+                    id: Math.floor(Math.random() * 1000000) + 1000,
+                    number: lo.number.toUpperCase(),
+                    status: lo.status || "PAYMENT_REVIEW",
+                    paymentMethod: lo.paymentMethod || "UPI",
+                    paymentChannel: lo.paymentChannel || "DISCORD",
+                    shippingMethod: lo.shippingMethod || "STANDARD",
+                    email: lo.email || account.email,
+                    name: lo.name || account.name || "Racer",
+                    phone: lo.phone || null,
+                    addressLine: lo.addressLine || "",
+                    city: lo.city || "",
+                    state: lo.state || "",
+                    pincode: lo.pincode || "",
+                    country: lo.country || "India",
+                    subtotal: lo.subtotal || lo.total || 0,
+                    discountTotal: lo.discountTotal || 0,
+                    shippingFee: lo.shippingFee || 0,
+                    total: lo.total || 0,
+                    costTotal: 0,
+                    feesTotal: 0,
+                    profit: 0,
+                    source: "LOCAL",
+                    placedAt: lo.placedAt || new Date().toISOString(),
+                    updatedAt: lo.placedAt || new Date().toISOString(),
+                    items: lo.items || [],
+                    events: [],
+                  } as unknown as OrderWithRelations);
+                }
+              }
+              return toAdd.length > 0 ? [...toAdd, ...prev] : prev;
+            });
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [account.email, account.name]);
+
   // Profile State
   const [name, setName] = useState(account.name);
   const [phone, setPhone] = useState(account.phone);
@@ -300,7 +360,7 @@ export function AccountSettings({ account, orders }: Props) {
         {[
           { id: "profile", label: "Profile", icon: User },
           { id: "addresses", label: `Saved Addresses (${addresses.length})`, icon: MapPin },
-          { id: "orders", label: `Orders (${orders.length})`, icon: Package },
+          { id: "orders", label: `Orders (${customerOrders.length})`, icon: Package },
           { id: "cart", label: `Cart (${store.count()})`, icon: ShoppingBag },
           { id: "billing", label: "Billing Details", icon: CreditCard },
           { id: "track", label: "Track Order", icon: Truck },
@@ -709,7 +769,7 @@ export function AccountSettings({ account, orders }: Props) {
             </Link>
           </div>
 
-          {orders.length === 0 ? (
+          {customerOrders.length === 0 ? (
             <div className="u-card p-10 text-center">
               <Package className="mx-auto size-8 text-dim mb-3" />
               <p className="text-sm font-semibold text-bone">No orders yet</p>
@@ -720,7 +780,7 @@ export function AccountSettings({ account, orders }: Props) {
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              {orders.map((o) => (
+              {customerOrders.map((o) => (
                 <article key={o.id} className="u-card p-5 border border-line bg-panel">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3.5">
                     <div>
@@ -898,26 +958,52 @@ export function AccountSettings({ account, orders }: Props) {
             <Truck className="size-5 text-red" /> Live Order Tracking
           </h2>
           <p className="mt-1 text-xs text-fog">
-            Enter your Burnout Wheels Order Number (e.g. <span className="u-mono text-bone">BW-XXXXXX-XX</span>) to retrieve real-time fulfillment and Shiprocket courier tracking.
+            All order tracking and live fulfillment updates are handled directly on our Discord server. Share your Order Number with the crew for real-time dispatch and Shiprocket courier telemetry.
           </p>
 
-          <form onSubmit={handleTrackOrder} className="mt-5 flex gap-2">
-            <input
-              value={trackNumber}
-              onChange={(e) => setTrackNumber(e.target.value)}
-              placeholder="e.g. BW-Z8NNPV-P7"
-              className="u-input u-mono uppercase text-sm"
-              required
-            />
-            <button
-              type="submit"
-              disabled={trackLoading}
-              className="u-btn u-btn-primary px-5! text-xs font-bold flex items-center gap-1.5 shrink-0"
+          {/* Discord Direct Tracking Box */}
+          <div className="mt-5 rounded border border-red/40 bg-red/[0.06] p-5">
+            <div className="flex items-center justify-between">
+              <span className="u-badge bg-red text-white text-[10px] font-bold">OFFICIAL DISCORD TELEMETRY</span>
+              <span className="text-xs text-mint font-bold">24/7 Crew Support</span>
+            </div>
+            <p className="mt-3 text-sm font-bold text-bone">
+              Track Your Order on Discord (#billing / #tracking)
+            </p>
+            <p className="mt-1.5 text-xs text-fog leading-relaxed">
+              Drop your order number in our server to get real-time tracking from our dispatch agents.
+            </p>
+            <a
+              href="https://discord.gg/WRZDQEnA2"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="u-btn u-btn-primary mt-4 flex items-center justify-center gap-2 text-xs font-bold w-full sm:w-auto"
             >
-              <Search className="size-3.5" />
-              <span>{trackLoading ? "Searching…" : "Track"}</span>
-            </button>
-          </form>
+              <span>Open Discord Tracking (discord.gg/WRZDQEnA2)</span>
+              <ExternalLink className="size-3.5" />
+            </a>
+          </div>
+
+          <div className="mt-6 border-t border-line pt-5">
+            <p className="u-label text-dim">Quick Look by Order Number:</p>
+            <form onSubmit={handleTrackOrder} className="mt-2.5 flex gap-2">
+              <input
+                value={trackNumber}
+                onChange={(e) => setTrackNumber(e.target.value)}
+                placeholder="e.g. BW-Z8NNPV-P7"
+                className="u-input u-mono uppercase text-sm"
+                required
+              />
+              <button
+                type="submit"
+                disabled={trackLoading}
+                className="u-btn u-btn-primary px-5! text-xs font-bold flex items-center gap-1.5 shrink-0"
+              >
+                <Search className="size-3.5" />
+                <span>{trackLoading ? "Searching…" : "Track"}</span>
+              </button>
+            </form>
+          </div>
 
           {trackResult && trackResult.order && (
             <div className="mt-6 rounded border border-line bg-surface p-4">

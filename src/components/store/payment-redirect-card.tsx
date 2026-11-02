@@ -68,7 +68,7 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
   };
 
   const copyUpiId = () => {
-    navigator.clipboard.writeText("theburnoutwheels@okhdfcbank");
+    navigator.clipboard.writeText("7889079186@naviaxis");
     setUpiCopied(true);
     setTimeout(() => setUpiCopied(false), 2500);
   };
@@ -89,9 +89,7 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
     }
   }, [order.number]);
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-    `upi://pay?pa=theburnoutwheels@okhdfcbank&pn=Burnout%20Wheels&am=${totalInRupees}&cu=INR&tn=${order.number}`
-  )}`;
+  const qrUrl = `/images/upi-qr.png`;
 
   return (
     <div className="mt-8 border border-line bg-panel p-6 md:p-8">
@@ -221,14 +219,16 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-5">
               <div className="rounded border border-line bg-white p-2">
-                <img src={qrUrl} alt="UPI Payment QR Code" className="size-36 md:size-44" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={qrUrl} alt="Navi UPI QR Code - Amanjot Singh" className="size-48 md:size-56 object-contain" />
               </div>
               <div className="flex flex-col gap-2 text-xs text-fog">
-                <p>Scan with Google Pay, PhonePe, Paytm, or BHIM.</p>
+                <p>Payee: <strong className="text-white">AMANJOT SINGH</strong> (Navi Axis Bank)</p>
+                <p>Scan with Google Pay, PhonePe, Paytm, or Navi.</p>
                 <div className="flex items-center gap-2 rounded border border-line bg-ink px-3 py-2 font-mono text-white">
-                  <span>theburnoutwheels@okhdfcbank</span>
+                  <span>7889079186@naviaxis</span>
                   <button type="button" onClick={copyUpiId} className="text-red hover:underline text-[11px] ml-1">
-                    {upiCopied ? "Copied" : "Copy UPI"}
+                    {upiCopied ? "Copied ✓" : "Copy UPI"}
                   </button>
                 </div>
                 <p className="text-[11px] text-dim">Include order number <strong className="text-bone">{order.number}</strong> in the payment note.</p>
@@ -283,14 +283,16 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-5">
               <div className="rounded border border-line bg-white p-2">
-                <img src={qrUrl} alt="UPI Payment QR Code" className="size-36 md:size-44" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={qrUrl} alt="Navi UPI QR Code - Amanjot Singh" className="size-48 md:size-56 object-contain" />
               </div>
               <div className="flex flex-col gap-2 text-xs text-fog">
+                <p>Payee: <strong className="text-white">AMANJOT SINGH</strong> (Navi Axis Bank)</p>
                 <p>Scan with any UPI app, pay <strong className="text-bone">₹{totalInRupees}</strong>, and send screenshot to WhatsApp.</p>
                 <div className="flex items-center gap-2 rounded border border-line bg-ink px-3 py-2 font-mono text-white">
-                  <span>theburnoutwheels@okhdfcbank</span>
+                  <span>7889079186@naviaxis</span>
                   <button type="button" onClick={copyUpiId} className="text-mint hover:underline text-[11px] ml-1">
-                    {upiCopied ? "Copied" : "Copy UPI"}
+                    {upiCopied ? "Copied ✓" : "Copy UPI"}
                   </button>
                 </div>
               </div>

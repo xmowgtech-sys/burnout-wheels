@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Copy } from "lucide-react";
@@ -199,11 +199,48 @@ export function OrdersTable({ orders }: { orders: OrderWithRelations[] }) {
     setItems(orders);
   }
 
+  // Automatic real-time telemetry polling every 6 seconds so incoming orders appear instantly
+  useEffect(() => {
+    let active = true;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/orders");
+        if (res.ok && active) {
+          const data = (await res.json()) as { orders?: OrderWithRelations[] };
+          if (Array.isArray(data.orders)) {
+            setItems(data.orders);
+          }
+        }
+      } catch {
+        /* ignore network jitter */
+      }
+    };
+    const timer = setInterval(poll, 6000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
+
   const handleStatusChange = (orderId: number, nextStatus: OrderStatus) => {
     setItems((current) =>
       current.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
     );
   };
+
+  if (items.length === 0) {
+    return (
+      <div className="u-card px-6 py-12 text-center flex flex-col items-center justify-center gap-2.5">
+        <span className="flex items-center gap-2 text-xs text-fog">
+          <span className="size-2 rounded-full bg-mint animate-pulse" /> Live Telemetry Listening
+        </span>
+        <p className="u-label-txt text-bone font-semibold">Nothing at this filter.</p>
+        <p className="text-xs text-dim max-w-sm">
+          New orders appear automatically the second customer checkout lands. You can also manually intake or recover an order using the card above.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

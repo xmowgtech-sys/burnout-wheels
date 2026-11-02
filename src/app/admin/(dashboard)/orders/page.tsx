@@ -80,11 +80,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
 
       <p className="u-label-txt">{orders.length} orders shown</p>
 
-      {orders.length === 0 ? (
-        <p className="u-card px-6 py-12 text-center u-label-txt">Nothing at this filter. New orders surface the second checkout lands.</p>
-      ) : (
-        <OrdersTable orders={orders} />
-      )}
+      <OrdersTable orders={orders} />
     </div>
   );
 }

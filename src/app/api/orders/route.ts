@@ -30,6 +30,10 @@ export async function POST(req: NextRequest) {
     }
     const body = await req.json();
     const result = createOrderFromCheckout(body);
+    revalidatePath("/admin/orders");
+    revalidatePath("/account");
+    revalidatePath("/shop");
+    revalidatePath("/");
     return Response.json(result, { status: 201 });
   } catch (err) {
     return apiErrorResponse(err);
