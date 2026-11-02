@@ -56,30 +56,12 @@ export default function ShippingPage() {
         <SectionHead index="03" title={`COD security advance — ${COD_ADVANCE_LABEL} online`} />
         <div className="u-card mt-8 p-6">
           <p className="text-[14px] leading-relaxed text-fog">
-            A COD order is packed only after a <strong className="text-bone">{COD_ADVANCE_LABEL} online advance</strong>{" "}
-            lands. It is part of your order total, not an extra fee — the remaining balance is paid to the courier at
-            the door. Pay the advance live with a human on WhatsApp or Discord (UPI or PayPal), quoting your order
-            number. This protects both sides: we do not pack a parcel that gets refused, and you do not pay the full
-            amount before the piece is in your hands.
+            A Cash on Delivery (COD) order is packed and dispatched only after a <strong className="text-bone">{COD_ADVANCE_LABEL} online security advance</strong>{" "}
+            lands. This advance is deducted directly from your order total — it is not an extra fee. The remaining balance is paid directly to the courier partner upon doorstep delivery.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <a
-              href={PAYMENT_HELP.whatsappCod}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="u-btn u-btn-primary px-3! py-2! text-[11px]!"
-            >
-              Pay advance on WhatsApp
-            </a>
-            <a
-              href={PAYMENT_HELP.discord}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="u-btn u-btn-ghost px-3! py-2! text-[11px]!"
-            >
-              Discord
-            </a>
-          </div>
+          <p className="mt-3 text-[13px] leading-relaxed text-dim">
+            The online advance secures your shipping allocation through Shiprocket and protects against unverified dispatches. You will receive your direct payment options immediately upon placing your order.
+          </p>
         </div>
 
         <div className="mt-12 flex gap-3">

@@ -337,11 +337,11 @@ function CartDrawer() {
                 <span className="u-label">Subtotal</span>
                 <span className="u-mono text-lg font-semibold">{fmt(subtotal())}</span>
               </div>
-              <Link href="/checkout" onClick={closeCart} className="u-btn u-btn-primary mt-4 w-full">
-                Checkout
+              <Link href="/checkout" onClick={closeCart} className="u-btn u-btn-primary mt-4 w-full flex items-center justify-center gap-2 text-sm font-bold">
+                <span>Proceed to Checkout</span>
               </Link>
-              <Link href="/shop" onClick={closeCart} className="u-btn u-btn-ghost mt-2 w-full">
-                Keep browsing
+              <Link href="/cart" onClick={closeCart} className="u-btn u-btn-ghost mt-2 w-full text-xs">
+                View full cart
               </Link>
               <p className="u-label-txt mt-3">
                 COD needs a {COD_ADVANCE_LABEL} online advance before packing — adjusted against your total.

@@ -2,15 +2,28 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ShoppingBag, Tag, Lock, Zap, Copy, Check, ShieldCheck, UserCheck, Sparkles, LogIn, ArrowRight } from "lucide-react";
+import {
+  ShoppingBag,
+  Tag,
+  Lock,
+  Zap,
+  Copy,
+  Check,
+  ShieldCheck,
+  UserCheck,
+  Plus,
+  MapPin,
+  CheckCircle2,
+} from "lucide-react";
 import { PageHero, EmptyState } from "@/components/ui";
 import { useStore, useToast } from "@/components/store/providers";
 import { ShopPayButton } from "@/components/store/shop-pay-button";
 import { trackFlow } from "@/components/store/site-monitor";
 import { fmtUSD } from "@/lib/money";
 import { COD_ADVANCE_LABEL, COD_ADVANCE_PAISE, PAYMENT_HELP, codBalance } from "@/lib/payments";
+import type { CustomerAddress } from "@/lib/addresses";
 
 type Stage = "cart" | "details" | "placing" | "paying" | "error";
 
@@ -44,8 +57,34 @@ export default function CheckoutPage() {
   // Authentication & customer identity
   const [customer, setCustomer] = useState<{
     authenticated: boolean;
-    account?: { id: number; email: string; name?: string | null; picture?: string | null };
+    account?: { id: number; email: string; name?: string | null; phone?: string | null; picture?: string | null };
   } | null>(null);
+
+  // Saved addresses
+  const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | "new">("new");
+  const [saveAddressToAccount, setSaveAddressToAccount] = useState(true);
+
+  // Form fields
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [addressLine, setAddressLine] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [notes, setNotes] = useState("");
+
+  // Billing address separation
+  const [sameAsShipping, setSameAsShipping] = useState(true);
+  const [billingName, setBillingName] = useState("");
+  const [billingAddress, setBillingAddress] = useState("");
+  const [billingCity, setBillingCity] = useState("");
+  const [billingState, setBillingState] = useState("");
+  const [billingPincode, setBillingPincode] = useState("");
+
+  // COD acknowledgment checkbox
+  const [codAcknowledged, setCodAcknowledged] = useState(false);
 
   // Identity prompt modal
   const [showIdentityModal, setShowIdentityModal] = useState(false);
@@ -59,7 +98,7 @@ export default function CheckoutPage() {
   // Order confirmation modal
   const [placedOrder, setPlacedOrder] = useState<PlacedOrderState | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
+  const [pendingFormSubmit, setPendingFormSubmit] = useState(false);
 
   const fmt = (n: number) => fmtUSD(n);
   const subtotal = store.subtotal();
@@ -67,46 +106,69 @@ export default function CheckoutPage() {
   const shippingFee = subtotal - discount >= 249900 ? 0 : shippingMethod === "EXPRESS" ? 19900 : 9900;
   const total = subtotal - discount + shippingFee;
 
-  // Check login status on mount
+  // Check login status on mount & fetch saved addresses
   useEffect(() => {
     fetch("/api/auth/account")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) setCustomer(data);
+        if (data && data.authenticated) {
+          setCustomer(data);
+          if (data.account) {
+            if (data.account.name) setName(data.account.name);
+            if (data.account.email) setEmail(data.account.email);
+            if (data.account.phone) setPhone(data.account.phone);
+          }
+
+          // Fetch saved addresses
+          fetch("/api/account/addresses")
+            .then((r) => (r.ok ? r.json() : null))
+            .then((addrData) => {
+              if (addrData && Array.isArray(addrData.addresses) && addrData.addresses.length > 0) {
+                setSavedAddresses(addrData.addresses);
+                const defaultAddr =
+                  addrData.addresses.find((a: CustomerAddress) => a.isDefault) || addrData.addresses[0];
+                if (defaultAddr) {
+                  setSelectedAddressId(defaultAddr.id);
+                  setName(defaultAddr.name);
+                  setPhone(defaultAddr.phone);
+                  setAddressLine(defaultAddr.addressLine);
+                  setCity(defaultAddr.city);
+                  setState(defaultAddr.state);
+                  setPincode(defaultAddr.pincode);
+                }
+              }
+            })
+            .catch(() => {});
+        }
       })
       .catch(() => {});
   }, []);
+
+  // When selected address changes, auto-fill address fields
+  const handleSelectAddress = (id: number | "new") => {
+    setSelectedAddressId(id);
+    if (id === "new") {
+      setAddressLine("");
+      setCity("");
+      setState("");
+      setPincode("");
+    } else {
+      const found = savedAddresses.find((a) => a.id === id);
+      if (found) {
+        setName(found.name);
+        setPhone(found.phone);
+        setAddressLine(found.addressLine);
+        setCity(found.city);
+        setState(found.state);
+        setPincode(found.pincode);
+      }
+    }
+  };
 
   // Funnel: crossing into the checkout sheet
   useEffect(() => {
     if (store.mounted && store.lines.length > 0) trackFlow("checkout_start");
   }, [store.mounted, store.lines.length]);
-
-  // Auto-clean stale or deleted items from cart
-  useEffect(() => {
-    if (!store.mounted || store.lines.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/products?limit=100");
-        if (!res.ok) return;
-        const data = (await res.json()) as { products?: { id: number; status: string }[] };
-        if (!cancelled && Array.isArray(data.products)) {
-          const liveIds = new Set(data.products.filter((p) => p.status === "ACTIVE").map((p) => p.id));
-          const deadLines = store.lines.filter((l) => !liveIds.has(l.productId));
-          if (deadLines.length > 0) {
-            deadLines.forEach((d) => store.remove(d.productId));
-            toast(`Cleaned ${deadLines.length} discontinued item(s) from your cart`, "info");
-          }
-        }
-      } catch {
-        // network error / offline — ignore
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [store.mounted, store.lines, store.remove, toast]);
 
   // Shop Pay express
   useEffect(() => {
@@ -190,20 +252,24 @@ export default function CheckoutPage() {
     e.preventDefault();
     if (stage === "placing") return;
     setError("");
-    const form = new FormData(e.currentTarget);
-    setPendingFormData(form);
 
-    const emailVal = String(form.get("email") || "");
-    if (emailVal) setOtpEmail(emailVal);
+    if (paymentMethod === "COD" && !codAcknowledged) {
+      setError("Please confirm the ₹200 COD advance checkbox to proceed.");
+      toast("Please confirm the ₹200 COD advance checkbox to proceed", "err");
+      return;
+    }
+
+    if (email) setOtpEmail(email);
 
     // If user is not authenticated, prompt them to log in to save identity for order tracking
     if (!customer?.authenticated) {
+      setPendingFormSubmit(true);
       setShowIdentityModal(true);
       return;
     }
 
     // Authenticated: proceed to place order directly
-    void executePlaceOrder(form);
+    void executePlaceOrder();
   };
 
   /** Send OTP from inside the identity modal */
@@ -258,9 +324,7 @@ export default function CheckoutPage() {
       setShowIdentityModal(false);
       toast("Identity saved! Placing your order now…", "ok");
 
-      if (pendingFormData) {
-        void executePlaceOrder(pendingFormData);
-      }
+      void executePlaceOrder();
     } catch (err) {
       setOtpErr(err instanceof Error ? err.message : "Verification failed.");
     } finally {
@@ -269,17 +333,33 @@ export default function CheckoutPage() {
   };
 
   /** Execute place order: reserves order in DB, saves to storage, and shows the order code popup */
-  const executePlaceOrder = async (form: FormData) => {
+  const executePlaceOrder = async () => {
     setError("");
     setStage("placing");
-    const email = String(form.get("email"));
-    const customerName = String(form.get("name") || "Racer");
-    const phone = String(form.get("phone") || "");
-    const address = String(form.get("addressLine") || "");
-    const city = String(form.get("city") || "");
-    const state = String(form.get("state") || "");
-    const pincode = String(form.get("pincode") || "");
+    const customerName = name.trim() || "Racer";
     const discountTotal = applied?.amount ?? 0;
+
+    // Optionally save address to customer account if requested
+    if (customer?.authenticated && selectedAddressId === "new" && saveAddressToAccount) {
+      try {
+        await fetch("/api/account/addresses", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            label: "Home",
+            name: customerName,
+            phone: phone.trim(),
+            addressLine: addressLine.trim(),
+            city: city.trim(),
+            state: state.trim(),
+            pincode: pincode.trim(),
+            isDefault: savedAddresses.length === 0,
+          }),
+        });
+      } catch {
+        /* ignore background address save failure */
+      }
+    }
 
     try {
       const res = await fetch("/api/orders", {
@@ -288,17 +368,17 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           items: store.lines.map((l) => ({ productId: l.productId, qty: l.qty })),
           name: customerName,
-          email,
-          phone,
-          addressLine: address,
-          city,
-          state,
-          pincode,
+          email: email.trim(),
+          phone: phone.trim(),
+          addressLine: addressLine.trim(),
+          city: city.trim(),
+          state: state.trim(),
+          pincode: pincode.trim(),
           shippingMethod,
           paymentMethod,
           paymentChannel: "DISCORD",
           discountCode: applied?.code ?? "",
-          notes: form.get("notes"),
+          notes: notes.trim() || undefined,
         }),
       });
       const data = (await res.json()) as { number?: string; total?: number; status?: string; error?: string };
@@ -319,12 +399,12 @@ export default function CheckoutPage() {
       const orderSummary = {
         number: orderNumber,
         name: customerName,
-        email,
-        phone,
-        addressLine: address,
-        city,
-        state,
-        pincode,
+        email: email.trim(),
+        phone: phone.trim(),
+        addressLine: addressLine.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        pincode: pincode.trim(),
         total: totalAmount,
         subtotal,
         shippingFee,
@@ -362,7 +442,7 @@ export default function CheckoutPage() {
         number: orderNumber,
         total: totalAmount,
         name: customerName,
-        email,
+        email: email.trim(),
         channel: "DISCORD",
       });
       setStage("details");
@@ -438,16 +518,16 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* contact + address */}
+          {/* 01: Delivery Target */}
           <fieldset className="flex flex-col gap-4">
-            <legend className="u-label">01 — Delivery target</legend>
+            <legend className="u-label">01 — Delivery target &amp; Address</legend>
 
             {/* Identity Status Banner */}
             {customer?.authenticated ? (
               <div className="flex items-center gap-2 rounded border border-mint/30 bg-mint/[0.06] px-3.5 py-2.5 text-xs text-mint">
                 <UserCheck className="size-4 shrink-0 text-mint" />
                 <span>
-                  Identity verified as <strong>{customer.account?.email}</strong> — Orders and live Shiprocket tracking will be saved to your account.
+                  Signed in as <strong>{customer.account?.email}</strong> — Orders, saved addresses, and live Shiprocket tracking are saved to your account.
                 </span>
               </div>
             ) : (
@@ -455,7 +535,7 @@ export default function CheckoutPage() {
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="size-4 shrink-0 text-yellow" />
                   <span>
-                    <strong>Save your identity:</strong> Sign in so your order tracking, invoice, and history are saved to your profile.
+                    <strong>Save your identity:</strong> Sign in to link your order tracking, address, and invoices to your account.
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -476,12 +556,60 @@ export default function CheckoutPage() {
               </div>
             )}
 
+            {/* Saved Addresses Selector (if user has saved addresses) */}
+            {savedAddresses.length > 0 && (
+              <div className="mb-2">
+                <span className="u-label-txt block mb-2">Saved Delivery Addresses</span>
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {savedAddresses.map((addr) => (
+                    <button
+                      key={addr.id}
+                      type="button"
+                      onClick={() => handleSelectAddress(addr.id)}
+                      className={`u-card flex flex-col items-start p-3.5 text-left transition-all ${
+                        selectedAddressId === addr.id ? "border-red bg-red/[0.05]" : "hover:border-line-strong"
+                      }`}
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <span className="text-xs font-bold text-bone flex items-center gap-1.5">
+                          <MapPin className="size-3 text-red" />
+                          <span>{addr.label}</span>
+                        </span>
+                        {addr.isDefault && (
+                          <span className="u-badge border-mint text-mint text-[9px]">DEFAULT</span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs font-semibold text-white truncate">{addr.name}</p>
+                      <p className="text-[11.5px] text-fog leading-relaxed mt-0.5 line-clamp-2">
+                        {addr.addressLine}, {addr.city}, {addr.state} - {addr.pincode}
+                      </p>
+                      <p className="text-[10px] text-dim mt-1">Ph: {addr.phone}</p>
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectAddress("new")}
+                    className={`u-card flex flex-col items-center justify-center p-3.5 text-center border-dashed transition-all ${
+                      selectedAddressId === "new" ? "border-red bg-red/[0.05]" : "hover:border-line-strong"
+                    }`}
+                  >
+                    <Plus className="size-4 text-fog mb-1" />
+                    <span className="text-xs font-semibold text-bone">+ Add new address</span>
+                    <span className="text-[10px] text-dim">Deliver to a different location</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Address Input Fields */}
             <div className="grid gap-4 sm:grid-cols-2">
               <label>
                 <span className="u-label-txt">Full name</span>
                 <input
                   name="name"
-                  defaultValue={customer?.account?.name || ""}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   required
                   minLength={2}
                   className="u-input mt-1.5"
@@ -493,7 +621,8 @@ export default function CheckoutPage() {
                 <input
                   name="email"
                   type="email"
-                  defaultValue={customer?.account?.email || ""}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   className="u-input mt-1.5"
                   autoComplete="email"
@@ -503,6 +632,8 @@ export default function CheckoutPage() {
                 <span className="u-label-txt">Phone</span>
                 <input
                   name="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   required
                   pattern={"[+\\d][\\d\\s\\-]{7,15}"}
                   className="u-input mt-1.5"
@@ -513,6 +644,8 @@ export default function CheckoutPage() {
                 <span className="u-label-txt">Address line</span>
                 <input
                   name="addressLine"
+                  value={addressLine}
+                  onChange={(e) => setAddressLine(e.target.value)}
                   required
                   minLength={6}
                   className="u-input mt-1.5"
@@ -521,16 +654,32 @@ export default function CheckoutPage() {
               </label>
               <label>
                 <span className="u-label-txt">City</span>
-                <input name="city" required className="u-input mt-1.5" autoComplete="address-level2" />
+                <input
+                  name="city"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  required
+                  className="u-input mt-1.5"
+                  autoComplete="address-level2"
+                />
               </label>
               <label>
                 <span className="u-label-txt">State</span>
-                <input name="state" required className="u-input mt-1.5" autoComplete="address-level1" />
+                <input
+                  name="state"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  required
+                  className="u-input mt-1.5"
+                  autoComplete="address-level1"
+                />
               </label>
               <label>
                 <span className="u-label-txt">PIN code</span>
                 <input
                   name="pincode"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   required
                   pattern="\d{6}"
                   inputMode="numeric"
@@ -540,18 +689,91 @@ export default function CheckoutPage() {
               </label>
               <label>
                 <span className="u-label-txt">Delivery notes (optional)</span>
-                <input name="notes" className="u-input mt-1.5" maxLength={600} />
+                <input
+                  name="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="u-input mt-1.5"
+                  maxLength={600}
+                />
               </label>
+            </div>
+
+            {/* Checkbox to save new address to customer account */}
+            {selectedAddressId === "new" && (
+              <label className="mt-2 flex items-center gap-2.5 text-xs text-fog cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={saveAddressToAccount}
+                  onChange={(e) => setSaveAddressToAccount(e.target.checked)}
+                  className="size-4 accent-red"
+                />
+                <span>Save this address to my account for future orders</span>
+              </label>
+            )}
+
+            {/* Billing address toggle */}
+            <div className="mt-4 border-t border-line pt-4">
+              <label className="flex items-center gap-2.5 text-xs text-fog cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={sameAsShipping}
+                  onChange={(e) => setSameAsShipping(e.target.checked)}
+                  className="size-4 accent-red"
+                />
+                <span className="font-semibold text-bone">Billing address is same as delivery address</span>
+              </label>
+
+              {!sameAsShipping && (
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 rounded border border-line bg-surface p-4">
+                  <label>
+                    <span className="u-label-txt">Billing Name</span>
+                    <input
+                      value={billingName}
+                      onChange={(e) => setBillingName(e.target.value)}
+                      required={!sameAsShipping}
+                      className="u-input mt-1.5 text-xs"
+                    />
+                  </label>
+                  <label>
+                    <span className="u-label-txt">Billing Address Line</span>
+                    <input
+                      value={billingAddress}
+                      onChange={(e) => setBillingAddress(e.target.value)}
+                      required={!sameAsShipping}
+                      className="u-input mt-1.5 text-xs"
+                    />
+                  </label>
+                  <label>
+                    <span className="u-label-txt">Billing City</span>
+                    <input
+                      value={billingCity}
+                      onChange={(e) => setBillingCity(e.target.value)}
+                      required={!sameAsShipping}
+                      className="u-input mt-1.5 text-xs"
+                    />
+                  </label>
+                  <label>
+                    <span className="u-label-txt">Billing PIN Code</span>
+                    <input
+                      value={billingPincode}
+                      onChange={(e) => setBillingPincode(e.target.value)}
+                      required={!sameAsShipping}
+                      className="u-input mt-1.5 text-xs"
+                    />
+                  </label>
+                </div>
+              )}
             </div>
           </fieldset>
 
-          {/* delivery speed */}
+          {/* 02: Delivery Speed */}
           <fieldset>
             <legend className="u-label">02 — Delivery speed</legend>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {[
-                { id: "STANDARD", label: "Standard", price: fmtUSD(9900), note: "2–4 business days" },
-                { id: "EXPRESS", label: "Express", price: fmtUSD(19900), note: "Priority dispatch" },
+                { id: "STANDARD", label: "Standard", price: fmtUSD(9900), note: "2–4 business days pan-India" },
+                { id: "EXPRESS", label: "Express", price: fmtUSD(19900), note: "Priority pit-lane dispatch" },
               ].map((opt) => (
                 <label
                   key={opt.id}
@@ -575,16 +797,16 @@ export default function CheckoutPage() {
                 </label>
               ))}
             </div>
-            <p className="u-label-txt mt-2">Free shipping over ₹2,499 — subtotal after discounts counts.</p>
+            <p className="u-label-txt mt-2">Free shipping on orders over ₹2,499 — subtotal after discounts counts.</p>
           </fieldset>
 
-          {/* payment */}
+          {/* 03: Payment */}
           <fieldset>
-            <legend className="u-label">03 — Payment</legend>
+            <legend className="u-label">03 — Payment &amp; COD Choice</legend>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {[
-                { id: "UPI", label: "UPI", note: "Pay on confirmation — we hold your unit while it clears" },
-                { id: "COD", label: "Cash on delivery", note: `${COD_ADVANCE_LABEL} online advance, balance at the door` },
+                { id: "UPI", label: "UPI", note: "Direct UPI / QR code payment on confirmation" },
+                { id: "COD", label: "Cash on delivery", note: `₹200 online security advance, balance at door` },
               ].map((opt) => (
                 <label
                   key={opt.id}
@@ -607,58 +829,34 @@ export default function CheckoutPage() {
                 </label>
               ))}
             </div>
-            <p className="u-label-txt mt-3">
-              PayPal or a live UPI assist? Arrange it with a human on{" "}
-              <a
-                href={PAYMENT_HELP.whatsapp}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-bone underline underline-offset-4"
-              >
-                WhatsApp
-              </a>{" "}
-              or{" "}
-              <a
-                href={PAYMENT_HELP.discord}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-bone underline underline-offset-4"
-              >
-                Discord
-              </a>{" "}
-              before placing the order.
-            </p>
           </fieldset>
 
+          {/* COD Security Advance Section: Clean & Professional, NO Discord or WhatsApp buttons */}
           {paymentMethod === "COD" && (
-            <div className="border border-yellow/30 bg-yellow/[0.045] p-5">
-              <p className="u-label text-yellow!">COD security advance — {COD_ADVANCE_LABEL} online</p>
-              <p className="mt-2 text-[13px] leading-relaxed text-fog">
-                We pack COD orders only after the {COD_ADVANCE_LABEL} advance lands. Pay it live with a human on WhatsApp or Discord (UPI or PayPal). It is part of your total, not an extra fee — the balance of{" "}
-                <span className="u-mono text-bone">{fmt(codBalance(total))}</span> is paid to the courier.
+            <div className="border border-yellow/40 bg-yellow/[0.04] p-5 rounded">
+              <p className="u-label text-yellow! flex items-center gap-1.5 font-bold">
+                <ShieldCheck className="size-4" /> COD Security Advance — ₹200 Online
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <a
-                  href={PAYMENT_HELP.whatsappCod}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="u-btn u-btn-ghost px-3! py-2! text-[10px]!"
-                >
-                  Pay {COD_ADVANCE_LABEL} on WhatsApp
-                </a>
-                <a
-                  href={PAYMENT_HELP.discord}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="u-btn u-btn-ghost px-3! py-2! text-[10px]!"
-                >
-                  Discord
-                </a>
-              </div>
-              <label className="mt-4 flex items-start gap-3 text-[12.5px] leading-relaxed text-fog">
-                <input type="checkbox" name="codAdvanceAck" required className="mt-0.5 size-4 accent-red" />
+              <p className="mt-2.5 text-[13px] leading-relaxed text-fog">
+                Cash on Delivery requires a mandatory online security advance of ₹200 to secure courier allocation and prevent unverified dispatches. This ₹200 advance is deducted directly from your total order amount — the remaining balance of{" "}
+                <strong className="u-mono text-white">{fmt(codBalance(total))}</strong> is paid to the courier partner upon doorstep delivery.
+              </p>
+              <p className="mt-2 text-[12px] text-dim leading-relaxed">
+                You will receive your advance payment options immediately after placing your order. Orders are packed and dispatched pan-India via Shiprocket once the ₹200 advance clears.
+              </p>
+
+              {/* One Required Confirmation Checkbox */}
+              <label className="mt-4 flex items-start gap-3 rounded border border-yellow/30 bg-coal/60 p-3.5 text-[12.5px] leading-relaxed text-bone cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="codAdvanceAck"
+                  checked={codAcknowledged}
+                  onChange={(e) => setCodAcknowledged(e.target.checked)}
+                  required
+                  className="mt-0.5 size-4 accent-red"
+                />
                 <span>
-                  I understand the {COD_ADVANCE_LABEL} advance must be paid online before this COD order is packed.
+                  I understand and confirm that the ₹200 online security advance must be paid to confirm dispatch, and the remaining balance of <strong className="text-white">{fmt(codBalance(total))}</strong> will be paid at the door.
                 </span>
               </label>
             </div>
@@ -682,28 +880,32 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <button type="submit" disabled={stage === "placing"} className="u-btn u-btn-primary w-full py-4! md:w-auto">
+          {/* Place Order Button */}
+          <button
+            type="submit"
+            disabled={stage === "placing" || (paymentMethod === "COD" && !codAcknowledged)}
+            className="u-btn u-btn-primary w-full py-4! text-sm font-bold md:w-auto flex items-center justify-center gap-2 disabled:opacity-50"
+          >
             <Lock className="size-4" aria-hidden />
             {stage === "placing"
-              ? "Placing order & reserving code…"
+              ? "Reserving order & issuing code…"
               : paymentMethod === "COD"
-              ? `Place COD order — ${fmt(total)}`
-              : `Place order — ${fmt(total)}`}
+              ? `Place COD Order — ${fmt(total)}`
+              : `Place Order — ${fmt(total)}`}
           </button>
           <p className="u-label-txt">
-            By placing the order the piece is reserved under your name. UPI completes on confirmation. COD completes
-            only after the {COD_ADVANCE_LABEL} online advance lands; the balance is paid at the door.
+            Stock reserves immediately when your order is placed. UPI completes on confirmation. COD completes after the {COD_ADVANCE_LABEL} online advance lands.
           </p>
         </form>
 
-        {/* summary */}
+        {/* Order Sheet Summary */}
         <aside className="h-fit lg:sticky lg:top-28">
-          <div className="u-card p-6">
+          <div className="u-card p-6 border border-line bg-panel">
             <p className="u-label">Order sheet</p>
             <ul className="mt-4 flex flex-col gap-4">
               {store.lines.map((l) => (
                 <li key={l.productId} className="flex gap-3">
-                  <span className="u-media relative size-14 shrink-0">
+                  <span className="u-media relative size-14 shrink-0 border border-line bg-surface">
                     {l.image ? <Image src={l.image} alt={l.name} fill sizes="56px" className="object-cover" /> : null}
                   </span>
                   <span className="flex-1">
@@ -716,6 +918,8 @@ export default function CheckoutPage() {
                 </li>
               ))}
             </ul>
+
+            {/* Discount Code */}
             <div className="mt-6 border-t border-line pt-4">
               <div className="flex items-center gap-2">
                 <Tag className="size-4 text-dim" aria-hidden />
@@ -737,6 +941,7 @@ export default function CheckoutPage() {
               </div>
               {codeErr && <p className="mt-2 text-[12px] text-red">{codeErr}</p>}
             </div>
+
             <dl className="mt-6 flex flex-col gap-2 border-t border-line pt-4 text-[13px]">
               <div className="flex justify-between">
                 <dt className="text-fog">Subtotal</dt>
@@ -774,37 +979,13 @@ export default function CheckoutPage() {
             </dl>
           </div>
 
-          <div className="mt-4 border border-line bg-panel p-4">
-            <p className="u-label">Payment help — live human</p>
-            <p className="mt-2 text-[12.5px] leading-relaxed text-fog">
-              UPI, COD advance or PayPal: talk to the crew and pay live. No bot, no fake gateway.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <a
-                href={PAYMENT_HELP.whatsapp}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="u-btn u-btn-ghost px-3! py-2! text-[10px]!"
-              >
-                WhatsApp
-              </a>
-              <a
-                href={PAYMENT_HELP.discord}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="u-btn u-btn-ghost px-3! py-2! text-[10px]!"
-              >
-                Discord
-              </a>
-            </div>
-          </div>
           <p className="u-label mt-4 flex items-center gap-2">
             <ShoppingBag className="size-3.5 text-red" aria-hidden /> Items reserved at placement
           </p>
         </aside>
       </div>
 
-      {/* 1. IDENTITY & LOGIN GATE MODAL: "Save your identity for order tracking and more" */}
+      {/* 1. IDENTITY & LOGIN GATE MODAL */}
       {showIdentityModal && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/85 p-4 backdrop-blur-md anim-fade"
@@ -826,7 +1007,7 @@ export default function CheckoutPage() {
             </span>
             <h2 className="u-h2 mt-2 text-2xl font-bold">Save your identity first</h2>
             <p className="mt-2 text-xs text-fog leading-relaxed">
-              Before giving you your order code, log in to save your identity so your order history, payment status, and Shiprocket live tracking are linked directly to your account.
+              Before issuing your order code, log in to save your identity so your order history, saved addresses, payment status, and Shiprocket live tracking are linked directly to your account.
             </p>
 
             <div className="mt-6 flex flex-col gap-4">
@@ -920,9 +1101,7 @@ export default function CheckoutPage() {
                 type="button"
                 onClick={() => {
                   setShowIdentityModal(false);
-                  if (pendingFormData) {
-                    void executePlaceOrder(pendingFormData);
-                  }
+                  void executePlaceOrder();
                 }}
                 className="mt-2 text-center text-xs text-dim hover:text-white underline underline-offset-4"
               >
@@ -933,7 +1112,7 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      {/* 2. ORDER RESERVED & PAYMENT POPUP: Highlighted Order Number + Copy Button + Instructions + Direct Discord/WhatsApp */}
+      {/* 2. ORDER RESERVED & PAYMENT POPUP */}
       {placedOrder && (
         <div
           className="fixed inset-0 z-[110] flex items-center justify-center bg-ink/90 p-4 backdrop-blur-md anim-fade"

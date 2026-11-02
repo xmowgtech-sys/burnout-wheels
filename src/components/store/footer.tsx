@@ -33,7 +33,6 @@ const COLS: { title: string; links: { href: string; label: string; external?: bo
     links: [
       { href: CONTACT.discord, label: "Discord server — discounts & offers", external: true },
       { href: "/trust#contact", label: "Contact the crew" },
-      { href: "/admin/login", label: "Admin cockpit" },
     ],
   },
 ];

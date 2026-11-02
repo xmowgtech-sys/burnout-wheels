@@ -268,6 +268,23 @@ export function migrate(db: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS idx_wishlist_account ON wishlistItems(accountId);
 
+    CREATE TABLE IF NOT EXISTS customerAddresses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      accountId INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      label TEXT NOT NULL DEFAULT 'Home',
+      name TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      addressLine TEXT NOT NULL,
+      city TEXT NOT NULL,
+      state TEXT NOT NULL,
+      pincode TEXT NOT NULL,
+      country TEXT NOT NULL DEFAULT 'India',
+      isDefault INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_customer_addresses_account ON customerAddresses(accountId);
+
     CREATE TABLE IF NOT EXISTS authTokens (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT NOT NULL,

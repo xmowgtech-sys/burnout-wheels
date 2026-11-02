@@ -1,12 +1,16 @@
 import { PageHero, SectionHead } from "@/components/ui";
+import { getStorefront } from "@/lib/settings";
+import { fmtUSD } from "@/lib/money";
 import { COD_ADVANCE_LABEL, PAYMENT_HELP } from "@/lib/payments";
 
+export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Terms & Conditions",
   description: "Burnout Wheels terms: ordering, pricing, payment, dispatch, cancellation windows, refunds on proven damage, and account rules.",
 };
 
 export default function TermsPage() {
+  const s = getStorefront();
   return (
     <>
       <PageHero
@@ -17,19 +21,14 @@ export default function TermsPage() {
       <div className="mx-auto max-w-4xl px-4 py-16 md:px-8">
         <SectionHead index="01" title="What we sell" />
         <div className="u-card mt-8 p-6 text-[14px] leading-relaxed text-fog">
-          Die-cast model vehicles — new, graded/sealed, like-new, or pre-owned, exactly as labelled on each product page. Some cars offered here are <strong className="text-bone">second-hand</strong> and some are built by makers other than the team whose livery they carry (unofficial builds); the product page states which, along with scale, maker and contents, and every title and detail line is double-checked before the product goes live. By ordering you accept the condition and configuration <strong className="text-bone">as listed</strong>.
+          Die-cast model vehicles — new, graded/sealed, like-new, or pre-owned, exactly as labelled on each product page. Every car offered is catalogued with its verified scale, manufacturer, livery, and condition. Every detail is inspected before the model lists. By placing an order, you agree to the specifications and condition <strong className="text-bone">as listed</strong>.
         </div>
 
         <SectionHead index="02" title="Pricing & payment" />
         <div className="u-card mt-8 p-6 text-[14px] leading-relaxed text-fog">
-          All prices in INR, inclusive as stated at checkout. Payments run through UPI, cash on delivery, or PayPal
-          arranged live with a human on WhatsApp/Discord — Burnout Wheels never stores card data on its servers.{" "}
-          <strong className="text-bone">COD orders require a {COD_ADVANCE_LABEL} online advance before packing.</strong>{" "}
-          The advance is adjusted against your order total, not charged on top; the remaining balance is paid to the
-          courier. A discount code applies per its terms at checkout and may be withdrawn if misused. Payment help:{" "}
-          <a href={PAYMENT_HELP.whatsapp} target="_blank" rel="noopener noreferrer" className="underline">WhatsApp</a>{" "}
-          or{" "}
-          <a href={PAYMENT_HELP.discord} target="_blank" rel="noopener noreferrer" className="underline">Discord</a>.
+          All prices in INR, inclusive as stated at checkout. Payments run through direct UPI, cash on delivery (COD), or PayPal arranged live with our team — Burnout Wheels never stores payment card data on its servers.{" "}
+          <strong className="text-bone">COD orders require a {COD_ADVANCE_LABEL} online security advance before packing.</strong>{" "}
+          The advance is adjusted directly against your order total, not charged as an extra fee; the remaining balance is paid to the courier upon doorstep delivery. Orders over {fmtUSD(s.shipping.freeOver)} receive free standard shipping pan-India.
         </div>
 
         <SectionHead index="03" title="Dispatch & risk" />

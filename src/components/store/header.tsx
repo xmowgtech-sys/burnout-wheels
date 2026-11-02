@@ -133,22 +133,25 @@ export function Header() {
           <div className="ml-auto flex items-center gap-0 sm:gap-1 md:gap-2">
             <Link
               href={customer?.authenticated ? "/account" : "/login"}
-              className="hidden px-2 py-2.5 text-fog transition-colors hover:text-bone sm:flex items-center gap-1.5"
-              aria-label={customer?.authenticated ? "Your paddock account" : "Sign in"}
+              className="flex items-center gap-1.5 px-2 py-2 text-fog transition-colors hover:text-bone"
+              aria-label={customer?.authenticated ? "Account settings & paddock" : "Sign in"}
+              title={customer?.authenticated ? (customer.account?.name || customer.account?.email || "Account Settings") : "Sign in"}
             >
               {customer?.authenticated && customer.account?.picture ? (
                 <img
                   src={customer.account.picture}
                   alt={customer.account.name || "Account"}
-                  className="size-6 rounded-full border border-red/60 object-cover"
+                  className="size-7 md:size-8 rounded-full border-2 border-red/80 object-cover shadow-sm transition-transform hover:scale-105"
                   referrerPolicy="no-referrer"
                 />
               ) : customer?.authenticated ? (
-                <span className="grid size-6 place-items-center rounded-full bg-red text-[10px] font-bold text-white">
+                <span className="grid size-7 md:size-8 place-items-center rounded-full bg-red text-xs font-bold text-white shadow-sm transition-transform hover:scale-105">
                   {((customer.account?.name || customer.account?.email || "U")[0]).toUpperCase()}
                 </span>
               ) : (
-                <UserRound className="size-4 md:size-[17px]" aria-hidden />
+                <span className="grid size-7 md:size-8 place-items-center rounded-full border border-line hover:border-line-strong">
+                  <UserRound className="size-4 md:size-[17px]" aria-hidden />
+                </span>
               )}
             </Link>
             <button

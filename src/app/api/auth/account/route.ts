@@ -1,4 +1,4 @@
-import { readCustomerSession, deleteAccount, destroyCustomerSession, accountById, accountByEmail } from "@/lib/accounts";
+import { readCustomerSession, deleteAccount, destroyCustomerSession, accountById, accountByEmail, createAccount } from "@/lib/accounts";
 import { rateLimit } from "@/lib/auth";
 import { logEvent } from "@/lib/ops";
 
@@ -7,16 +7,29 @@ export async function GET() {
   try {
     const session = await readCustomerSession();
     if (!session) return Response.json({ authenticated: false });
-    const acc = accountById(session.aid) ?? accountByEmail(session.email);
-    if (!acc) return Response.json({ authenticated: false });
+    let acc = accountById(session.aid) ?? accountByEmail(session.email);
+    if (!acc) {
+      try {
+        acc = createAccount({
+          email: session.email,
+          name: session.name || undefined,
+          picture: session.picture ?? undefined,
+          verified: true,
+        });
+      } catch {
+        acc = accountByEmail(session.email);
+      }
+    }
+
     return Response.json({
       authenticated: true,
       account: {
-        id: acc.id,
-        email: acc.email,
-        name: acc.name,
-        picture: acc.picture,
-        verified: acc.verified,
+        id: acc?.id ?? session.aid,
+        email: acc?.email ?? session.email,
+        name: acc?.name ?? session.name,
+        phone: acc?.phone ?? null,
+        picture: acc?.picture ?? session.picture ?? null,
+        verified: acc?.verified ?? true,
       },
     });
   } catch {
