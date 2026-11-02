@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getDb, nowIso, run } from "./db";
 import { logSync, logEvent } from "./ops";
-import type { Product } from "./types";
+import type { Product, OrderWithRelations } from "./types";
+import { accountByEmail, createAccount } from "./accounts";
 
 /**
  * Shopify Admin API integration — REST Admin API (JSON), logged and retried.
@@ -101,6 +102,7 @@ interface ShopifyOrderShape {
   total_price: string; subtotal_price: string; total_discounts: string; total_tax: string;
   line_items: { title: string; quantity: number; price: string; product_id?: number }[];
   shipping_address?: { name?: string; phone?: string; address1?: string; city?: string; province?: string; zip?: string };
+  fulfillments?: { tracking_company?: string; tracking_number?: string; tracking_numbers?: string[]; tracking_url?: string; status?: string }[];
   refunds?: { id: number }[];
   created_at: string;
   current_subtotal_price?: string;
@@ -189,20 +191,23 @@ export async function syncOrders(): Promise<{ items: number }> {
   const db = getDb();
   const findOrder = db.prepare("SELECT id FROM orders WHERE number = ? AND source = 'SHOPIFY'");
   const insOrder = db.prepare(
-    `INSERT INTO orders (number, status, paymentMethod, shippingMethod, email, name, phone, addressLine, city, state, pincode, country,
-       subtotal, discountTotal, shippingFee, total, costTotal, feesTotal, profit, customerId, source, placedAt, updatedAt)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `INSERT INTO orders (number, status, paymentMethod, paymentStatus, shippingMethod, email, name, phone, addressLine, city, state, pincode, country,
+       subtotal, discountTotal, shippingFee, total, costTotal, feesTotal, profit, customerId, trackingCarrier, trackingNumber, source, placedAt, updatedAt)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(number) DO UPDATE SET
-       status = excluded.status, subtotal = excluded.subtotal, discountTotal = excluded.discountTotal,
+       status = excluded.status, paymentStatus = excluded.paymentStatus, trackingCarrier = excluded.trackingCarrier, trackingNumber = excluded.trackingNumber,
+       subtotal = excluded.subtotal, discountTotal = excluded.discountTotal,
        total = excluded.total, feesTotal = excluded.feesTotal, profit = excluded.profit, updatedAt = excluded.updatedAt`
   );
   const insEvent = db.prepare("INSERT INTO orderEvents (orderId, status, note, actor, createdAt) VALUES (?,?,?,?,?)");
   const findCustomer = db.prepare("SELECT id FROM customers WHERE email = ?");
   const insCustomer = db.prepare(
-    `INSERT INTO customers (email, name, phone, ordersCount, lifetimeValue, createdAt, lastOrderAt)
-     VALUES (?,?,?,1,?,?,?)`
+    `INSERT INTO customers (email, name, phone, ordersCount, lifetimeValue, createdAt, lastOrderAt, accountId)
+     VALUES (?,?,?,1,?,?,?,?)`
   );
-  const updCustomer = db.prepare("UPDATE customers SET ordersCount = ordersCount + 1, lifetimeValue = lifetimeValue + ?, lastOrderAt = CASE WHEN lastOrderAt IS NULL OR lastOrderAt < ? THEN ? ELSE lastOrderAt END WHERE email = ?");
+  const updCustomer = db.prepare(
+    "UPDATE customers SET ordersCount = ordersCount + 1, lifetimeValue = lifetimeValue + ?, lastOrderAt = CASE WHEN lastOrderAt IS NULL OR lastOrderAt < ? THEN ? ELSE lastOrderAt END, accountId = COALESCE(?, accountId) WHERE email = ?"
+  );
 
   let page = 1;
   let n = 0;
@@ -231,26 +236,89 @@ export async function syncOrders(): Promise<{ items: number }> {
                   ? "SHIPPED"
                   : "PAID"
               : "PENDING_PAYMENT";
+      const paymentStatus =
+        o.financial_status === "paid"
+          ? "PAID"
+          : o.financial_status === "partially_paid"
+            ? "PARTIALLY_PAID"
+            : o.financial_status === "refunded"
+              ? "REFUNDED"
+              : "PENDING";
       const email = o.customer?.email?.trim().toLowerCase() ?? "no-email@shopify.local";
       const name = o.shipping_address?.name ?? `${o.customer?.first_name ?? ""} ${o.customer?.last_name ?? ""}`.trim() ?? "Shopify customer";
+      const fulfillment = o.fulfillments?.[0];
+      const trackingCarrier = fulfillment?.tracking_company || null;
+      const trackingNumber = fulfillment?.tracking_number || fulfillment?.tracking_numbers?.[0] || null;
 
-      if (findOrder.get(number)) {
-        const row = db.prepare("SELECT id FROM orders WHERE number = ? AND source = 'SHOPIFY'").get(number) as { id: number };
-        run(db.prepare("UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?"), status, ts, row.id);
-      } else {
-        const res = run(insOrder,
-          number, status, "UPI", "STANDARD", email, name, o.shipping_address?.phone ?? null,
-          o.shipping_address?.address1 ?? "", o.shipping_address?.city ?? "", o.shipping_address?.province ?? "",
-          o.shipping_address?.zip ?? "", "India",
-          subtotal, discounts, 0, total, cost, fees, total - cost - fees, null, "SHOPIFY", o.created_at, ts
-        );
-        run(insEvent, res.id, status, "Imported from Shopify", "shopify", ts);
+      // Ensure customer account exists in accounts table
+      let acc = accountByEmail(email);
+      if (!acc && email !== "no-email@shopify.local") {
+        try {
+          acc = createAccount({
+            email,
+            name,
+            phone: o.shipping_address?.phone ?? undefined,
+            verified: true,
+          });
+        } catch {
+          /* ignore */
+        }
       }
+      const accountId = acc?.id ?? null;
 
       // customer ledger
       const cust = findCustomer.get(email) as { id: number } | undefined;
-      if (cust) run(updCustomer, total, o.created_at, o.created_at, email);
-      else run(insCustomer, email, name, o.shipping_address?.phone ?? null, total, o.created_at, o.created_at);
+      let customerId: number;
+      if (cust) {
+        run(updCustomer, total, o.created_at, o.created_at, accountId, email);
+        customerId = cust.id;
+      } else {
+        const cRes = run(insCustomer, email, name, o.shipping_address?.phone ?? null, total, o.created_at, o.created_at, accountId);
+        customerId = cRes.id;
+      }
+
+      if (findOrder.get(number)) {
+        const row = db.prepare("SELECT id FROM orders WHERE number = ? AND source = 'SHOPIFY'").get(number) as { id: number };
+        run(
+          db.prepare(
+            `UPDATE orders SET 
+               status = ?, 
+               paymentStatus = ?, 
+               trackingCarrier = COALESCE(?, trackingCarrier), 
+               trackingNumber = COALESCE(?, trackingNumber), 
+               customerId = ?, 
+               total = ?, 
+               updatedAt = ? 
+             WHERE id = ?`
+          ),
+          status,
+          paymentStatus,
+          trackingCarrier,
+          trackingNumber,
+          customerId,
+          total,
+          ts,
+          row.id
+        );
+      } else {
+        const res = run(
+          insOrder,
+          number, status, "UPI", paymentStatus, "STANDARD", email, name, o.shipping_address?.phone ?? null,
+          o.shipping_address?.address1 ?? "", o.shipping_address?.city ?? "", o.shipping_address?.province ?? "",
+          o.shipping_address?.zip ?? "", "India",
+          subtotal, discounts, 0, total, cost, fees, total - cost - fees, customerId,
+          trackingCarrier, trackingNumber, "SHOPIFY", o.created_at, ts
+        );
+        run(
+          insEvent,
+          res.id,
+          status,
+          `Imported from Shopify · Payment: ${o.financial_status} · Fulfilment: ${o.fulfillment_status ?? "unfulfilled"}` +
+            (trackingNumber ? ` · Tracking: ${trackingCarrier ?? ""} ${trackingNumber}` : ""),
+          "shopify",
+          ts
+        );
+      }
       n++;
     }
     if (orders.length < 250) break;
@@ -338,4 +406,201 @@ export const WEBHOOK_TOPICS = [
 export function shopifyProducts(): Product[] {
   const db = getDb();
   return db.prepare("SELECT * FROM products WHERE source = 'SHOPIFY' ORDER BY updatedAt DESC").all() as unknown as Product[];
+}
+
+export async function handleWebhookTopic(topic: string, arg2: any, arg3?: any): Promise<void> {
+  const body = (arg3 !== undefined ? arg3 : arg2) as Record<string, unknown>;
+  const db = getDb();
+  const ts = nowIso();
+
+  switch (topic) {
+    case "products/create":
+    case "products/update": {
+      await syncInventory();
+      break;
+    }
+    case "orders/create":
+    case "orders/updated":
+    case "orders/fulfilled":
+    case "orders/cancelled": {
+      const orderId = body.id as number | undefined;
+      const name = String(body.name ?? `SHOPIFY-${orderId}`);
+      const financial = String(body.financial_status ?? "");
+      const cancelled = Boolean(body.cancelled_at);
+      const fulfillments = (body.fulfillments as Record<string, unknown>[]) ?? [];
+      const fulfillment = fulfillments[0];
+      const trackingCarrier = (fulfillment?.tracking_company as string) || null;
+      const trackingNumber =
+        (fulfillment?.tracking_number as string) ||
+        ((fulfillment?.tracking_numbers as string[])?.[0] as string) ||
+        null;
+      const fulfillmentStatus = String(body.fulfillment_status ?? "");
+
+      const status = cancelled
+        ? "CANCELLED"
+        : financial === "paid" || financial === "partially_paid"
+          ? fulfillmentStatus === "fulfilled"
+            ? "DELIVERED"
+            : fulfillmentStatus === "shipped" || trackingNumber
+              ? "SHIPPED"
+              : "PAID"
+          : "PENDING_PAYMENT";
+
+      const paymentStatus =
+        financial === "paid" ? "PAID" : financial === "partially_paid" ? "PARTIAL" : "PENDING";
+
+      const stripe = Number(body.current_total_price ?? body.total_price ?? 0);
+      const totalMinor = Math.round(stripe * 100);
+      const subtotalMinor = Math.round(Number(body.current_subtotal_price ?? body.subtotal_price ?? 0) * 100);
+      const email = String((body.customer as { email?: string })?.email ?? "no-email@shopify.local").toLowerCase();
+      const customerName = String(
+        (body.customer as { first_name?: string; last_name?: string })?.first_name
+          ? `${(body.customer as { first_name?: string }).first_name} ${(body.customer as { last_name?: string })?.last_name ?? ""}`.trim()
+          : "Shopify customer"
+      );
+
+      // Customer account creation/linkage
+      let acc = accountByEmail(email);
+      if (!acc && email !== "no-email@shopify.local") {
+        try {
+          acc = createAccount({ email, name: customerName, verified: true });
+        } catch {}
+      }
+      const accountId = acc?.id ?? null;
+
+      const hosp = db.prepare("SELECT id FROM orders WHERE number = ?").get(name) as { id: number } | undefined;
+      const cust = db.prepare("SELECT id FROM customers WHERE LOWER(email) = LOWER(?)").get(email) as { id: number } | undefined;
+      let customerId: number;
+
+      if (hosp) {
+        // Order exists: do NOT increment ordersCount or lifetimeValue again
+        if (cust) {
+          db.prepare("UPDATE customers SET accountId = COALESCE(?, accountId) WHERE id = ?").run(accountId, cust.id);
+          customerId = cust.id;
+        } else {
+          const cRes = run(
+            db.prepare("INSERT INTO customers (email, name, phone, ordersCount, lifetimeValue, createdAt, lastOrderAt, accountId) VALUES (?,?,?,0,0,?,?,?)"),
+            email, customerName, null, ts, ts, accountId
+          );
+          customerId = cRes.id;
+        }
+      } else {
+        // New order: increment ordersCount and add lifetimeValue
+        if (cust) {
+          db.prepare(
+            "UPDATE customers SET ordersCount = ordersCount + 1, lifetimeValue = lifetimeValue + ?, lastOrderAt = ?, accountId = COALESCE(?, accountId) WHERE id = ?"
+          ).run(totalMinor, ts, accountId, cust.id);
+          customerId = cust.id;
+        } else {
+          const cRes = run(
+            db.prepare("INSERT INTO customers (email, name, phone, ordersCount, lifetimeValue, createdAt, lastOrderAt, accountId) VALUES (?,?,?,1,?,?,?,?)"),
+            email, customerName, null, totalMinor, ts, ts, accountId
+          );
+          customerId = cRes.id;
+        }
+      }
+      if (hosp) {
+        run(
+          db.prepare(
+            `UPDATE orders SET 
+               status = ?, 
+               paymentStatus = ?, 
+               trackingCarrier = COALESCE(?, trackingCarrier), 
+               trackingNumber = COALESCE(?, trackingNumber), 
+               customerId = ?, 
+               total = ?, 
+               updatedAt = ? 
+             WHERE id = ?`
+          ),
+          status,
+          paymentStatus,
+          trackingCarrier,
+          trackingNumber,
+          customerId,
+          totalMinor,
+          ts,
+          hosp.id
+        );
+        run(
+          db.prepare("INSERT INTO orderEvents (orderId, status, note, actor, createdAt) VALUES (?,?,?,?,?)"),
+          hosp.id,
+          status,
+          `Webhook ${topic}` + (trackingNumber ? ` · Tracking: ${trackingCarrier ?? ""} ${trackingNumber}` : ""),
+          "shopify",
+          ts
+        );
+      } else {
+        const res = run(
+          db.prepare(
+            `INSERT INTO orders (number, status, paymentMethod, paymentStatus, shippingMethod, email, name, subtotal, discountTotal, shippingFee, total, costTotal, feesTotal, profit, customerId, trackingCarrier, trackingNumber, source, placedAt, updatedAt)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          ),
+          name,
+          status,
+          "UPI",
+          paymentStatus,
+          "STANDARD",
+          email,
+          customerName,
+          subtotalMinor,
+          Math.round(Number(body.total_discounts ?? 0) * 100),
+          0,
+          totalMinor,
+          0,
+          Math.round(totalMinor * 0.02),
+          totalMinor - Math.round(totalMinor * 0.02),
+          customerId,
+          trackingCarrier,
+          trackingNumber,
+          "SHOPIFY",
+          String(body.created_at ?? ts),
+          ts
+        );
+        run(
+          db.prepare("INSERT INTO orderEvents (orderId, status, note, actor, createdAt) VALUES (?,?,?,?,?)"),
+          res.id,
+          status,
+          `Imported by webhook ${topic}`,
+          "shopify",
+          ts
+        );
+      }
+      break;
+    }
+    case "fulfillments/create":
+    case "fulfillments/update": {
+      const orderId = body.order_id as number | undefined;
+      const trackingCompany = (body.tracking_company as string) || "Shopify Fulfillment";
+      const trackingNum =
+        (body.tracking_number as string) ||
+        ((body.tracking_numbers as string[])?.[0] as string) ||
+        null;
+      if (orderId && trackingNum) {
+        const targetOrder = db.prepare("SELECT id FROM orders WHERE number = ? OR number = ?").get(`SHOPIFY-${orderId}`, String(orderId)) as { id: number } | undefined;
+        if (targetOrder) {
+          run(
+            db.prepare("UPDATE orders SET status = 'SHIPPED', trackingCarrier = ?, trackingNumber = ?, updatedAt = ? WHERE id = ?"),
+            trackingCompany, trackingNum, ts, targetOrder.id
+          );
+          run(
+            db.prepare("INSERT INTO orderEvents (orderId, status, note, actor, createdAt) VALUES (?,?,?,?,?)"),
+            targetOrder.id, "SHIPPED", `Fulfilment updated via webhook: ${trackingCompany} ${trackingNum}`, "shopify", ts
+          );
+        }
+      }
+      break;
+    }
+    case "refunds/create": {
+      const order = body.order as { name?: string } | undefined;
+      const number = String(order?.name ?? "");
+      const row = db.prepare("SELECT id FROM orders WHERE number = ?").get(number) as { id: number } | undefined;
+      if (row) {
+        run(db.prepare("UPDATE orders SET status = 'REFUNDED', paymentStatus = 'REFUNDED', refundedAt = ?, updatedAt = ? WHERE id = ?"), ts, ts, row.id);
+        run(db.prepare("INSERT INTO orderEvents (orderId, status, note, actor, createdAt) VALUES (?,?,?,?,?)"), row.id, "REFUNDED", "Refund received from Shopify", "shopify", ts);
+      }
+      break;
+    }
+    default:
+      logEvent({ source: "API", level: "WARN", type: "webhook", path: "/api/webhooks/shopify", message: `Unknown topic: ${topic}` });
+  }
 }

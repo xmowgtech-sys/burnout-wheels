@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OrderActions } from "@/components/admin/order-rows";
 import { StatusBadge } from "@/components/admin/admin-ui";
@@ -13,15 +14,54 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const order = adminGetOrder(Number(id));
   if (!order) notFound();
 
+  const formattedPlacedDate = new Date(order.placedAt).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const taxesAmount = order.taxesTotal ?? Math.round(order.subtotal * 0.18);
+  const paymentStatus =
+    order.paymentStatus ||
+    (order.status === "PENDING_PAYMENT" || order.status === "PAYMENT_REVIEW" ? "PENDING" : "PAID");
+
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="u-label">Order</p>
-          <h1 className="u-h1 mt-2 text-3xl md:text-4xl">{order.number}</h1>
+      {order.isArchived ? (
+        <div className="flex items-center justify-between rounded-lg border border-red/40 bg-red/10 p-4 text-[13px] text-red">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">⚠️ Archived Order:</span>
+            <span>
+              This order was soft-deleted{order.archivedAt ? ` on ${fmtDate(order.archivedAt)}` : ""}. It is hidden from standard views.
+            </span>
+          </div>
+          <span className="rounded bg-red/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider">Archived</span>
         </div>
-        <StatusBadge status={order.status} />
-      </header>
+      ) : null}
+
+      <div>
+        <Link href="/admin/orders" className="text-xs text-fog hover:text-white transition-colors inline-flex items-center gap-1.5 mb-2">
+          ← Back to Orders
+        </Link>
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <p className="u-label">Order</p>
+              <span className="text-xs text-fog">· Placed {formattedPlacedDate}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                paymentStatus === "PAID" ? "bg-mint/15 text-mint" : "bg-yellow/15 text-yellow"
+              }`}>
+                Payment {paymentStatus}
+              </span>
+            </div>
+            <h1 className="u-h1 mt-2 text-3xl md:text-4xl">{order.number}</h1>
+          </div>
+          <StatusBadge status={order.status} />
+        </header>
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
         <div className="flex flex-col gap-8">
@@ -33,6 +73,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                 ["Subtotal", fmtUSD(order.subtotal)],
                 ["Discount", order.discountTotal > 0 ? `−${fmtUSD(order.discountTotal)} (${order.discountCode})` : "—"],
                 ["Shipping", order.shippingFee === 0 ? "FREE" : fmtUSD(order.shippingFee)],
+                ["Taxes (GST 18% incl.)", fmtUSD(taxesAmount)],
                 ["Total charge", fmtUSD(order.total)],
                 ["Unit cost", fmtUSD(order.costTotal)],
                 ["Payment fees", fmtUSD(order.feesTotal)],
@@ -59,9 +100,11 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-semibold">{it.name}</span>
-                    <span className="u-label-txt">×{it.qty} · {it.condition ?? ""}{it.scale ? ` · ${it.scale}` : ""} · cost {fmtUSD(it.cost)}</span>
+                    <span className="u-label-txt">
+                      ×{it.qty} @ {fmtUSD(it.price)} each · {it.condition ?? ""}{it.scale ? ` · ${it.scale}` : ""} · cost {fmtUSD(it.cost)}
+                    </span>
                   </span>
-                  <span className="u-mono text-[13px]">{fmtUSD(it.price * it.qty)}</span>
+                  <span className="u-mono text-[13px] font-bold">{fmtUSD(it.price * it.qty)}</span>
                 </li>
               ))}
             </ul>
@@ -86,23 +129,78 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
 
         <div className="flex flex-col gap-6">
           <div className="u-card p-5">
-            <p className="u-label">Customer</p>
-            <p className="mt-3 text-[14px] font-semibold">{order.name}</p>
+            <div className="flex items-center justify-between">
+              <p className="u-label">Customer</p>
+              <Link
+                href={`/admin/customers/${order.customerId || encodeURIComponent(order.email)}`}
+                className="text-xs text-mint hover:underline font-medium flex items-center gap-1"
+              >
+                View Profile ↗
+              </Link>
+            </div>
+            <Link
+              href={`/admin/customers/${order.customerId || encodeURIComponent(order.email)}`}
+              className="mt-3 block text-[15px] font-semibold text-white hover:text-mint transition-colors"
+            >
+              {order.name}
+            </Link>
             <p className="u-label-txt mt-1">{order.email}</p>
             {order.phone ? <p className="u-label-txt">{order.phone}</p> : null}
-            <p className="u-label-txt mt-3 leading-relaxed">
-              {order.addressLine},<br />{order.city}, {order.state} {order.pincode},<br />{order.country}
-            </p>
+
+            <div className="mt-4 pt-4 border-t border-line space-y-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-fog">Delivery Address</p>
+                <p className="u-label-txt mt-1 leading-relaxed text-[13px] text-white/90">
+                  {order.addressLine},<br />
+                  {order.city}, {order.state} {order.pincode},<br />
+                  {order.country}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-fog">Billing Address</p>
+                <p className="u-label-txt mt-1 leading-relaxed text-[13px] text-white/90">
+                  {order.billingAddress ? order.billingAddress : (
+                    <span>Same as delivery address ({order.addressLine}, {order.city})</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
             {order.notes ? (
-              <p className="mt-3 border-l-2 border-yellow bg-yellow/5 px-3 py-2 text-[12px] italic text-fog">{order.notes}</p>
-            ) : null}
-            <p className="u-label-txt mt-3">Payment {order.paymentMethod}{order.paymentChannel ? ` · via ${order.paymentChannel}` : ""} · Delivery {order.shippingMethod}</p>
-            {order.shiprocketAwb ? (
-              <p className="mt-2 text-[12px] text-mint">
-                Shiprocket AWB: <strong className="font-mono">{order.shiprocketAwb}</strong>
+              <p className="mt-4 border-l-2 border-yellow bg-yellow/5 px-3 py-2 text-[12px] italic text-fog">
+                <strong className="not-italic text-white font-medium block mb-0.5">Order Note:</strong>
+                {order.notes}
               </p>
-            ) : null}
-            {order.refundedAt ? <p className="u-label-txt mt-1 text-red!">Refunded {fmtDate(order.refundedAt)}</p> : null}
+            ) : (
+              <p className="mt-4 border border-line/60 bg-surface/30 px-3 py-2 text-[12px] text-dim">
+                No customer notes attached.
+              </p>
+            )}
+
+            <div className="mt-4 pt-4 border-t border-line space-y-1.5">
+              <p className="u-label-txt">
+                Payment: <strong className="text-white">{order.paymentMethod}</strong>
+                {order.paymentChannel ? ` · via ${order.paymentChannel}` : ""}
+                <span className={`ml-2 text-xs font-semibold ${paymentStatus === "PAID" ? "text-mint" : "text-yellow"}`}>
+                  ({paymentStatus})
+                </span>
+              </p>
+              <p className="u-label-txt">
+                Delivery Method: <strong className="text-white">{order.shippingMethod}</strong>
+              </p>
+              {order.trackingCarrier || order.trackingNumber ? (
+                <p className="text-[12px] text-mint">
+                  Tracking: <strong>{order.trackingCarrier || "Carrier"}</strong> · <span className="font-mono">{order.trackingNumber}</span>
+                </p>
+              ) : null}
+              {order.shiprocketAwb ? (
+                <p className="text-[12px] text-mint">
+                  Shiprocket AWB: <strong className="font-mono">{order.shiprocketAwb}</strong>
+                </p>
+              ) : null}
+              {order.refundedAt ? <p className="u-label-txt mt-1 text-red font-medium">Refunded {fmtDate(order.refundedAt)}</p> : null}
+            </div>
           </div>
           <OrderActions order={order} />
         </div>

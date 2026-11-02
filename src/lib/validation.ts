@@ -11,11 +11,15 @@ export const checkoutSchema = z.object({
     .array(
       z.object({
         productId: z.coerce.number().int().positive(),
+        slug: z.string().trim().optional(),
         qty: z.coerce.number().int().min(1).max(10),
       })
     )
     .min(1, "Your cart is empty")
     .max(20, "Too many line items"),
+  orderNumber: z.string().trim().max(40).optional(),
+  idempotencyKey: z.string().trim().max(100).optional(),
+  accountId: z.coerce.number().int().positive().optional(),
   name: z.string().trim().min(2, "Enter the delivery name").max(120),
   email: z.string().trim().email("Enter a valid email").max(190).toLowerCase(),
   phone: z.string().trim().regex(/^(\+?\d[\d\s-]{7,15})$/, "Enter a valid phone number").max(25).optional().or(z.literal("")),
@@ -24,6 +28,7 @@ export const checkoutSchema = z.object({
   state: z.string().trim().min(2).max(80),
   pincode: z.string().trim().regex(/^\d{6}$/, "PIN code must be 6 digits"),
   country: z.string().trim().max(80).optional(),
+  billingAddress: z.string().trim().max(500).optional().or(z.literal("")),
   notes: z.string().trim().max(600).optional().or(z.literal("")),
   shippingMethod: z.enum(["STANDARD", "EXPRESS"]),
   paymentMethod: z.enum(["UPI", "COD"]),

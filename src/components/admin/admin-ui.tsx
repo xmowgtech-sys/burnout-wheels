@@ -11,6 +11,7 @@ const STATUS_TONE: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "border-yellow text-yellow",
   PAYMENT_REVIEW: "border-sky text-sky",
   PAID: "border-mint text-mint",
+  PROCESSING: "border-sky text-sky",
   PACKING: "border-purple text-purple",
   SHIPPED: "border-orange text-orange",
   DELIVERED: "border-mint text-mint",

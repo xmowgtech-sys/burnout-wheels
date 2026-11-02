@@ -274,7 +274,7 @@ export default function CheckoutPage() {
     }
   };
 
-  /** Form submit handler: checks if user is logged in before giving order code */
+  /** Form submit handler: directly places order and auto-connects customer account */
   const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (stage === "placing") return;
@@ -288,14 +288,7 @@ export default function CheckoutPage() {
 
     if (email) setOtpEmail(email);
 
-    // If user is not authenticated, prompt them to log in to save identity for order tracking
-    if (!customer?.authenticated) {
-      setPendingFormSubmit(true);
-      setShowIdentityModal(true);
-      return;
-    }
-
-    // Authenticated: proceed to place order directly
+    // Place order directly — customer account is automatically created/connected server-side
     void executePlaceOrder();
   };
 
@@ -388,6 +381,23 @@ export default function CheckoutPage() {
       }
     }
 
+    let idempotencyKey = "";
+    try {
+      const storedKey = window.sessionStorage.getItem("bw:idempotencyKey");
+      if (storedKey) {
+        idempotencyKey = storedKey;
+      } else {
+        idempotencyKey = "IDEMP-" + Math.random().toString(36).substring(2, 10).toUpperCase() + "-" + Date.now().toString(36).toUpperCase();
+        window.sessionStorage.setItem("bw:idempotencyKey", idempotencyKey);
+      }
+    } catch {
+      idempotencyKey = "IDEMP-" + Math.random().toString(36).substring(2, 10).toUpperCase() + "-" + Date.now().toString(36).toUpperCase();
+    }
+
+    const resolvedBillingAddress = sameAsShipping
+      ? addressLine.trim()
+      : `${billingAddress || ""}, ${billingCity || ""} ${billingState || ""} ${billingPincode || ""}`.trim();
+
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -401,38 +411,33 @@ export default function CheckoutPage() {
           city: city.trim(),
           state: state.trim(),
           pincode: pincode.trim(),
+          billingAddress: resolvedBillingAddress || undefined,
           shippingMethod,
           paymentMethod,
           paymentChannel: "DISCORD",
           discountCode: applied?.code ?? "",
           notes: notes.trim() || undefined,
+          idempotencyKey,
+          accountId: customer?.account?.id || undefined,
         }),
       });
       const data = (await res.json()) as { number?: string; total?: number; status?: string; error?: string };
       if (!res.ok || !data.number) throw new Error(data.error || "Order failed");
+      try {
+        window.sessionStorage.removeItem("bw:idempotencyKey");
+      } catch {}
       const orderNumber = data.number!;
       const totalAmount = data.total || total;
 
-      // 1. Copy order number to clipboard immediately
+      // 1. Copy order number to clipboard
       try {
         await navigator.clipboard.writeText(orderNumber);
         setCopiedCode(true);
-        setTimeout(() => setCopiedCode(false), 3000);
       } catch {
         /* Clipboard fallback */
       }
 
-      // 2. Open the Order Code & Payment Modal FIRST
-      setPlacedOrder({
-        number: orderNumber,
-        total: totalAmount,
-        name: customerName,
-        email: email.trim(),
-        channel: "DISCORD",
-      });
-      setStage("details");
-
-      // 3. Persist order details in client storage so success page renders 100% reliably
+      // 2. Persist order details in client storage so success page and account paddock render 100% reliably
       const orderSummary = {
         number: orderNumber,
         name: customerName,
@@ -449,7 +454,7 @@ export default function CheckoutPage() {
         paymentMethod,
         paymentChannel: "DISCORD",
         shippingMethod,
-        status: "PAYMENT_REVIEW",
+        status: data.status || "PAYMENT_REVIEW",
         placedAt: new Date().toISOString(),
         items: activeLines.map((l) => ({
           id: l.productId,
@@ -479,13 +484,22 @@ export default function CheckoutPage() {
       }
       trackFlow("order_placed", { orderNumber });
 
-      // 4. Clear cart after setting placedOrder
+      // 3. Clear cart immediately
       store.clear();
       setFallbackLines([]);
       try {
         window.localStorage.removeItem("bw:cart:v1");
         window.sessionStorage.removeItem("bw:cart:v1");
       } catch {}
+
+      toast(`Order #${orderNumber} registered successfully!`, "ok");
+
+      // 4. Automatically navigate directly to the order confirmation page
+      router.push(
+        `/checkout/success/${orderNumber}?email=${encodeURIComponent(email.trim())}&channel=discord&name=${encodeURIComponent(
+          customerName
+        )}&total=${totalAmount}`
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Order failed";
       setError(msg);

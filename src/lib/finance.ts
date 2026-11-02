@@ -12,7 +12,7 @@ export interface MonthPoint {
   refunds: number;
 }
 
-const revenueList = ["'PAID'", "'PACKING'", "'SHIPPED'", "'DELIVERED'"].join(",");
+const revenueList = ["'PAID'", "'PROCESSING'", "'PACKING'", "'SHIPPED'", "'DELIVERED'"].join(",");
 
 export function monthlySeries(months = 12): MonthPoint[] {
   const db = getDb();

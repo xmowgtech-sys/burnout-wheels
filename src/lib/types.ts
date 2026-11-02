@@ -47,6 +47,7 @@ export type OrderStatus =
   | "PENDING_PAYMENT"
   | "PAYMENT_REVIEW"
   | "PAID"
+  | "PROCESSING"
   | "PACKING"
   | "SHIPPED"
   | "DELIVERED"
@@ -57,6 +58,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "Awaiting payment",
   PAYMENT_REVIEW: "Payment in review",
   PAID: "Paid",
+  PROCESSING: "Processing",
   PACKING: "Packing",
   SHIPPED: "Shipped",
   DELIVERED: "Delivered",
@@ -64,7 +66,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   REFUNDED: "Refunded",
 };
 
-export const REVENUE_STATUSES: OrderStatus[] = ["PAID", "PACKING", "SHIPPED", "DELIVERED"];
+export const REVENUE_STATUSES: OrderStatus[] = ["PAID", "PROCESSING", "PACKING", "SHIPPED", "DELIVERED"];
 
 export interface Order {
   id: number;
@@ -102,6 +104,12 @@ export interface Order {
   refundedAt: string | null;
   customerId: number | null;
   source?: string; // LOCAL | SHOPIFY
+  isArchived?: number;
+  archivedAt?: string | null;
+  idempotencyKey?: string | null;
+  billingAddress?: string | null;
+  taxesTotal?: number;
+  paymentStatus?: string;
   placedAt: string;
   updatedAt: string;
 }
@@ -143,10 +151,19 @@ export interface Customer {
   lifetimeValue: number;
   createdAt: string;
   lastOrderAt: string | null;
+  notes?: string;
+  status?: string;
+  accountId?: number | null;
 }
 
 export interface CustomerWithOrders extends Customer {
+  picture?: string | null;
+  verified?: boolean;
+  googleLinked?: boolean;
+  addressCount?: number;
+  statusLabel?: string;
   orders: { id: number; number: string; status: OrderStatus; total: number; placedAt: string }[];
+  latestOrder?: { number: string; total: number; status: OrderStatus; placedAt: string } | null;
 }
 
 export type DiscountType = "PERCENT" | "FLAT";

@@ -340,14 +340,34 @@ export function migrate(db: DatabaseSync): void {
   ensureColumn(db, "orders", "shiprocketAwb", "shiprocketAwb TEXT");
   ensureColumn(db, "orders", "shiprocketStatus", "shiprocketStatus TEXT");
   ensureColumn(db, "orders", "shiprocketLabelUrl", "shiprocketLabelUrl TEXT");
+  ensureColumn(db, "orders", "isArchived", "isArchived INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "orders", "archivedAt", "archivedAt TEXT");
+  ensureColumn(db, "orders", "idempotencyKey", "idempotencyKey TEXT");
+  ensureColumn(db, "orders", "billingAddress", "billingAddress TEXT");
+  ensureColumn(db, "orders", "taxesTotal", "taxesTotal INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "orders", "paymentStatus", "paymentStatus TEXT NOT NULL DEFAULT 'PENDING'");
+  ensureColumn(db, "customers", "notes", "notes TEXT DEFAULT ''");
+  ensureColumn(db, "customers", "status", "status TEXT DEFAULT 'ACTIVE'");
+  ensureColumn(db, "customers", "accountId", "accountId INTEGER");
   ensureColumn(db, "products", "source", "source TEXT NOT NULL DEFAULT 'LOCAL'");
   // Storefront framing controls — some photos are wide banners, some are tall box shots.
   ensureColumn(db, "products", "imageFit", "imageFit TEXT NOT NULL DEFAULT 'cover'");
   ensureColumn(db, "products", "imagePosition", "imagePosition TEXT NOT NULL DEFAULT 'center'");
   ensureColumn(db, "accounts", "phone", "phone TEXT");
   ensureColumn(db, "accounts", "picture", "picture TEXT");
+  ensureColumn(db, "accounts", "status", "status TEXT DEFAULT 'ACTIVE'");
   // Shop Pay express checkout needs each Shopify-sourced variant's numeric id.
   ensureColumn(db, "products", "shopifyVariantId", "shopifyVariantId TEXT");
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_orders_idempotency ON orders(idempotencyKey);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_idempotency_unique ON orders(idempotencyKey) WHERE idempotencyKey IS NOT NULL AND idempotencyKey != '';
+    CREATE INDEX IF NOT EXISTS idx_orders_archived ON orders(isArchived);
+    CREATE INDEX IF NOT EXISTS idx_customers_account ON customers(accountId);
+    INSERT OR IGNORE INTO customers (email, name, phone, accountId, createdAt)
+    SELECT email, COALESCE(name, email), phone, id, createdAt FROM accounts
+    WHERE LOWER(email) NOT IN (SELECT LOWER(email) FROM customers);
+  `);
 }
 
 function ensureColumn(db: DatabaseSync, table: string, column: string, ddl: string): void {

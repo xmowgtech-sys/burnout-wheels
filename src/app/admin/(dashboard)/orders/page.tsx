@@ -11,19 +11,42 @@ const FILTERS: { key: string; label: string }[] = [
   { key: "PAYMENT_REVIEW", label: "Awaiting Acceptance" },
   { key: "PENDING_PAYMENT", label: "Awaiting payment" },
   { key: "PAID", label: "Accepted & Paid" },
+  { key: "PROCESSING", label: "Processing" },
   { key: "PACKING", label: "Packing" },
   { key: "SHIPPED", label: "Shipped" },
   { key: "DELIVERED", label: "Delivered" },
   { key: "REFUNDED", label: "Refunded" },
   { key: "CANCELLED", label: "Cancelled" },
+  { key: "ARCHIVED", label: "Archived (Soft-Deleted)" },
 ];
 
-export default async function AdminOrdersPage({ searchParams }: { searchParams: Promise<{ status?: string; q?: string }> }) {
+export default async function AdminOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    status?: string;
+    q?: string;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    fulfilmentStatus?: string;
+  }>;
+}) {
   const sp = await searchParams;
-  const status = (sp.status as OrderStatus | "ALL" | undefined) ?? "ALL";
+  const status = (sp.status as OrderStatus | "ALL" | "ARCHIVED" | undefined) ?? "ALL";
   const q = sp.q ?? "";
-  const orders = adminListOrders({ status: status === "ALL" ? "ALL" : (status as OrderStatus), q: q || undefined });
-  const pendingAcceptanceCount = orders.filter((o) => o.status === "PAYMENT_REVIEW" || o.status === "PENDING_PAYMENT").length;
+  const paymentMethod = sp.paymentMethod ?? "ALL";
+  const paymentStatus = sp.paymentStatus ?? "ALL";
+  const fulfilmentStatus = sp.fulfilmentStatus ?? "ALL";
+
+  const orders = adminListOrders({
+    status,
+    q: q || undefined,
+    paymentMethod,
+    paymentStatus,
+    fulfilmentStatus,
+    includeArchived: status === "ARCHIVED",
+  });
+  const pendingAcceptanceCount = orders.filter((o) => (o.status === "PAYMENT_REVIEW" || o.status === "PENDING_PAYMENT") && !o.isArchived).length;
 
   return (
     <div className="flex flex-col gap-8">
@@ -70,17 +93,16 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
         ))}
       </div>
 
-      <form method="GET" action="/admin/orders" className="flex gap-2">
-        {status !== "ALL" && <input type="hidden" name="status" value={status} />}
-        <input name="q" defaultValue={q} placeholder="Search number, name, email…" className="u-input max-w-xs" aria-label="Search orders" />
-        <button className="u-btn u-btn-ghost">Search</button>
-      </form>
+      <OrdersTable
+        orders={orders}
+        initialStatus={status}
+        initialQ={q}
+        initialPaymentMethod={paymentMethod}
+        initialPaymentStatus={paymentStatus}
+        initialFulfilmentStatus={fulfilmentStatus}
+      />
 
       <OrderIntakeCard />
-
-      <p className="u-label-txt">{orders.length} orders shown</p>
-
-      <OrdersTable orders={orders} />
     </div>
   );
 }

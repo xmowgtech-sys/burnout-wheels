@@ -1,9 +1,10 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { accountByEmail, createAccount, issueToken, issueOtp, nameOrigin } from "@/lib/accounts";
+import { accountByEmail, createAccount, issueToken, issueOtp, nameOrigin, setPassword, updateProfile } from "@/lib/accounts";
 import { rateLimit, ipOf } from "@/lib/auth";
 import { logEvent } from "@/lib/ops";
 import { sendMail, verificationMail } from "@/lib/mailer";
+import { getDb } from "@/lib/db";
 
 const schema = z.object({
   email: z.string().email(),
@@ -28,6 +29,16 @@ export async function POST(req: NextRequest) {
 
     const existing = accountByEmail(email);
     if (existing) {
+      if (!existing.passwordHash) {
+        // Account was created via guest checkout without a password. Activate with password.
+        setPassword(email, password);
+        if (name) updateProfile(email, { name });
+        const db = getDb();
+        db.prepare("UPDATE customers SET accountId = ? WHERE LOWER(email) = LOWER(?)").run(existing.id, email);
+        logEvent({ source: "API", level: "INFO", type: "account_activated", path: "/api/auth/signup", message: "Customer added password to existing checkout profile" });
+        return Response.json({ ok: true, note: "Account activated! You can now sign in with your password." }, { status: 201 });
+      }
+
       if (!existing.verified) {
         const link = `${nameOrigin(req)}/api/auth/verify?token=${issueToken(existing.email, "VERIFY", 24 * 60 * 60_000)}`;
         if (rateLimit(`vresend:${existing.id}`, 2, 60 * 60_000)) await sendMail(verificationMail(email, name, link));
@@ -37,6 +48,13 @@ export async function POST(req: NextRequest) {
     }
 
     const acc = createAccount({ email, name, password });
+    const db = getDb();
+    db.prepare(`
+      INSERT INTO customers (email, name, phone, accountId, createdAt)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(email) DO UPDATE SET accountId = excluded.accountId, name = COALESCE(customers.name, excluded.name)
+    `).run(acc.email, name, acc.phone || null, acc.id, acc.createdAt);
+
     const link = `${nameOrigin(req)}/api/auth/verify?token=${issueToken(acc.email, "VERIFY", 24 * 60 * 60_000)}`;
     const code = issueOtp(acc.email);
     const sent = await sendMail(verificationMail(acc.email, name, link, code));
