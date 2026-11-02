@@ -112,12 +112,24 @@ function StoreProvider({ children }: { children: ReactNode }) {
   const [wishlist, setWishlist] = useState<StoreState["wishlist"]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const initialLoadDone = useRef(false);
 
   useEffect(() => {
-    const localLines = readJson<CartLine[]>(CART_KEY, []);
+    let localLines: CartLine[] = [];
+    try {
+      const raw = window.localStorage.getItem(CART_KEY) || window.sessionStorage.getItem(CART_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) localLines = parsed;
+      }
+    } catch {
+      /* ignore */
+    }
+
     const localWish = readJson<StoreState["wishlist"]>(LIST_KEY, []);
     setLines(localLines);
     setWishlist(localWish);
+    initialLoadDone.current = true;
     setMounted(true);
 
     // Sync wishlist with server account if authenticated
@@ -147,12 +159,19 @@ function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (mounted) writeJson(CART_KEY, lines);
-  }, [lines, mounted]);
+    if (!initialLoadDone.current) return;
+    try {
+      const serialized = JSON.stringify(lines);
+      window.localStorage.setItem(CART_KEY, serialized);
+      window.sessionStorage.setItem(CART_KEY, serialized);
+    } catch {
+      /* ignore */
+    }
+  }, [lines]);
 
   useEffect(() => {
-    if (mounted) writeJson(LIST_KEY, wishlist);
-  }, [wishlist, mounted]);
+    if (initialLoadDone.current) writeJson(LIST_KEY, wishlist);
+  }, [wishlist]);
 
   const add = useCallback((line: Omit<CartLine, "qty">, qty = 1) => {
     trackFlow("cart_add", { productId: line.productId });

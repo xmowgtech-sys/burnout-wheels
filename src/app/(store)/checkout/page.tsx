@@ -100,8 +100,33 @@ export default function CheckoutPage() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [pendingFormSubmit, setPendingFormSubmit] = useState(false);
 
+  // Storage hydration fallback so cart is never lost on navigation/refresh
+  const [fallbackLines, setFallbackLines] = useState<typeof store.lines>([]);
+  const [cartHydrated, setCartHydrated] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("bw:cart:v1") || window.sessionStorage.getItem("bw:cart:v1");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setFallbackLines(parsed);
+          if (store.lines.length === 0) {
+            parsed.forEach((l) => store.add(l, l.qty));
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setCartHydrated(true);
+    }
+  }, [store]);
+
+  const activeLines = store.lines.length > 0 ? store.lines : fallbackLines;
+
   const fmt = (n: number) => fmtUSD(n);
-  const subtotal = store.subtotal();
+  const subtotal = activeLines.reduce((n, l) => n + l.qty * l.price, 0);
   const discount = applied?.amount ?? 0;
   const shippingFee = subtotal - discount >= 249900 ? 0 : shippingMethod === "EXPRESS" ? 19900 : 9900;
   const total = subtotal - discount + shippingFee;
@@ -167,13 +192,13 @@ export default function CheckoutPage() {
 
   // Funnel: crossing into the checkout sheet
   useEffect(() => {
-    if (store.mounted && store.lines.length > 0) trackFlow("checkout_start");
-  }, [store.mounted, store.lines.length]);
+    if (activeLines.length > 0) trackFlow("checkout_start");
+  }, [activeLines.length]);
 
   // Shop Pay express
   useEffect(() => {
-    if (!store.mounted || store.lines.length === 0) return;
-    const ids = [...new Set(store.lines.map((l) => l.productId))];
+    if (activeLines.length === 0) return;
+    const ids = [...new Set(activeLines.map((l) => l.productId))];
     let cancelled = false;
     (async () => {
       try {
@@ -195,13 +220,14 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [store.mounted, store.lines]);
+  }, [activeLines]);
 
-  if (!store.mounted) {
+  if (!store.mounted && !cartHydrated) {
     return <PageHero label="Checkout" title="Loading cart" sub="Reading the paddock state…" />;
   }
 
-  if (store.lines.length === 0) {
+  // Never hijack screen if an order was placed or order is currently in-flight
+  if (activeLines.length === 0 && !placedOrder && stage !== "placing") {
     return (
       <>
         <PageHero label="Checkout" title="Nothing to settle" sub="Your cart is empty — load a piece first." />
@@ -366,7 +392,7 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          items: store.lines.map((l) => ({ productId: l.productId, qty: l.qty })),
+          items: activeLines.map((l) => ({ productId: l.productId, qty: l.qty })),
           name: customerName,
           email: email.trim(),
           phone: phone.trim(),
@@ -395,7 +421,17 @@ export default function CheckoutPage() {
         /* Clipboard fallback */
       }
 
-      // 2. Persist order details in client storage so success page renders 100% reliably
+      // 2. Open the Order Code & Payment Modal FIRST
+      setPlacedOrder({
+        number: orderNumber,
+        total: totalAmount,
+        name: customerName,
+        email: email.trim(),
+        channel: "DISCORD",
+      });
+      setStage("details");
+
+      // 3. Persist order details in client storage so success page renders 100% reliably
       const orderSummary = {
         number: orderNumber,
         name: customerName,
@@ -408,13 +444,13 @@ export default function CheckoutPage() {
         total: totalAmount,
         subtotal,
         shippingFee,
-        discountTotal,
+        discountTotal: discount,
         paymentMethod,
         paymentChannel: "DISCORD",
         shippingMethod,
         status: "PAYMENT_REVIEW",
         placedAt: new Date().toISOString(),
-        items: store.lines.map((l) => ({
+        items: activeLines.map((l) => ({
           id: l.productId,
           productId: l.productId,
           name: l.name,
@@ -434,25 +470,25 @@ export default function CheckoutPage() {
       }
       trackFlow("order_placed", { orderNumber });
 
-      // 3. Clear cart
+      // 4. Clear cart after setting placedOrder
       store.clear();
-
-      // 4. Open the Order Code & Payment Modal
-      setPlacedOrder({
-        number: orderNumber,
-        total: totalAmount,
-        name: customerName,
-        email: email.trim(),
-        channel: "DISCORD",
-      });
-      setStage("details");
+      setFallbackLines([]);
+      try {
+        window.localStorage.removeItem("bw:cart:v1");
+        window.sessionStorage.removeItem("bw:cart:v1");
+      } catch {}
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Order failed";
       setError(msg);
       setStage("error");
       if (msg.toLowerCase().includes("no longer available") || msg.toLowerCase().includes("out of stock")) {
         store.clear();
-        toast("Removed unavailable item from cart", "info");
+        setFallbackLines([]);
+        try {
+          window.localStorage.removeItem("bw:cart:v1");
+          window.sessionStorage.removeItem("bw:cart:v1");
+        } catch {}
+        toast("Removed unavailable item from cart — please select an available piece", "info");
       } else {
         toast("Order didn't land — check the message", "err");
       }
@@ -903,7 +939,7 @@ export default function CheckoutPage() {
           <div className="u-card p-6 border border-line bg-panel">
             <p className="u-label">Order sheet</p>
             <ul className="mt-4 flex flex-col gap-4">
-              {store.lines.map((l) => (
+              {activeLines.map((l) => (
                 <li key={l.productId} className="flex gap-3">
                   <span className="u-media relative size-14 shrink-0 border border-line bg-surface">
                     {l.image ? <Image src={l.image} alt={l.name} fill sizes="56px" className="object-cover" /> : null}

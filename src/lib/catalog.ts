@@ -274,8 +274,9 @@ export function deleteProduct(id: number): { mode: "deleted" } {
   const db = getDb();
   beginWrite(db);
   try {
-    // Detach history first; the FK-free productId column is nullable for exactly this.
+    // Detach history and clean relations before deleting product
     db.prepare("UPDATE orderItems SET productId = NULL WHERE productId = ?").run(id);
+    db.prepare("DELETE FROM wishlistItems WHERE productId = ?").run(id);
     db.prepare("DELETE FROM reviews WHERE productId = ?").run(id);
     db.prepare("DELETE FROM products WHERE id = ?").run(id);
     db.exec("COMMIT;");

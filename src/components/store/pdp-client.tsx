@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Heart, Minus, Plus, ShoppingCart, X, Star } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight, Heart, Minus, Plus, ShoppingCart, X, Star, Zap } from "lucide-react";
 import { useStore, useToast } from "./providers";
 import { trackFlow } from "@/components/store/site-monitor";
 import { fmtUSD } from "@/lib/money";
@@ -93,6 +94,7 @@ export function Gallery({ product }: { product: Product }) {
 
 export function BuyPanel({ product }: { product: Product }) {
   const store = useStore();
+  const router = useRouter();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
   const soldOut = product.stock <= 0;
@@ -110,6 +112,11 @@ export function BuyPanel({ product }: { product: Product }) {
   useEffect(() => {
     trackFlow("view", { productId: product.id });
   }, [product.id]);
+
+  const handlePlaceOrderNow = () => {
+    store.add(line, qty);
+    router.push("/checkout");
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -141,17 +148,28 @@ export function BuyPanel({ product }: { product: Product }) {
         </button>
       </div>
 
-      <button
-        onClick={() => {
-          store.add(line, qty);
-          toast(`${product.name} × ${qty} loaded into cart`);
-        }}
-        disabled={soldOut}
-        className="u-btn u-btn-primary w-full py-4! text-[12px]!"
-      >
-        <ShoppingCart className="size-4" aria-hidden />
-        {soldOut ? "Sold out" : `Add to cart — ${fmtUSD(product.priceSale * qty)}`}
-      </button>
+      <div className="flex flex-col gap-2.5">
+        <button
+          onClick={handlePlaceOrderNow}
+          disabled={soldOut}
+          className="u-btn u-btn-primary w-full py-4! text-xs font-bold flex items-center justify-center gap-2"
+        >
+          <Zap className="size-4 text-yellow" />
+          <span>{soldOut ? "Sold out" : `Place Order Now — ${fmtUSD(product.priceSale * qty)}`}</span>
+        </button>
+
+        <button
+          onClick={() => {
+            store.add(line, qty);
+            toast(`${product.name} × ${qty} loaded into cart`);
+          }}
+          disabled={soldOut}
+          className="u-btn u-btn-ghost w-full py-2.5! text-xs font-semibold flex items-center justify-center gap-2"
+        >
+          <ShoppingCart className="size-4" aria-hidden />
+          <span>Add to cart</span>
+        </button>
+      </div>
 
       {soldOut ? (
         <p className="u-label-txt">Next allocation drops soon — join the newsletter for first call.</p>
