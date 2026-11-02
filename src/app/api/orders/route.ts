@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     await requireApiUser("orders.view");
     const id = req.nextUrl.searchParams.get("id");
     if (id) {
-      const order = adminGetOrder(Number(id));
+      const order = adminGetOrder(id);
       if (!order) return Response.json({ error: "Not found" }, { status: 404 });
       return Response.json({ order });
     }

@@ -520,6 +520,13 @@ export function OrdersTable({
         if (Array.isArray(data.orders)) {
           setItems(data.orders);
           setLastSyncTime(new Date());
+          try {
+            window.localStorage.setItem("bw:admin:orders", JSON.stringify(data.orders));
+            data.orders.forEach((o) => {
+              window.localStorage.setItem(`bw:order:${o.id}`, JSON.stringify(o));
+              window.localStorage.setItem(`bw:order:${o.number}`, JSON.stringify(o));
+            });
+          } catch {}
         }
       }
     } catch {
@@ -836,9 +843,18 @@ function OrderTableRow({
     }
   };
 
+  const navigateToDetail = () => {
+    try {
+      window.sessionStorage.setItem("bw:activeOrder", JSON.stringify(order));
+      window.localStorage.setItem(`bw:order:${order.id}`, JSON.stringify(order));
+      window.localStorage.setItem(`bw:order:${order.number}`, JSON.stringify(order));
+    } catch {}
+    router.push(`/admin/orders/${order.id}`);
+  };
+
   return (
     <tr
-      onClick={() => router.push(`/admin/orders/${order.id}`)}
+      onClick={navigateToDetail}
       className={`group cursor-pointer transition-colors ${
         isAwaitingAcceptance ? "bg-yellow/[0.03] hover:bg-yellow/[0.08]" : "hover:bg-surface/50"
       }`}
@@ -848,7 +864,14 @@ function OrderTableRow({
         <div className="flex items-center gap-1.5">
           <Link
             href={`/admin/orders/${order.id}`}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              try {
+                window.sessionStorage.setItem("bw:activeOrder", JSON.stringify(order));
+                window.localStorage.setItem(`bw:order:${order.id}`, JSON.stringify(order));
+                window.localStorage.setItem(`bw:order:${order.number}`, JSON.stringify(order));
+              } catch {}
+              e.stopPropagation();
+            }}
             className="hover:text-red hover:underline"
           >
             {order.number}

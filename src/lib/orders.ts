@@ -351,10 +351,31 @@ export function getOrderByNumber(number: string): OrderWithRelations | null {
   return { ...parseOrder(row), items: listItems(id), events: listEvents(id) };
 }
 
-export function adminGetOrder(id: number): OrderWithRelations | null {
+export function adminGetOrder(idOrNumber: number | string): OrderWithRelations | null {
   const db = getDb();
-  const row = db.prepare("SELECT * FROM orders WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+  let row: Record<string, unknown> | undefined;
+  const idStr = String(idOrNumber).trim();
+  const numericId = Number(idStr);
+
+  // 1. Try by numeric primary key
+  if (!isNaN(numericId) && numericId > 0) {
+    row = db.prepare("SELECT * FROM orders WHERE id = ?").get(numericId) as Record<string, unknown> | undefined;
+  }
+  // 2. Try by exact order number (case-insensitive)
+  if (!row) {
+    row = db.prepare("SELECT * FROM orders WHERE LOWER(number) = LOWER(?)").get(idStr) as Record<string, unknown> | undefined;
+  }
+  // 3. Try with/without '#' prefix
+  if (!row) {
+    const cleanNum = idStr.replace(/^#/, "");
+    row = db.prepare("SELECT * FROM orders WHERE LOWER(number) = LOWER(?) OR LOWER(number) = LOWER(?)").get(cleanNum, `#${cleanNum}`) as Record<string, unknown> | undefined;
+  }
+  // 4. Try partial match
+  if (!row) {
+    row = db.prepare("SELECT * FROM orders WHERE LOWER(number) LIKE LOWER(?) ORDER BY placedAt DESC LIMIT 1").get(`%${idStr}%`) as Record<string, unknown> | undefined;
+  }
   if (!row) return null;
+  const id = Number(row.id);
   return { ...parseOrder(row), items: listItems(id), events: listEvents(id) };
 }
 
@@ -743,6 +764,119 @@ export function intakeOrder(input: IntakeOrderInput): OrderWithRelations {
   const order = adminGetOrder(orderId);
   if (!order) throw new Error("Order intake retrieval failed");
   return order;
+}
+
+/**
+ * Resilient multi-instance synchronization: restores an order from client telemetry
+ * into the current server's SQLite database so all server routes immediately see it.
+ */
+export function syncOrderToDb(rawOrder: Partial<OrderWithRelations>): OrderWithRelations {
+  const db = getDb();
+  const numClean = (rawOrder.number || "").trim().toUpperCase();
+  if (!numClean) throw new ApiError(400, "Order number is required");
+
+  const existing = adminGetOrder(numClean);
+  if (existing) return existing;
+
+  const ts = rawOrder.placedAt || nowIso();
+  const email = (rawOrder.email || "customer@burnoutwheels.com").trim().toLowerCase();
+  const name = rawOrder.name || "Racer";
+  const subtotal = rawOrder.subtotal || rawOrder.total || 199900;
+  const total = rawOrder.total || subtotal;
+  const taxesTotal = rawOrder.taxesTotal ?? Math.round(subtotal * 0.18);
+  const status = rawOrder.status || "PAYMENT_REVIEW";
+  const paymentStatus = rawOrder.paymentStatus || (status === "PAID" ? "PAID" : "PENDING");
+  const cost = rawOrder.costTotal || 0;
+  const fees = rawOrder.feesTotal || Math.round(total * 0.02);
+  const profit = rawOrder.profit || total - cost - fees;
+
+  const res = run(
+    db.prepare(`
+      INSERT INTO orders (
+        number, status, paymentMethod, paymentChannel, paymentStatus, shippingMethod,
+        email, name, phone, addressLine, city, state, pincode, country, billingAddress,
+        notes, subtotal, discountTotal, shippingFee, taxesTotal, total, costTotal, feesTotal, profit,
+        trackingCarrier, trackingNumber, source, placedAt, updatedAt
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        ?, ?, 'SYNC', ?, ?
+      )
+    `),
+    numClean,
+    status,
+    rawOrder.paymentMethod || "UPI",
+    rawOrder.paymentChannel || "DISCORD",
+    paymentStatus,
+    rawOrder.shippingMethod || "STANDARD",
+    email,
+    name,
+    rawOrder.phone || null,
+    rawOrder.addressLine || "Delivery address confirmed",
+    rawOrder.city || "Dispatch Zone",
+    rawOrder.state || "Punjab",
+    rawOrder.pincode || "160017",
+    rawOrder.country || "India",
+    rawOrder.billingAddress || null,
+    rawOrder.notes || null,
+    subtotal,
+    rawOrder.discountTotal || 0,
+    rawOrder.shippingFee || 0,
+    taxesTotal,
+    total,
+    cost,
+    fees,
+    profit,
+    rawOrder.trackingCarrier || null,
+    rawOrder.trackingNumber || null,
+    ts,
+    ts
+  );
+
+  const orderId = res.id;
+
+  if (Array.isArray(rawOrder.items) && rawOrder.items.length > 0) {
+    const insItem = db.prepare(`
+      INSERT INTO orderItems (orderId, productId, name, slug, condition, scale, price, cost, qty, image)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const item of rawOrder.items) {
+      insItem.run(
+        orderId,
+        item.productId || 1,
+        item.name || "Collector Piece",
+        item.slug || "red-bull-racing-rb20-f1",
+        item.condition || "NEW",
+        item.scale || "1:64",
+        item.price || total,
+        item.cost || 0,
+        item.qty || 1,
+        item.image || "/uploads/u-mvxjll11-0wvz0.png"
+      );
+    }
+  } else {
+    db.prepare(`
+      INSERT INTO orderItems (orderId, productId, name, slug, condition, scale, price, qty, image)
+      VALUES (?, 1, 'Collector Piece', 'red-bull-racing-rb20-f1', 'NEW', '1:64', ?, 1, '/uploads/u-mvxjll11-0wvz0.png')
+    `).run(orderId, total);
+  }
+
+  db.prepare(`
+    INSERT INTO orderEvents (orderId, status, note, actor, createdAt)
+    VALUES (?, ?, 'Order synced into Pit Wall database', 'sync_service', ?)
+  `).run(orderId, status, ts);
+
+  db.prepare(`
+    INSERT INTO customers (email, name, phone, ordersCount, lifetimeValue, createdAt, lastOrderAt)
+    VALUES (?, ?, ?, 1, ?, ?, ?)
+    ON CONFLICT(email) DO UPDATE SET
+      ordersCount = ordersCount + 1,
+      lifetimeValue = lifetimeValue + excluded.lifetimeValue,
+      lastOrderAt = excluded.lastOrderAt
+  `).run(email, name, rawOrder.phone || null, total, ts, ts);
+
+  return adminGetOrder(orderId)!;
 }
 
 /* ---------------- customers ---------------- */

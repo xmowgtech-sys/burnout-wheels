@@ -86,4 +86,51 @@ export function bootstrapStore(db: DatabaseSync): void {
       ts
     );
   }
+
+  // 4. Seed initial order #1 so cold start has order #1 ready for admin preview & tests
+  const orderCount = Number(db.prepare("SELECT COUNT(*) AS n FROM orders").get()?.n ?? 0);
+  if (orderCount === 0) {
+    const prod = db.prepare("SELECT id, name, priceSale, priceCost, slug FROM products LIMIT 1").get() as
+      | { id: number; name: string; priceSale: number; priceCost: number; slug: string }
+      | undefined;
+    const prodId = prod?.id ?? 1;
+    const prodName = prod?.name ?? "Red Bull Racing RB20 F1";
+    const prodPrice = prod?.priceSale ?? 199900;
+    const prodCost = prod?.priceCost ?? 89900;
+    const prodSlug = prod?.slug ?? "red-bull-racing-rb20-f1";
+    const taxes = Math.round(prodPrice * 0.18);
+    const fees = Math.round(prodPrice * 0.02);
+    const profit = prodPrice - prodCost - fees;
+
+    db.prepare(`
+      INSERT INTO orders (
+        id, number, status, paymentMethod, paymentChannel, paymentStatus, shippingMethod,
+        email, name, phone, addressLine, city, state, pincode, country,
+        notes, subtotal, discountTotal, shippingFee, taxesTotal, total, costTotal, feesTotal, profit,
+        source, placedAt, updatedAt
+      ) VALUES (
+        1, 'BW-004127-KL', 'PAID', 'UPI', 'DISCORD', 'PAID', 'EXPRESS',
+        'theburnoutwheels@gmail.com', 'Amanjot Singh', '+91 78890 79186',
+        'House 412, Pit Lane Corridor', 'Chandigarh', 'Punjab', '160017', 'India',
+        'Initial founding drop order', ?, 0, 0, ?, ?, ?, ?, ?,
+        'LOCAL', ?, ?
+      )
+    `).run(prodPrice, taxes, prodPrice, prodCost, fees, profit, ts, ts);
+
+    db.prepare(`
+      INSERT INTO orderItems (orderId, productId, name, price, cost, qty, condition, scale, slug, image)
+      VALUES (1, ?, ?, ?, ?, 1, 'NEW', '1:64', ?, '/uploads/u-mvxjll11-0wvz0.png')
+    `).run(prodId, prodName, prodPrice, prodCost, prodSlug);
+
+    db.prepare(`
+      INSERT INTO orderEvents (orderId, status, note, actor, createdAt)
+      VALUES (1, 'PAID', 'Founding drop order verified & accepted', 'system', ?)
+    `).run(ts);
+
+    // Also connect customer entry
+    db.prepare(`
+      INSERT OR IGNORE INTO customers (email, name, phone, ordersCount, lifetimeValue, createdAt, lastOrderAt)
+      VALUES ('theburnoutwheels@gmail.com', 'Amanjot Singh', '+91 78890 79186', 1, ?, ?, ?)
+    `).run(prodPrice, ts, ts);
+  }
 }

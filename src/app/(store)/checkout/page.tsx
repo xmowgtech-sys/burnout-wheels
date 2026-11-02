@@ -1260,10 +1260,9 @@ export default function CheckoutPage() {
               <div className="mt-3 flex flex-col sm:flex-row items-center justify-center gap-4">
                 <div className="rounded border border-line bg-white p-2 shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/images/upi-qr.png" alt="Navi UPI QR Code - Amanjot Singh" className="size-40 object-contain" />
+                  <img src="/images/upi-qr.png" alt="Navi UPI QR Code" className="size-40 object-contain" />
                 </div>
                 <div className="text-left text-xs text-fog flex flex-col gap-1.5 min-w-0">
-                  <p>Payee: <strong className="text-white">AMANJOT SINGH</strong></p>
                   <p>Bank: <span className="text-bone">Navi Axis Bank</span></p>
                   <p>Amount: <strong className="text-mint text-sm">₹{Math.round(placedOrder.total / 100).toLocaleString("en-IN")}</strong></p>
                   <div className="mt-1 flex items-center gap-2 rounded border border-line bg-ink px-2.5 py-1.5 font-mono text-white text-[12px]">
