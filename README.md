@@ -28,7 +28,6 @@ Other scripts: `npm run build`, `npm start`, `npm run seed:fresh` (wipes the DB 
 
 ## Credentials (from `.env`)
 
-- **Owner login:** `theburnoutwheels@gmail.com` / `pitwall-2026` (change in `.env` → `seed:fresh`)
 - Admin panel: `/admin/login` — password **or** Google (once configured below)
 - Storefront customers: `/signup` (email + verification) or Google
 
