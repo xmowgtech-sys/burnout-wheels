@@ -124,7 +124,12 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
     }
 
     // 6. Insert order
-    const number = orderNumber();
+    const number = (input as { orderNumber?: string }).orderNumber?.trim().toUpperCase() || orderNumber();
+    const existingOrder = db.prepare("SELECT id FROM orders WHERE number = ?").get(number) as { id: number } | undefined;
+    if (existingOrder) {
+      return adminGetOrder(existingOrder.id)!;
+    }
+
     const initialStatus: OrderStatus = input.paymentChannel ? "PAYMENT_REVIEW" : "PENDING_PAYMENT";
     const orderRes = run(
       db.prepare(
@@ -139,6 +144,33 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
       customerId, ts, ts
     );
     const orderId = orderRes.id;
+
+    // Optional Discord webhook notification to #billing / staff channel
+    if (process.env.DISCORD_WEBHOOK_URL) {
+      try {
+        fetch(process.env.DISCORD_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: `🏎️ **New Burnout Wheels Order #${number}**`,
+            embeds: [
+              {
+                title: `Order #${number}`,
+                color: input.paymentChannel === "WHATSAPP" ? 3066993 : 15548997,
+                fields: [
+                  { name: "Customer", value: `${input.name} (${input.email})`, inline: true },
+                  { name: "Total", value: `₹${(total / 100).toFixed(0)}`, inline: true },
+                  { name: "Payment Route", value: input.paymentChannel || "Discord #billing", inline: true },
+                  { name: "Status", value: initialStatus, inline: true },
+                  { name: "Address", value: `${input.addressLine || ""}, ${input.city || ""} ${input.pincode || ""}` },
+                ],
+                timestamp: ts,
+              },
+            ],
+          }),
+        }).catch(() => {});
+      } catch {}
+    }
 
     // 7. Items + stock decrement (validated inside the lock)
     const itemStmt = db.prepare(

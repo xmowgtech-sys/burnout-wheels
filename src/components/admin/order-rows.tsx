@@ -210,3 +210,121 @@ export function OrdersTable({ orders }: { orders: OrderWithRelations[] }) {
     </div>
   );
 }
+
+export function OrderIntakeCard() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [orderNumber, setOrderNumber] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [channel, setChannel] = useState<"DISCORD" | "WHATSAPP">("DISCORD");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleIntake = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orderNumber.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          orderNumber: orderNumber.trim().toUpperCase(),
+          name: name.trim() || "Racer",
+          email: email.trim() || "customer@burnoutwheels.com",
+          paymentChannel: channel,
+          paymentMethod: "UPI",
+          items: [{ productId: 1, qty: 1 }],
+          notes: `Intake from ${channel} #billing`,
+        }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Failed to intake order");
+      setOpen(false);
+      setOrderNumber("");
+      setName("");
+      setEmail("");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to intake order");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="border border-line bg-surface/50 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-bone">Order Intake &amp; Recovery</p>
+          <p className="text-[12px] text-fog">Received an order on Discord #billing or WhatsApp? Intake it here to verify, accept &amp; ship.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="u-btn u-btn-primary px-3! py-1.5! text-xs font-bold"
+        >
+          {open ? "Close Intake" : "+ Intake Discord/WhatsApp Order"}
+        </button>
+      </div>
+
+      {open && (
+        <form onSubmit={handleIntake} className="mt-4 border-t border-line/60 pt-4 flex flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-4">
+            <div>
+              <label className="u-label-txt block mb-1">Order Number *</label>
+              <input
+                required
+                value={orderNumber}
+                onChange={(e) => setOrderNumber(e.target.value)}
+                placeholder="BW-Z8NNPV-P7"
+                className="u-input uppercase font-mono text-xs"
+              />
+            </div>
+            <div>
+              <label className="u-label-txt block mb-1">Customer Name</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Racer Name"
+                className="u-input text-xs"
+              />
+            </div>
+            <div>
+              <label className="u-label-txt block mb-1">Customer Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="customer@gmail.com"
+                className="u-input text-xs"
+              />
+            </div>
+            <div>
+              <label className="u-label-txt block mb-1">Payment Route</label>
+              <select
+                value={channel}
+                onChange={(e) => setChannel(e.target.value as "DISCORD" | "WHATSAPP")}
+                className="u-input text-xs"
+              >
+                <option value="DISCORD">Discord (#billing)</option>
+                <option value="WHATSAPP">WhatsApp</option>
+              </select>
+            </div>
+          </div>
+          {error && <p className="text-xs text-red">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              disabled={busy || !orderNumber.trim()}
+              className="u-btn u-btn-primary bg-mint! text-ink! text-xs font-bold px-4! py-2!"
+            >
+              {busy ? "Registering…" : "Register in Orders List →"}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}

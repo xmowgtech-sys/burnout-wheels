@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { OrdersTable } from "@/components/admin/order-rows";
+import { OrdersTable, OrderIntakeCard } from "@/components/admin/order-rows";
 import { adminListOrders } from "@/lib/orders";
 import type { OrderStatus } from "@/lib/types";
 
@@ -49,6 +49,8 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
         <input name="q" defaultValue={q} placeholder="Search number, name, email…" className="u-input max-w-xs" aria-label="Search orders" />
         <button className="u-btn u-btn-ghost">Search</button>
       </form>
+
+      <OrderIntakeCard />
 
       <p className="u-label-txt">{orders.length} orders shown</p>
 

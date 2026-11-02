@@ -46,14 +46,20 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
     try {
       const res = await fetch(`/api/products?id=${product.id}`, { method: "DELETE" });
       const data = (await res.json().catch(() => ({}))) as { error?: string; mode?: string; ok?: boolean };
-      if (!res.ok && res.status !== 404) throw new Error(data.error || `Delete failed (${res.status})`);
-      setConfirm(false);
-      onDeleted?.(product.id);
-      router.refresh();
+      if (res.ok || res.status === 404 || data.mode === "already_deleted") {
+        setConfirm(false);
+        setError("");
+        onDeleted?.(product.id);
+        router.refresh();
+        return;
+      }
+      throw new Error(data.error || `Delete failed (${res.status})`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Delete failed";
       setError(msg);
-      alert(`Could not delete product: ${msg}`);
+      if (msg.toLowerCase().includes("not found")) {
+        onDeleted?.(product.id);
+      }
     } finally {
       setBusy(false);
     }
