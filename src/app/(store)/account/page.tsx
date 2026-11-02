@@ -1,11 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { CheckCircle2, Clock, LogIn, Package, ShieldAlert, Timer } from "lucide-react";
+import { CheckCircle2, Clock, LogIn, Package, ShieldAlert, Timer, Heart, ShoppingBag, Truck, ExternalLink } from "lucide-react";
 import { readCustomerSession, accountByEmail } from "@/lib/accounts";
-import { adminListOrders } from "@/lib/orders";
+import { getCustomerOrders } from "@/lib/orders";
+import { getAccountWishlist } from "@/lib/wishlist";
 import { fmtUSD } from "@/lib/money";
-import { ORDER_STATUS_LABELS, type Order } from "@/lib/types";
+import { ORDER_STATUS_LABELS } from "@/lib/types";
 import { AccountSettings } from "@/components/store/account-settings";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +28,13 @@ export default async function AccountPage({
   const session = await readCustomerSession();
   if (!session) redirect("/login?next=/account");
 
-  const [acc, orders] = [accountByEmail(session.email), adminListOrders({ q: session.email }).slice(0, 20)];
+  const acc = accountByEmail(session.email);
   if (!acc) redirect("/login?next=/account");
+
+  const [orders, wishlist] = [
+    getCustomerOrders(acc.email, acc.id).slice(0, 20),
+    getAccountWishlist(acc.id),
+  ];
 
   return (
     <main className="min-h-[80vh] pt-28 md:pt-32">
@@ -88,8 +94,12 @@ export default async function AccountPage({
           </div>
         )}
 
+        {/* Orders Section */}
         <section className="mt-8">
-          <p className="u-label">Order history</p>
+          <div className="flex items-center justify-between">
+            <p className="u-label">Order history</p>
+            <Link href="/track" className="text-[12px] text-fog hover:text-bone underline-offset-4 hover:underline">Track an order →</Link>
+          </div>
           {orders.length === 0 ? (
             <div className="u-card mt-4 p-8 text-center">
               <Package className="mx-auto size-6 text-fog" aria-hidden />
@@ -97,17 +107,107 @@ export default async function AccountPage({
               <Link href="/shop" className="u-btn u-btn-primary mt-4 inline-flex">Browse the shop</Link>
             </div>
           ) : (
-            <ul className="u-card mt-4 divide-y divide-line">
-              {orders.map((o: Order) => (
-                <li key={o.id} className="flex flex-wrap items-center gap-3 p-5">
-                  <span className="u-mono text-[13px] font-bold">{o.number}</span>
-                  <span className="u-label-txt">{o.placedAt.slice(0, 10)}</span>
-                  <span className="u-badge border-sky text-sky">{ORDER_STATUS_LABELS[o.status] ?? o.status}</span>
-                  <span className="u-mono ml-auto text-sm">{fmtUSD(o.total)}</span>
-                  <Link href="/track" className="u-label hover:text-bone">Track →</Link>
-                </li>
+            <div className="mt-4 flex flex-col gap-3">
+              {orders.map((o) => (
+                <div key={o.id} className="u-card p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="u-mono text-sm font-bold text-bone">{o.number}</span>
+                      <span className="u-label-txt">{o.placedAt.slice(0, 10)}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="u-badge border-sky text-sky">{ORDER_STATUS_LABELS[o.status] ?? o.status}</span>
+                      {o.paymentChannel && (
+                        <span className="u-badge border-yellow/60 text-yellow">
+                          {o.paymentChannel === "DISCORD" ? "Discord #billing" : o.paymentChannel === "WHATSAPP" ? "WhatsApp" : o.paymentChannel}
+                        </span>
+                      )}
+                      <span className="u-mono font-bold text-bone">{fmtUSD(o.total)}</span>
+                    </div>
+                  </div>
+
+                  {/* Items in order */}
+                  {o.items && o.items.length > 0 && (
+                    <div className="py-3 flex flex-wrap gap-4 items-center">
+                      {o.items.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2.5 text-[13px] text-fog">
+                          {item.image && (
+                            <div className="relative size-10 shrink-0 border border-line bg-surface overflow-hidden">
+                              <Image src={item.image} alt={item.name} fill sizes="40px" className="object-cover" />
+                            </div>
+                          )}
+                          <span className="truncate max-w-[200px] text-bone font-medium">{item.name}</span>
+                          <span className="u-mono text-[11px] text-dim">×{item.qty}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Order Footer & Actions */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line/60 pt-3 text-[12px]">
+                    <div className="flex items-center gap-3">
+                      {o.shiprocketAwb ? (
+                        <span className="flex items-center gap-1.5 text-mint font-mono">
+                          <Truck className="size-3.5" aria-hidden /> AWB: {o.shiprocketAwb}
+                        </span>
+                      ) : (
+                        <span className="text-dim">Standard dispatch via Shiprocket</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Link href={`/checkout/success/${o.number}`} className="text-fog hover:text-bone underline-offset-4 hover:underline">
+                        Payment &amp; Instructions →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
+          )}
+        </section>
+
+        {/* Wishlist Section */}
+        <section className="mt-8">
+          <div className="flex items-center justify-between">
+            <p className="u-label flex items-center gap-2">
+              <Heart className="size-3.5 text-red fill-red" aria-hidden /> Saved Garage (Wishlist)
+            </p>
+            <Link href="/wishlist" className="text-[12px] text-fog hover:text-bone underline-offset-4 hover:underline">
+              View full wishlist →
+            </Link>
+          </div>
+          {wishlist.length === 0 ? (
+            <div className="u-card mt-4 p-6 text-center">
+              <Heart className="mx-auto size-5 text-dim" aria-hidden />
+              <p className="mt-2 text-[13px] text-fog">Garage is clear — tap the heart on any model in the grid to save it to your account.</p>
+              <Link href="/shop" className="u-btn u-btn-ghost mt-3 inline-flex text-xs">Explore die-cast grid</Link>
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {wishlist.map((w) => (
+                <div key={w.productId} className="u-card flex gap-3 p-3">
+                  <Link href={`/product/${w.slug}`} className="relative size-16 shrink-0 border border-line bg-surface overflow-hidden">
+                    {w.image ? (
+                      <Image src={w.image} alt={w.name} fill sizes="64px" className="object-cover" />
+                    ) : null}
+                  </Link>
+                  <div className="flex min-w-0 flex-1 flex-col justify-between">
+                    <div>
+                      <Link href={`/product/${w.slug}`} className="truncate block text-[13px] font-semibold hover:text-red">
+                        {w.name}
+                      </Link>
+                      <p className="u-mono mt-0.5 text-[12px] text-bone font-medium">{fmtUSD(w.price)}</p>
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-dim">{w.condition}</span>
+                      <Link href={`/product/${w.slug}`} className="text-[11px] text-red hover:underline flex items-center gap-1">
+                        View model <ExternalLink className="size-2.5" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </section>
 

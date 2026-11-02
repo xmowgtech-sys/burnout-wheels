@@ -1,6 +1,28 @@
-import { readCustomerSession, deleteAccount, destroyCustomerSession } from "@/lib/accounts";
+import { readCustomerSession, deleteAccount, destroyCustomerSession, accountById, accountByEmail } from "@/lib/accounts";
 import { rateLimit } from "@/lib/auth";
 import { logEvent } from "@/lib/ops";
+
+/** GET — returns the signed-in customer account (id, email, name, picture, verified). */
+export async function GET() {
+  try {
+    const session = await readCustomerSession();
+    if (!session) return Response.json({ authenticated: false });
+    const acc = accountById(session.aid) ?? accountByEmail(session.email);
+    if (!acc) return Response.json({ authenticated: false });
+    return Response.json({
+      authenticated: true,
+      account: {
+        id: acc.id,
+        email: acc.email,
+        name: acc.name,
+        picture: acc.picture,
+        verified: acc.verified,
+      },
+    });
+  } catch {
+    return Response.json({ authenticated: false });
+  }
+}
 
 /** DELETE — permanently delete the signed-in customer account.
  *  Removes the profile + verification tokens; past orders stay purely for accounting

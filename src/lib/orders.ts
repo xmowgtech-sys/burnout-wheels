@@ -285,6 +285,26 @@ export function ordersForCustomer(customerId: number): Order[] {
   ).map((order) => ({ ...order }));
 }
 
+/**
+ * Returns complete orders (with items) placed by a customer by email or customerId.
+ */
+export function getCustomerOrders(email: string, customerId?: number): OrderWithRelations[] {
+  const db = getDb();
+  const emailN = email.trim().toLowerCase();
+  const rows = db.prepare(
+    `SELECT * FROM orders 
+     WHERE LOWER(TRIM(email)) = ? 
+        OR (customerId IS NOT NULL AND customerId = ?)
+     ORDER BY placedAt DESC LIMIT 50`
+  ).all(emailN, customerId ?? -1) as unknown as Record<string, unknown>[];
+
+  return rows.map((row) => ({
+    ...parseOrder(row),
+    items: listItems(Number(row.id)),
+    events: [],
+  }));
+}
+
 /* ---------------- admin mutations ---------------- */
 
 export interface StatusUpdate {

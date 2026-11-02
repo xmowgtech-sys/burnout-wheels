@@ -114,9 +114,36 @@ function StoreProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setLines(readJson<CartLine[]>(CART_KEY, []));
-    setWishlist(readJson<StoreState["wishlist"]>(LIST_KEY, []));
+    const localLines = readJson<CartLine[]>(CART_KEY, []);
+    const localWish = readJson<StoreState["wishlist"]>(LIST_KEY, []);
+    setLines(localLines);
+    setWishlist(localWish);
     setMounted(true);
+
+    // Sync wishlist with server account if authenticated
+    fetch("/api/account/wishlist")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { authenticated?: boolean; items?: StoreState["wishlist"] } | null) => {
+        if (data?.authenticated && Array.isArray(data.items)) {
+          const serverIds = new Set(data.items.map((i) => i.productId));
+          const missingOnServer = localWish.filter((l) => !serverIds.has(l.productId)).map((l) => l.productId);
+
+          const combined = [...data.items];
+          for (const l of localWish) {
+            if (!serverIds.has(l.productId)) combined.push(l);
+          }
+          setWishlist(combined);
+
+          if (missingOnServer.length > 0) {
+            fetch("/api/account/wishlist", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ action: "sync", productIds: missingOnServer }),
+            }).catch(() => {});
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -161,9 +188,14 @@ function StoreProvider({ children }: { children: ReactNode }) {
   const toggleWishlist = useCallback((item: StoreState["wishlist"][number]) => {
     setWishlist((prev) => {
       const exists = prev.some((w) => w.productId === item.productId);
-      if (exists) return prev.filter((w) => w.productId !== item.productId);
-      return [...prev, item];
+      return exists ? prev.filter((w) => w.productId !== item.productId) : [...prev, item];
     });
+    // Persist to customer account in database if logged in
+    fetch("/api/account/wishlist", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "toggle", productId: item.productId }),
+    }).catch(() => {});
   }, []);
 
   const value = useMemo<StoreState>(() => {

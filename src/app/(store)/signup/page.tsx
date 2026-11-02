@@ -6,11 +6,16 @@ export const metadata = {
   description: "Join the Burnout Wheels paddock — email or Google, verified in one link.",
 };
 
-export default function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ google?: string; reason?: string }>;
+}) {
+  const sp = await searchParams;
   return (
     <main className="min-h-[80vh] pt-24">
       <Suspense fallback={null}>
-        <SignupForm googleParam={undefined} />
+        <SignupForm googleParam={sp.google} googleReason={sp.reason} />
       </Suspense>
     </main>
   );

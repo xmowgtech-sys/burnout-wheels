@@ -259,6 +259,15 @@ export function migrate(db: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS idx_accounts_google ON accounts(googleId);
 
+    CREATE TABLE IF NOT EXISTS wishlistItems (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      accountId INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      productId INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      createdAt TEXT NOT NULL,
+      UNIQUE(accountId, productId)
+    );
+    CREATE INDEX IF NOT EXISTS idx_wishlist_account ON wishlistItems(accountId);
+
     CREATE TABLE IF NOT EXISTS authTokens (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT NOT NULL,

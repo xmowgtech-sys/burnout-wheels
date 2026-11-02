@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { SignJWT } from "jose";
+import { getAppOrigin } from "@/lib/auth";
 
 /**
  * GET — kicks off Google OAuth 2.0. Shows an honest error when the deployment
@@ -8,10 +9,11 @@ import { SignJWT } from "jose";
  */
 export async function GET(req: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const from = req.nextUrl.searchParams.get("from") === "admin" ? "admin" : "store";
-  const origin = `${req.nextUrl.protocol}//${req.nextUrl.host}`;
+  const origin = getAppOrigin(req);
 
-  if (!clientId || !process.env.GOOGLE_CLIENT_SECRET) {
+  if (!clientId || !clientSecret) {
     logOnce();
     return Response.redirect(`${origin}${from === "admin" ? "/admin/login?google=unconfigured" : "/login?google=unconfigured"}`, 302);
   }

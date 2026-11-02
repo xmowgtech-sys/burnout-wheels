@@ -30,7 +30,7 @@ export default function WishlistPage() {
 
   return (
     <>
-      <PageHero label="03 — Garage" title="Wishlist" sub="Everything you've flagged for the next drop window. Saved on this device only." />
+      <PageHero label="03 — Garage" title="Wishlist" sub="Everything you've flagged for the next drop window. Saved to your garage and synced with your account." />
       <div className="mx-auto max-w-7xl px-4 py-12 md:px-8">
         {store.wishlist.length === 0 ? (
           <EmptyState

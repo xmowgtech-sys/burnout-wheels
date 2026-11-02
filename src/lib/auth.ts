@@ -146,3 +146,30 @@ export function ipOf(req: Request): string {
     "local"
   );
 }
+
+/**
+ * Resolves the canonical app origin (e.g. for OAuth callbacks and transactional email links).
+ * Strictly guarantees https:// for any non-localhost host to prevent OAuth redirect_uri_mismatch.
+ */
+export function getAppOrigin(req?: Request): string {
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim().replace(/\/+$/, "");
+  }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  if (req) {
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    if (host) {
+      const isLocal = host.includes("localhost") || host.includes("127.0.0.1");
+      const proto = isLocal ? (req.headers.get("x-forwarded-proto") || "http") : "https";
+      return `${proto}://${host}`;
+    }
+  }
+  return "https://theburnoutwheels-vert.vercel.app";
+}
+

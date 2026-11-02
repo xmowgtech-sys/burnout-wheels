@@ -30,7 +30,20 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [customer, setCustomer] = useState<{
+    authenticated: boolean;
+    account?: { id: number; email: string; name?: string | null; picture?: string | null };
+  } | null>(null);
   const pathname = usePathname();
+
+  useEffect(() => {
+    fetch("/api/auth/account")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setCustomer(data);
+      })
+      .catch(() => {});
+  }, [pathname]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -118,8 +131,25 @@ export function Header() {
           </nav>
 
           <div className="ml-auto flex items-center gap-0 sm:gap-1 md:gap-2">
-            <Link href="/account" className="hidden px-2 py-2.5 text-fog transition-colors hover:text-bone sm:block" aria-label="Your account">
-              <UserRound className="size-4 md:size-[17px]" aria-hidden />
+            <Link
+              href={customer?.authenticated ? "/account" : "/login"}
+              className="hidden px-2 py-2.5 text-fog transition-colors hover:text-bone sm:flex items-center gap-1.5"
+              aria-label={customer?.authenticated ? "Your paddock account" : "Sign in"}
+            >
+              {customer?.authenticated && customer.account?.picture ? (
+                <img
+                  src={customer.account.picture}
+                  alt={customer.account.name || "Account"}
+                  className="size-6 rounded-full border border-red/60 object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : customer?.authenticated ? (
+                <span className="grid size-6 place-items-center rounded-full bg-red text-[10px] font-bold text-white">
+                  {((customer.account?.name || customer.account?.email || "U")[0]).toUpperCase()}
+                </span>
+              ) : (
+                <UserRound className="size-4 md:size-[17px]" aria-hidden />
+              )}
             </Link>
             <button
               onClick={() => setSearchOpen(true)}
@@ -178,7 +208,14 @@ export function Header() {
                 ...NAV,
                 { href: "/search", label: "Search" },
                 { href: "/wishlist", label: "Wishlist" },
-                { href: "/account", label: "Account" },
+                {
+                  href: customer?.authenticated ? "/account" : "/login",
+                  label: customer?.authenticated
+                    ? customer.account?.name
+                      ? `Paddock (${customer.account.name})`
+                      : "Paddock"
+                    : "Sign in",
+                },
               ].map((item) => (
                 <Link
                   key={item.href}

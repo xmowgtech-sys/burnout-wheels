@@ -3,11 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, User, Mail, LogIn, UserPlus, KeyRound, ShieldCheck, Flag, Wrench, Timer } from "lucide-react";
+import { Lock, User, Mail, LogIn, UserPlus, KeyRound, ShieldCheck, Flag, Wrench, Timer, Sparkles, RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * Premium motorsport auth sheets — shared by Login, Signup and Reset screens.
- * Includes the Google button (left blank-honest when OAuth isn't configured).
+ * Includes Google OAuth, One-Time Code (OTP) login, and Password login.
  */
 
 function GoogleButton({ from }: { from: "store" | "admin" }) {
@@ -42,32 +43,40 @@ function Sheet({ title, sub, children }: { title: string; sub: string; children:
 function TeamPledge() {
   return (
     <ul className="mt-7 grid gap-2.5 text-[12.5px] leading-relaxed text-fog">
-      <li className="flex items-start gap-2.5"><ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-mint" aria-hidden /> Passwords live as bcrypt hashes; sessions are httpOnly cookies.</li>
-      <li className="flex items-start gap-2.5"><Timer className="mt-0.5 size-3.5 shrink-0 text-sky" aria-hidden /> Verification links are single-use and expire in 24 hours.</li>
-      <li className="flex items-start gap-2.5"><Wrench className="mt-0.5 size-3.5 shrink-0 text-yellow" aria-hidden /> Crew is reachable 24/7 — chat radio or theburnoutwheels@gmail.com.</li>
+      <li className="flex items-start gap-2.5"><ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-mint" aria-hidden /> Passwords live as bcrypt hashes; sessions are secure httpOnly cookies.</li>
+      <li className="flex items-start gap-2.5"><Timer className="mt-0.5 size-3.5 shrink-0 text-sky" aria-hidden /> OTP sign-in codes expire in 10 minutes; single-use only.</li>
+      <li className="flex items-start gap-2.5"><Wrench className="mt-0.5 size-3.5 shrink-0 text-yellow" aria-hidden /> Crew is reachable 24/7 — Discord billing or WhatsApp.</li>
     </ul>
   );
 }
 
 /* ---------------- login ---------------- */
 
-export function LoginForm({ googleParam }: { googleParam?: string }) {
+export function LoginForm({ googleParam, googleReason }: { googleParam?: string; googleReason?: string }) {
   const router = useRouter();
   const params = useSearchParams();
+  const [method, setMethod] = useState<"otp" | "password">("otp");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [needsVerify, setNeedsVerify] = useState(false);
   const next = params.get("next");
 
-  const submit = async (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError("");
+    setNotice("");
     try {
-      const res = await fetch("/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       setNeedsVerify(res.status === 403);
       if (!res.ok) throw new Error(data.error ?? "Sign-in failed");
@@ -79,36 +88,216 @@ export function LoginForm({ googleParam }: { googleParam?: string }) {
     }
   };
 
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setError("Please enter your email address.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = (await res.json()) as { ok?: boolean; note?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Failed to send code");
+      setOtpSent(true);
+      setNotice(data.note ?? "A 6-digit code has been sent to your email.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send OTP code");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpCode.length !== 6) {
+      setError("Please enter the complete 6-digit code.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/otp/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, code: otpCode }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Invalid code");
+      router.push(next && next.startsWith("/") && !next.startsWith("//") ? next : "/account");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed");
+      setBusy(false);
+    }
+  };
+
   return (
     <Sheet title="Sign in" sub="Your orders, wishlist sync and tracking — all in the paddock.">
       {googleParam === "unconfigured" && (
-        <p role="status" className="mb-4 border border-yellow/50 bg-yellow/[0.07] px-4 py-3 text-[12.5px] text-yellow">Google sign-in isn't configured on this deployment yet — add GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET, or use email below.</p>
+        <div role="status" className="mb-5 border border-yellow/50 bg-yellow/[0.08] p-4 text-[12.5px] leading-relaxed text-yellow">
+          <p className="font-bold uppercase tracking-wider">Google OAuth Not Configured</p>
+          <p className="mt-1 text-fog">
+            Add <code className="text-white">GOOGLE_CLIENT_ID</code> and <code className="text-white">GOOGLE_CLIENT_SECRET</code> to your Vercel project environment variables, or sign in below with OTP or email.
+          </p>
+        </div>
       )}
       {googleParam === "failed" && (
-        <p role="status" className="mb-4 border border-red bg-red/10 px-4 py-3 text-[12.5px] text-red">Google handshake failed — try again or use email.</p>
+        <div role="status" className="mb-5 border border-red/60 bg-red/[0.08] p-4 text-[12.5px] leading-relaxed text-red">
+          <p className="font-bold uppercase tracking-wider">Google Sign-in Incomplete</p>
+          <p className="mt-1 text-fog">
+            {googleReason ? `Details: ${googleReason}. ` : "Handshake rejected. "}
+            Ensure <code className="text-white">https://theburnoutwheels-vert.vercel.app/api/auth/google/callback</code> is added under Authorized Redirect URIs in Google Cloud Console.
+          </p>
+        </div>
       )}
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <label className="block">
-          <span className="u-label-txt">Email</span>
-          <div className="relative mt-1.5">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
-            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="u-input pl-10!" placeholder="you@grid.io" />
-          </div>
-        </label>
-        <label className="block">
-          <span className="u-label-txt">Password</span>
-          <div className="relative mt-1.5">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
-            <input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="u-input pl-10!" />
-          </div>
-        </label>
-        {error && <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[12.5px] text-red">{error}</p>}
-        {needsVerify && (
-          <Link href={`/verify?email=${encodeURIComponent(email)}`} className="u-btn u-btn-primary w-full">Enter the 6-digit code →</Link>
-        )}
-        {notice && <p role="status" className="border border-sky/50 bg-sky/[0.07] px-4 py-3 text-[12.5px] text-sky">{notice}</p>}
-        <button disabled={busy} className="u-btn u-btn-primary"><LogIn className="size-4" aria-hidden />{busy ? "Checking pass…" : "Sign in"}</button>
-      </form>
+
+      {/* Auth Method Tabs */}
+      <div className="mb-5 grid grid-cols-2 gap-1 border border-line bg-surface/50 p-1">
+        <button
+          type="button"
+          onClick={() => {
+            setMethod("otp");
+            setError("");
+            setNotice("");
+          }}
+          className={cn(
+            "flex items-center justify-center gap-1.5 py-2 text-[12px] font-bold uppercase tracking-wider transition-colors",
+            method === "otp" ? "border border-line-strong bg-coal text-white shadow-sm" : "text-fog hover:text-white"
+          )}
+        >
+          <Sparkles className="size-3.5 text-mint" aria-hidden /> OTP Code
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMethod("password");
+            setError("");
+            setNotice("");
+          }}
+          className={cn(
+            "flex items-center justify-center gap-1.5 py-2 text-[12px] font-bold uppercase tracking-wider transition-colors",
+            method === "password" ? "border border-line-strong bg-coal text-white shadow-sm" : "text-fog hover:text-white"
+          )}
+        >
+          <KeyRound className="size-3.5 text-sky" aria-hidden /> Password
+        </button>
+      </div>
+
+      {method === "otp" ? (
+        !otpSent ? (
+          /* Step 1: Request OTP */
+          <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
+            <label className="block">
+              <span className="u-label-txt">Email address</span>
+              <div className="relative mt-1.5">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="u-input pl-10!"
+                  placeholder="you@grid.io"
+                />
+              </div>
+            </label>
+            {error && <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[12.5px] text-red">{error}</p>}
+            <button disabled={busy} className="u-btn u-btn-primary">
+              <LogIn className="size-4" aria-hidden />
+              {busy ? "Sending 6-digit code…" : "Send sign-in code →"}
+            </button>
+            <p className="text-center text-[11.5px] text-fog">
+              No password needed. We'll send a one-time 6-digit code to verify your session.
+            </p>
+          </form>
+        ) : (
+          /* Step 2: Enter 6-digit code */
+          <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
+            <div className="flex items-center justify-between rounded-sm border border-line bg-surface/40 px-3 py-2 text-[12.5px]">
+              <span className="truncate text-fog">Code sent to <strong className="text-bone">{email}</strong></span>
+              <button
+                type="button"
+                onClick={() => {
+                  setOtpSent(false);
+                  setOtpCode("");
+                  setError("");
+                }}
+                className="shrink-0 text-red underline hover:text-red/80 ml-2"
+              >
+                Change
+              </button>
+            </div>
+            {notice && <p role="status" className="border border-sky/50 bg-sky/[0.07] px-4 py-3 text-[12.5px] text-sky">{notice}</p>}
+            <label className="block">
+              <span className="u-label-txt">Enter 6-digit code</span>
+              <div className="relative mt-1.5">
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  required
+                  autoFocus
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="u-input pl-10! text-center font-mono text-xl tracking-[0.3em] font-bold"
+                  placeholder="••••••"
+                />
+              </div>
+            </label>
+            {error && <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[12.5px] text-red">{error}</p>}
+            <button disabled={busy || otpCode.length !== 6} className="u-btn u-btn-primary">
+              <LogIn className="size-4" aria-hidden />
+              {busy ? "Verifying code…" : "Sign in to paddock"}
+            </button>
+            <div className="flex items-center justify-between text-[12px] text-fog">
+              <span>Didn't receive it?</span>
+              <button
+                type="button"
+                onClick={handleSendOtp}
+                disabled={busy}
+                className="flex items-center gap-1 text-red hover:underline"
+              >
+                <RefreshCw className="size-3" aria-hidden /> Resend code
+              </button>
+            </div>
+          </form>
+        )
+      ) : (
+        /* Password Sign-in */
+        <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
+          <label className="block">
+            <span className="u-label-txt">Email</span>
+            <div className="relative mt-1.5">
+              <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
+              <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="u-input pl-10!" placeholder="you@grid.io" />
+            </div>
+          </label>
+          <label className="block">
+            <span className="u-label-txt">Password</span>
+            <div className="relative mt-1.5">
+              <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-dim" aria-hidden />
+              <input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="u-input pl-10!" />
+            </div>
+          </label>
+          {error && <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[12.5px] text-red">{error}</p>}
+          {needsVerify && (
+            <Link href={`/verify?email=${encodeURIComponent(email)}`} className="u-btn u-btn-primary w-full">Enter the 6-digit code →</Link>
+          )}
+          {notice && <p role="status" className="border border-sky/50 bg-sky/[0.07] px-4 py-3 text-[12.5px] text-sky">{notice}</p>}
+          <button disabled={busy} className="u-btn u-btn-primary"><LogIn className="size-4" aria-hidden />{busy ? "Checking pass…" : "Sign in"}</button>
+        </form>
+      )}
+
       <div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="u-label text-dim!">or</span><span className="h-px flex-1 bg-line" /></div>
       <GoogleButton from="store" />
       <div className="mt-6 flex items-center justify-between text-[13px]">
@@ -122,7 +311,7 @@ export function LoginForm({ googleParam }: { googleParam?: string }) {
 
 /* ---------------- signup ---------------- */
 
-export function SignupForm({ googleParam }: { googleParam?: string }) {
+export function SignupForm({ googleParam, googleReason }: { googleParam?: string; googleReason?: string }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -153,7 +342,21 @@ export function SignupForm({ googleParam }: { googleParam?: string }) {
   return (
     <Sheet title="Join the paddock" sub="One account for orders, tracking and drop notices. No spam, ever.">
       {googleParam === "unconfigured" && (
-        <p role="status" className="mb-4 border border-yellow/50 bg-yellow/[0.07] px-4 py-3 text-[12.5px] text-yellow">Google isn't configured on this deployment yet — email signup is ready.</p>
+        <div role="status" className="mb-4 border border-yellow/50 bg-yellow/[0.08] p-4 text-[12.5px] leading-relaxed text-yellow">
+          <p className="font-bold uppercase tracking-wider">Google OAuth Not Configured</p>
+          <p className="mt-1 text-fog">
+            Add <code className="text-white">GOOGLE_CLIENT_ID</code> and <code className="text-white">GOOGLE_CLIENT_SECRET</code> to your Vercel project environment variables, or create an account with email below.
+          </p>
+        </div>
+      )}
+      {googleParam === "failed" && (
+        <div role="status" className="mb-4 border border-red/60 bg-red/[0.08] p-4 text-[12.5px] leading-relaxed text-red">
+          <p className="font-bold uppercase tracking-wider">Google Sign-in Incomplete</p>
+          <p className="mt-1 text-fog">
+            {googleReason ? `Details: ${googleReason}. ` : "Handshake rejected. "}
+            Ensure <code className="text-white">https://theburnoutwheels-vert.vercel.app/api/auth/google/callback</code> is added under Authorized Redirect URIs in Google Cloud Console.
+          </p>
+        </div>
       )}
       {done ? (
         <div className="border border-mint/50 bg-mint/[0.07] p-5">

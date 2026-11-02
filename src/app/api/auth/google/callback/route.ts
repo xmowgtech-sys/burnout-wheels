@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { getDb } from "@/lib/db";
-import { createSession } from "@/lib/auth";
+import { createSession, getAppOrigin } from "@/lib/auth";
 import { tryGoogleLogin, createCustomerSession } from "@/lib/accounts";
 import { logEvent } from "@/lib/ops";
 
@@ -10,14 +10,21 @@ import { logEvent } from "@/lib/ops";
  *  - admin entry → signs into the team account with that email (must exist & be active)
  *  - store entry → creates/attaches a customer account (Google emails are pre-verified) */
 export async function GET(req: NextRequest) {
-  const origin = `${req.nextUrl.protocol}//${req.nextUrl.host}`;
+  const origin = getAppOrigin(req);
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
+  const oauthError = req.nextUrl.searchParams.get("error");
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
+  if (oauthError) {
+    logEvent({ source: "API", level: "WARN", type: "oauth_cancel", path: "/api/auth/google/callback", message: `Google returned error: ${oauthError}` });
+    return Response.redirect(`${origin}/login?google=failed&reason=${encodeURIComponent(oauthError)}`, 302);
+  }
+
   if (!code || !state || !clientId || !clientSecret) {
-    return Response.redirect(`${origin}/login?google=failed`, 302);
+    const missing = !clientId || !clientSecret ? "unconfigured" : "missing_params";
+    return Response.redirect(`${origin}/login?google=failed&reason=${missing}`, 302);
   }
 
   let scope = "store";
@@ -30,7 +37,7 @@ export async function GET(req: NextRequest) {
     scope = (payload.scope as string) === "admin" ? "admin" : "store";
     back = typeof payload.back === "string" ? payload.back : null;
   } catch {
-    return Response.redirect(`${origin}/login?google=failed&reason=state`, 302);
+    return Response.redirect(`${origin}/login?google=failed&reason=state_expired`, 302);
   }
 
   // Exchange code → tokens (server-to-server; secrets never touch the browser).
@@ -38,6 +45,7 @@ export async function GET(req: NextRequest) {
   let googleSub = "";
   let googleProfile: { name?: string; picture?: string } | undefined;
   try {
+    const redirectUri = `${origin}/api/auth/google/callback`;
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -45,25 +53,30 @@ export async function GET(req: NextRequest) {
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: `${origin}/api/auth/google/callback`,
+        redirect_uri: redirectUri,
         grant_type: "authorization_code",
       }),
     });
-    if (!tokenRes.ok) throw new Error(`token exchange ${tokenRes.status}`);
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      console.error("[burnout] Google token exchange rejected:", tokenRes.status, errText);
+      throw new Error(`token_exchange_${tokenRes.status}`);
+    }
     const tokens = (await tokenRes.json()) as { access_token?: string };
-    if (!tokens.access_token) throw new Error("no access_token");
+    if (!tokens.access_token) throw new Error("no_access_token");
     const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
       headers: { authorization: `Bearer ${tokens.access_token}` },
     });
-    if (!profileRes.ok) throw new Error(`profile fetch ${profileRes.status}`);
+    if (!profileRes.ok) throw new Error(`profile_fetch_${profileRes.status}`);
     const profile = (await profileRes.json()) as { sub?: string; email?: string; name?: string; picture?: string };
-    if (!profile.email || !profile.sub) throw new Error("profile incomplete");
+    if (!profile.email || !profile.sub) throw new Error("profile_incomplete");
     idTokenEmail = profile.email.toLowerCase();
     googleSub = profile.sub;
     googleProfile = { name: profile.name, picture: profile.picture };
   } catch (err) {
-    logEvent({ source: "API", level: "ERROR", type: "api_fail", path: "/api/auth/google/callback", message: `Google exchange failed: ${err instanceof Error ? err.message : "unknown"}` });
-    return Response.redirect(`${origin}/login?google=failed`, 302);
+    const msg = err instanceof Error ? err.message : "unknown";
+    logEvent({ source: "API", level: "ERROR", type: "api_fail", path: "/api/auth/google/callback", message: `Google exchange failed: ${msg}` });
+    return Response.redirect(`${origin}/login?google=failed&reason=${encodeURIComponent(msg)}`, 302);
   }
 
   if (scope === "admin") {

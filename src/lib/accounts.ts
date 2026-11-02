@@ -15,10 +15,11 @@ import { logEvent } from "./ops";
 export const CUSTOMER_COOKIE = "bw_customer";
 const TTL_S = 60 * 60 * 24 * 30;
 
-interface CustomerSession {
+export interface CustomerSession {
   aid: number;
   email: string;
   name: string;
+  picture?: string | null;
 }
 
 function key(): Uint8Array {
@@ -27,7 +28,12 @@ function key(): Uint8Array {
 }
 
 export async function createCustomerSession(acc: Account): Promise<void> {
-  const token = await new SignJWT({ aid: acc.id, email: acc.email, name: acc.name ?? "" })
+  const token = await new SignJWT({
+    aid: acc.id,
+    email: acc.email,
+    name: acc.name ?? "",
+    picture: acc.picture ?? null,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${TTL_S}s`)
@@ -47,7 +53,12 @@ export async function readCustomerSession(): Promise<CustomerSession | null> {
     if (!token) return null;
     const { payload } = await jwtVerify(token, key());
     if (typeof payload.aid !== "number" || typeof payload.email !== "string") return null;
-    return { aid: payload.aid, email: payload.email, name: (payload.name as string) ?? "" };
+    return {
+      aid: payload.aid,
+      email: payload.email,
+      name: (payload.name as string) ?? "",
+      picture: (payload.picture as string | null) ?? null,
+    };
   } catch {
     return null;
   }
@@ -99,7 +110,7 @@ export function tryGoogleLogin(email: string, googleId: string, profile?: { name
   const existing = db.prepare("SELECT id FROM accounts WHERE googleId = ?").get(googleId) as { id: number } | undefined;
   if (existing) {
     if (profile?.name || profile?.picture) {
-      db.prepare("UPDATE accounts SET name = COALESCE(NULLIF(name, ''), ?), picture = COALESCE(picture, ?) WHERE id = ?")
+      db.prepare("UPDATE accounts SET name = COALESCE(NULLIF(?, ''), name), picture = COALESCE(?, picture) WHERE id = ?")
         .run(profile.name ?? null, profile.picture ?? null, existing.id);
     }
     touchLogin(existing.id);
@@ -108,7 +119,7 @@ export function tryGoogleLogin(email: string, googleId: string, profile?: { name
   // Attach Google to a matching password account (Google proved the mailbox).
   const byEmail = db.prepare("SELECT id FROM accounts WHERE email = ?").get(emailN) as { id: number } | undefined;
   if (byEmail) {
-    db.prepare("UPDATE accounts SET googleId = ?, verified = 1, name = COALESCE(NULLIF(name, ''), ?), picture = COALESCE(picture, ?) WHERE id = ?")
+    db.prepare("UPDATE accounts SET googleId = ?, verified = 1, name = COALESCE(NULLIF(?, ''), name), picture = COALESCE(?, picture) WHERE id = ?")
       .run(googleId, profile?.name ?? null, profile?.picture ?? null, byEmail.id);
     touchLogin(byEmail.id);
     return accountById(byEmail.id);
