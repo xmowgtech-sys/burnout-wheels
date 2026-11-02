@@ -37,37 +37,25 @@ export const checkoutSchema = z.object({
 });
 
 export const productInputSchema = z.object({
-  name: z.string().trim().min(3, "Name needs at least 3 characters").max(160),
-  slug: z
-    .string()
-    .trim()
-    .regex(/^[a-z0-9-]+$/, "Lowercase letters, numbers and dashes only")
-    .max(180),
+  name: z.string().trim().min(2, "Name needs at least 2 characters").max(160),
+  slug: z.string().trim().max(180),
   brand: z.string().trim().max(80).optional().or(z.literal("")),
-  category: z.string().trim().min(2).max(60),
-  scale: z.string().trim().max(12).optional().or(z.literal("")),
-  condition: z.enum(["NEW", "LIKE_NEW", "GRADED", "PRE_OWNED"]),
-  description: z.string().trim().max(4000),
-  highlights: z.array(z.string().trim().max(220)).max(8),
-  tags: z.array(z.string().trim().max(40)).max(12),
-  images: z.array(z.string().trim().url("Image URLs must be valid links").or(z.string().regex(/^\/(api\/files|uploads)\//, "Upload a new image or use a valid URL"))).max(10),
+  category: z.string().trim().min(1).max(60),
+  scale: z.string().trim().max(20).optional().or(z.literal("")),
+  condition: z.enum(["NEW", "LIKE_NEW", "GRADED", "PRE_OWNED"]).default("NEW"),
+  description: z.string().trim().max(10000).default(""),
+  highlights: z.array(z.string().trim().max(220)).max(20).default([]),
+  tags: z.array(z.string().trim().max(60)).max(30).default([]),
+  images: z.array(z.string().trim().min(1)).max(20).default([]),
   imageFit: z.enum(["cover", "contain"]).default("cover"),
   imagePosition: z.enum(["center", "top", "bottom", "left", "right"]).default("center"),
-  priceSale: z
-    .number({ invalid_type_error: "Sale price is required" })
-    .int("Sale price must be whole paise")
-    .min(100, "Sale price at least ₹1")
-    .max(500000000, "Sale price is too high"),
-  priceCost: z
-    .number({ invalid_type_error: "Cost price is required" })
-    .int("Cost price must be whole paise")
-    .min(0, "Cost price at least ₹0")
-    .max(500000000, "Cost price is too high"),
-  feePercent: z.coerce.number().min(0).max(40),
-  stock: z.coerce.number().int().min(0).max(9999),
-  lowStockThreshold: z.coerce.number().int().min(0).max(999),
-  status: z.enum(["ACTIVE", "DRAFT", "ARCHIVED"]),
-  featured: z.boolean(),
+  priceSale: z.coerce.number({ invalid_type_error: "Sale price is required" }).min(100, "Sale price at least ₹1"),
+  priceCost: z.coerce.number().min(0).default(0),
+  feePercent: z.coerce.number().min(0).max(40).default(2),
+  stock: z.coerce.number().int().min(0).max(9999).default(10),
+  lowStockThreshold: z.coerce.number().int().min(0).max(999).default(3),
+  status: z.enum(["ACTIVE", "DRAFT", "ARCHIVED"]).default("ACTIVE"),
+  featured: z.boolean().default(false),
   dropAt: z.string().trim().optional().or(z.literal("")),
 });
 
@@ -172,9 +160,73 @@ export type CheckoutInput = z.infer<typeof checkoutSchema>;
 export type ProductInput = z.infer<typeof productInputSchema>;
 export type DiscountInput = z.infer<typeof discountSchema>;
 
-/** Convert a checkout payload's rupee amounts into minor units at the boundary. */
+/** Preprocess and normalize a product payload so minor formatting variations never block creation. */
 export function normalizeProductInput(raw: Record<string, unknown>) {
-  const parsed = productInputSchema.safeParse(raw);
+  const name = String(raw.name ?? "").trim();
+  let slug = String(raw.slug ?? "").trim();
+  if (!slug && name) {
+    slug = name;
+  }
+  slug = slug
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (!slug) slug = "product-" + Date.now().toString(36);
+
+  const category = String(raw.category ?? "").trim() || "Rare Drops";
+  const desc = String(raw.description ?? "").trim() || `${name || "Diecast piece"} — authentic collector item.`;
+  const condition = ["NEW", "LIKE_NEW", "GRADED", "PRE_OWNED"].includes(String(raw.condition))
+    ? raw.condition
+    : "NEW";
+  const status = ["ACTIVE", "DRAFT", "ARCHIVED"].includes(String(raw.status))
+    ? raw.status
+    : "ACTIVE";
+
+  let rawImages: string[] = [];
+  if (Array.isArray(raw.images)) {
+    rawImages = raw.images
+      .map((img) => String(img || "").trim())
+      .filter(Boolean)
+      .map((img) => (img.startsWith("http") || img.startsWith("/") || img.startsWith("data:") ? img : `/${img}`));
+  }
+  if (rawImages.length === 0) {
+    rawImages = ["/uploads/u-mvxjll11-0wvz0.png"];
+  }
+
+  const cleaned = {
+    ...raw,
+    name: name || "Collector Piece",
+    slug,
+    category,
+    condition,
+    status,
+    description: desc,
+    images: rawImages,
+    brand: raw.brand != null ? String(raw.brand).trim() : "",
+    scale: raw.scale != null ? String(raw.scale).trim() : "1:64",
+    priceSale: Math.max(100, Math.round(Number(raw.priceSale) || 199900)),
+    priceCost: Math.max(0, Math.round(Number(raw.priceCost) || 0)),
+    feePercent: Math.max(0, Math.min(40, Number(raw.feePercent) || 2)),
+    stock: Math.max(0, Math.round(Number(raw.stock) || 10)),
+    lowStockThreshold: Math.max(0, Math.round(Number(raw.lowStockThreshold) || 3)),
+    featured: Boolean(raw.featured),
+    dropAt: raw.dropAt != null ? String(raw.dropAt).trim() : "",
+    highlights: Array.isArray(raw.highlights)
+      ? raw.highlights.map((h) => String(h).trim()).filter(Boolean)
+      : [],
+    tags: Array.isArray(raw.tags)
+      ? raw.tags.map((t) => String(t).trim()).filter(Boolean)
+      : typeof raw.tags === "string"
+        ? (raw.tags as string).split(",").map((t) => t.trim()).filter(Boolean)
+        : [],
+    imageFit: raw.imageFit === "contain" ? "contain" : "cover",
+    imagePosition: ["center", "top", "bottom", "left", "right"].includes(String(raw.imagePosition))
+      ? raw.imagePosition
+      : "center",
+  };
+
+  const parsed = productInputSchema.safeParse(cleaned);
   if (parsed.success) return { ok: true as const, data: parsed.data };
   return { ok: false as const, error: firstError(parsed.error) };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { ConfirmDialog } from "./admin-ui";
 import { fmtUSD } from "@/lib/money";
 import { imageFitClass } from "@/lib/images";
 import { cn } from "@/lib/utils";
+import { markProductDeletedLocal, getDeletedLocalSets } from "@/lib/products-client";
 import type { Product } from "@/lib/types";
 
 const toPayload = (product: Product, status: Product["status"]) => ({
@@ -49,6 +50,7 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
       if (res.ok || res.status === 404 || data.mode === "already_deleted") {
         setConfirm(false);
         setError("");
+        markProductDeletedLocal(product.id, product.slug);
         onDeleted?.(product.id);
         router.refresh();
         return;
@@ -58,6 +60,7 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
       const msg = err instanceof Error ? err.message : "Delete failed";
       setError(msg);
       if (msg.toLowerCase().includes("not found")) {
+        markProductDeletedLocal(product.id, product.slug);
         onDeleted?.(product.id);
       }
     } finally {
@@ -102,7 +105,10 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
           <span>{error}</span>
           <button
             type="button"
-            onClick={() => onDeleted?.(product.id)}
+            onClick={() => {
+              markProductDeletedLocal(product.id, product.slug);
+              onDeleted?.(product.id);
+            }}
             className="text-[10px] text-yellow underline hover:text-white"
             title="Force remove from screen"
           >
@@ -115,17 +121,59 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
 }
 
 export function ProductsGrid({ products }: { products: Product[] }) {
-  const [items, setItems] = useState<Product[]>(products);
+  const [items, setItems] = useState<Product[]>(() => {
+    const { ids: deletedIds, slugs: deletedSlugs } = getDeletedLocalSets();
+    return products.filter((p) => !deletedIds.has(p.id) && (!p.slug || !deletedSlugs.has(p.slug)));
+  });
 
   // Sync with incoming server props when filters change
   const [prevProps, setPrevProps] = useState(products);
   if (products !== prevProps) {
     setPrevProps(products);
-    setItems(products);
+    const { ids: deletedIds, slugs: deletedSlugs } = getDeletedLocalSets();
+    setItems(products.filter((p) => !deletedIds.has(p.id) && (!p.slug || !deletedSlugs.has(p.slug))));
   }
 
+  useEffect(() => {
+    try {
+      const { ids: deletedIds, slugs: deletedSlugs } = getDeletedLocalSets();
+      const raw = window.localStorage.getItem("bw:custom_products");
+      let custom: Product[] = [];
+      if (raw) {
+        const parsed = JSON.parse(raw) as Product[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          custom = parsed.filter(
+            (p) => !deletedIds.has(p.id) && (!p.slug || !deletedSlugs.has(p.slug))
+          );
+        }
+      }
+
+      setItems((current) => {
+        const withoutDeleted = current.filter(
+          (p) => !deletedIds.has(p.id) && (!p.slug || !deletedSlugs.has(p.slug))
+        );
+        if (custom.length === 0) return withoutDeleted;
+        const existingIds = new Set(withoutDeleted.map((p) => p.id));
+        const existingSlugs = new Set(withoutDeleted.map((p) => p.slug));
+        const missing = custom.filter((p) => !existingIds.has(p.id) && (!p.slug || !existingSlugs.has(p.slug)));
+        if (missing.length === 0) return withoutDeleted;
+        return [...missing, ...withoutDeleted];
+      });
+
+      if (custom.length > 0) {
+        fetch("/api/products/sync", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ products: custom }),
+        }).catch(() => {});
+      }
+    } catch {}
+  }, []);
+
   const handleDeleted = (id: number) => {
+    const target = items.find((p) => p.id === id);
     setItems((current) => current.filter((p) => p.id !== id));
+    markProductDeletedLocal(id, target?.slug);
   };
 
   return (

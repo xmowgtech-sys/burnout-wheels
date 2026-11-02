@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ShopFilters } from "@/components/store/filters";
-import { ProductCard } from "@/components/store/product-card";
-import { PageHero, EmptyState } from "@/components/ui";
+import { ShopProductsGrid } from "@/components/store/shop-products-grid";
+import { PageHero } from "@/components/ui";
 import { categoryCounts, listProducts } from "@/lib/catalog";
 import type { ProductCondition } from "@/lib/types";
 
@@ -71,27 +71,7 @@ export default async function ShopPage({
             <p className="u-label hidden sm:block">Sorted · {sort === "price-asc" ? "price low → high" : sort === "price-desc" ? "price high → low" : "newest first"}</p>
           </div>
 
-          {products.length === 0 ? (
-            <div className="mt-10">
-              <EmptyState
-                title="Sector clear"
-                body="Nothing matches that combination yet. Reset the filters — or wait: drops announce on the paddock list first."
-                action={
-                  <Link href="/shop" className="u-btn u-btn-primary">
-                    Reset filters
-                  </Link>
-                }
-              />
-            </div>
-          ) : (
-            <div className="mt-6 grid grid-cols-2 content-start gap-x-3 gap-y-8 sm:gap-x-6 md:gap-y-12 lg:grid-cols-3 xl:grid-cols-4">
-              {products.map((p, i) => (
-                <div key={p.id} className="page-in" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
-                  <ProductCard product={p} priority={i < 4} />
-                </div>
-              ))}
-            </div>
-          )}
+          <ShopProductsGrid initialProducts={products} />
         </section>
       </div>
     </>

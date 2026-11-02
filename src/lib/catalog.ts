@@ -198,6 +198,7 @@ export function uniqueSlug(desired: string, excludeId?: number): string {
 export function createProduct(input: ProductInput): Product {
   const db = getDb();
   const ts = nowIso();
+  const safeSlug = uniqueSlug(input.slug || input.name);
   const stmt = db.prepare(
     `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images, imageFit, imagePosition,
       priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, createdAt, updatedAt)
@@ -205,7 +206,7 @@ export function createProduct(input: ProductInput): Product {
   );
   const res = run(
     stmt,
-    input.slug,
+    safeSlug,
     input.name,
     input.brand || null,
     input.category,
@@ -274,6 +275,10 @@ export function deleteProduct(id: number): { mode: "deleted" } {
   const db = getDb();
   beginWrite(db);
   try {
+    const prod = db.prepare("SELECT id, slug FROM products WHERE id = ?").get(id) as { id: number; slug: string } | undefined;
+    if (prod?.slug) {
+      db.prepare("INSERT OR REPLACE INTO deleted_products (id, slug, deletedAt) VALUES (?, ?, ?)").run(prod.id, prod.slug, nowIso());
+    }
     // Detach history and clean relations before deleting product
     db.prepare("UPDATE orderItems SET productId = NULL WHERE productId = ?").run(id);
     db.prepare("DELETE FROM wishlistItems WHERE productId = ?").run(id);
@@ -284,6 +289,16 @@ export function deleteProduct(id: number): { mode: "deleted" } {
     db.exec("ROLLBACK;");
     throw err;
   }
+  return { mode: "deleted" };
+}
+
+export function deleteProductBySlug(slug: string): { mode: "deleted" } {
+  const db = getDb();
+  const prod = db.prepare("SELECT id FROM products WHERE slug = ?").get(slug) as { id: number } | undefined;
+  if (prod) {
+    return deleteProduct(prod.id);
+  }
+  db.prepare("INSERT OR REPLACE INTO deleted_products (slug, deletedAt) VALUES (?, ?)").run(slug, nowIso());
   return { mode: "deleted" };
 }
 

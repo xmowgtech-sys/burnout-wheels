@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Field } from "@/components/admin/admin-ui";
+import { Field, ConfirmDialog } from "@/components/admin/admin-ui";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { fmtUSD } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { saveCustomProductLocal, markProductDeletedLocal } from "@/lib/products-client";
 import type { ImageFit, ImagePosition, Product, ProductStatus, ProductCondition } from "@/lib/types";
 
 interface FormState {
@@ -50,6 +51,7 @@ export function ProductForm({ initial }: { initial: Product | null }) {
   const [f, setF] = useState<FormState>(() => toState(initial));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const editing = Boolean(initial);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
@@ -73,40 +75,57 @@ export function ProductForm({ initial }: { initial: Product | null }) {
     setError("");
     setBusy(true);
     try {
+      const cleanSlug = (f.slug.trim() || slugSuggestion || f.name.trim())
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+
+      const fallbackImages = f.images.length > 0 ? f.images : ["/uploads/u-mvxjll11-0wvz0.png"];
+
       const payload = {
         name: f.name.trim(),
-        slug: (f.slug.trim() || slugSuggestion).trim(),
-        brand: f.brand.trim(),
-        category: f.category.trim(),
-        scale: f.scale.trim(),
+        slug: cleanSlug || "product-" + Date.now().toString(36),
+        brand: f.brand.trim() || "Hot Wheels",
+        category: f.category.trim() || "Rare Drops",
+        scale: f.scale.trim() || "1:64",
         condition: f.condition,
         status: f.status,
         featured: f.featured,
-        priceSale: sale,
-        priceCost: cost,
-        feePercent: Number(f.feePercent) || 0,
-        stock: Math.max(0, Math.round(Number(f.stock) || 0)),
-        lowStockThreshold: Math.max(0, Math.round(Number(f.lowStockThreshold) || 0)),
-        dropAt: f.dropAt,
-        description: f.description.trim(),
+        priceSale: sale || 199900,
+        priceCost: cost || 0,
+        feePercent: Number(f.feePercent) || 2,
+        stock: Math.max(0, Math.round(Number(f.stock) || 10)),
+        lowStockThreshold: Math.max(0, Math.round(Number(f.lowStockThreshold) || 3)),
+        dropAt: f.dropAt || "",
+        description: f.description.trim() || `${f.name.trim()} in mint authentic condition.`,
         highlights: f.highlights.split("\n").map((x) => x.trim()).filter(Boolean),
         tags: f.tags.split(",").map((x) => x.trim()).filter(Boolean),
-        images: f.images,
+        images: fallbackImages,
         imageFit: f.imageFit,
         imagePosition: f.imagePosition,
       };
+
       const res = await fetch(editing ? `/api/products?id=${initial!.id}` : "/api/products", {
         method: editing ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json()) as { error?: string; product?: Product };
       if (!res.ok) throw new Error(data.error || "Save failed");
+
+      // Persist in client storage across Vercel ephemeral lambdas
+      if (data.product) {
+        saveCustomProductLocal(data.product);
+      }
+
       router.push("/admin/products");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      const msg = err instanceof Error ? err.message : "Save failed";
+      setError(msg);
       setBusy(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -169,8 +188,8 @@ export function ProductForm({ initial }: { initial: Product | null }) {
         <Field label="Low-stock threshold"><input type="number" min="0" value={f.lowStockThreshold} onChange={(e) => set("lowStockThreshold", e.target.value)} className="u-input" /></Field>
       </div>
 
-      <Field label="Description *">
-        <textarea value={f.description} onChange={(e) => set("description", e.target.value)} required minLength={20} className="u-textarea" rows={5} />
+      <Field label="Description">
+        <textarea value={f.description} onChange={(e) => set("description", e.target.value)} className="u-textarea" rows={5} placeholder="Authentic diecast collector model in original packaging." />
       </Field>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -211,9 +230,61 @@ export function ProductForm({ initial }: { initial: Product | null }) {
         </div>
       </fieldset>
 
-      <div className="flex items-center gap-3">
-        <button disabled={busy} className="u-btn u-btn-primary">{busy ? "Saving…" : editing ? "Save changes" : "Create product"}</button>
-        <button type="button" onClick={() => router.push("/admin/products")} className="u-btn u-btn-ghost">Cancel</button>
+      {error && (
+        <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[13px] text-red">
+          {error}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-6">
+        <div className="flex items-center gap-3">
+          <button disabled={busy} className="u-btn u-btn-primary">
+            {busy ? "Saving…" : editing ? "Save changes" : "Create product"}
+          </button>
+          <button type="button" onClick={() => router.push("/admin/products")} className="u-btn u-btn-ghost">
+            Cancel
+          </button>
+        </div>
+
+        {editing && initial?.id ? (
+          <div>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setConfirmDelete(true)}
+              className="u-btn u-btn-danger"
+            >
+              Delete product
+            </button>
+            <ConfirmDialog
+              open={confirmDelete}
+              onClose={() => setConfirmDelete(false)}
+              onConfirm={async () => {
+                setBusy(true);
+                setError("");
+                try {
+                  const res = await fetch(`/api/products?id=${initial.id}`, { method: "DELETE" });
+                  const data = (await res.json().catch(() => ({}))) as { error?: string; mode?: string; ok?: boolean };
+                  if (res.ok || res.status === 404 || data.mode === "already_deleted") {
+                    markProductDeletedLocal(initial.id, initial.slug);
+                    router.push("/admin/products");
+                    router.refresh();
+                    return;
+                  }
+                  throw new Error(data.error || `Delete failed (${res.status})`);
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Delete failed");
+                  setBusy(false);
+                  setConfirmDelete(false);
+                }
+              }}
+              title={`Delete “${initial.name}”?`}
+              body="This listing will be permanently removed from the storefront and admin panel. Past customer orders and finance snapshots remain intact."
+              confirmLabel={busy ? "Deleting…" : "Delete permanently"}
+              danger
+            />
+          </div>
+        ) : null}
       </div>
     </form>
   );

@@ -2,6 +2,7 @@ import { DatabaseSync, type StatementSync } from "node:sqlite";
 import fs, { constants as fsConstants } from "node:fs";
 import path from "node:path";
 import { bootstrapStore } from "./bootstrap-data";
+import { SEED_PRODUCTS } from "./seed-catalog";
 
 const globalStore = globalThis as unknown as { __bwDb?: DatabaseSync; __bwDirs?: { data: string; uploads: string; db: string } };
 
@@ -50,8 +51,49 @@ export function getDb(): DatabaseSync {
   migrate(db);
   const empty = Number(db.prepare("SELECT COUNT(*) AS n FROM users").get()?.n ?? 0) === 0;
   if (empty) bootstrapStore(db);
+  ensureSeedProducts(db);
   globalStore.__bwDb = db;
   return db;
+}
+
+export function ensureSeedProducts(db: DatabaseSync): void {
+  try {
+    const ts = nowIso();
+    const insert = db.prepare(
+      `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images,
+         priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, createdAt, updatedAt)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(slug) DO NOTHING`
+    );
+    const deletedSlugs = new Set(
+      (db.prepare("SELECT slug FROM deleted_products").all() as { slug: string }[]).map((r) => r.slug)
+    );
+    for (const p of SEED_PRODUCTS) {
+      if (deletedSlugs.has(p.slug)) continue;
+      insert.run(
+        p.slug,
+        p.name,
+        p.brand,
+        p.category,
+        p.scale,
+        p.condition,
+        p.description,
+        JSON.stringify(p.highlights),
+        p.tags,
+        JSON.stringify(p.images),
+        p.priceSale,
+        p.priceCost,
+        p.feePercent,
+        p.stock,
+        p.lowStockThreshold,
+        p.status,
+        p.featured,
+        p.dropAt,
+        ts,
+        ts
+      );
+    }
+  } catch {}
 }
 
 export function migrate(db: DatabaseSync): void {
@@ -93,6 +135,13 @@ export function migrate(db: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
     CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+
+    CREATE TABLE IF NOT EXISTS deleted_products (
+      id INTEGER,
+      slug TEXT PRIMARY KEY,
+      deletedAt TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_deleted_products_slug ON deleted_products(slug);
 
     CREATE TABLE IF NOT EXISTS customers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
