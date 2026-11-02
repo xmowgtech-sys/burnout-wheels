@@ -51,6 +51,32 @@ export default function CheckoutPage() {
     if (store.mounted && store.lines.length > 0) trackFlow("checkout_start");
   }, [store.mounted, store.lines.length]);
 
+  // Auto-clean stale or deleted items from cart
+  useEffect(() => {
+    if (!store.mounted || store.lines.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/products?limit=100");
+        if (!res.ok) return;
+        const data = (await res.json()) as { products?: { id: number; status: string }[] };
+        if (!cancelled && Array.isArray(data.products)) {
+          const liveIds = new Set(data.products.filter((p) => p.status === "ACTIVE").map((p) => p.id));
+          const deadLines = store.lines.filter((l) => !liveIds.has(l.productId));
+          if (deadLines.length > 0) {
+            deadLines.forEach((d) => store.remove(d.productId));
+            toast(`Cleaned ${deadLines.length} discontinued item(s) from your cart`, "info");
+          }
+        }
+      } catch {
+        // network error / offline — ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [store.mounted, store.lines, store.remove, toast]);
+
   // Shop Pay express — only offers itself when the whole cart is Shopify-connected
   useEffect(() => {
     if (!store.mounted || store.lines.length === 0) return;
@@ -179,10 +205,16 @@ export default function CheckoutPage() {
       store.clear();
       router.push(`/checkout/success/${orderNumber}?email=${encodeURIComponent(email)}&channel=${channel.toLowerCase()}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Order failed");
+      const msg = err instanceof Error ? err.message : "Order failed";
+      setError(msg);
       setStage("error");
       setShowPaymentModal(false);
-      toast("Order didn't land — check the message", "err");
+      if (msg.toLowerCase().includes("no longer available") || msg.toLowerCase().includes("out of stock")) {
+        store.clear();
+        toast("Removed unavailable item from cart", "info");
+      } else {
+        toast("Order didn't land — check the message", "err");
+      }
     }
   };
 
@@ -306,7 +338,21 @@ export default function CheckoutPage() {
           )}
 
           {stage === "error" && error && (
-            <p role="alert" className="border border-red bg-red/10 px-4 py-3 text-[13px] text-red">{error}</p>
+            <div role="alert" className="border border-red bg-red/10 p-4 text-[13px] text-red flex flex-col gap-2">
+              <p className="font-semibold">{error}</p>
+              {error.toLowerCase().includes("no longer available") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    store.clear();
+                    router.push("/shop");
+                  }}
+                  className="u-btn u-btn-primary self-start text-xs py-1.5! px-3!"
+                >
+                  Clear stale cart &amp; browse live grid
+                </button>
+              )}
+            </div>
           )}
 
           <button type="submit" disabled={stage === "placing"} className="u-btn u-btn-primary w-full py-4! md:w-auto">

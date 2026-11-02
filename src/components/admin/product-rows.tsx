@@ -45,8 +45,8 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
     setError("");
     try {
       const res = await fetch(`/api/products?id=${product.id}`, { method: "DELETE" });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; mode?: string };
-      if (!res.ok) throw new Error(data.error || `Delete failed (${res.status})`);
+      const data = (await res.json().catch(() => ({}))) as { error?: string; mode?: string; ok?: boolean };
+      if (!res.ok && res.status !== 404) throw new Error(data.error || `Delete failed (${res.status})`);
       setConfirm(false);
       onDeleted?.(product.id);
       router.refresh();
@@ -91,7 +91,19 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
         confirmLabel={busy ? "Deleting…" : "Delete"}
         danger
       />
-      {error && <p role="alert" className="u-label-txt text-red!">{error}</p>}
+      {error && (
+        <span className="flex items-center gap-1.5 text-[11px] text-red">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => onDeleted?.(product.id)}
+            className="text-[10px] text-yellow underline hover:text-white"
+            title="Force remove from screen"
+          >
+            [Force remove]
+          </button>
+        </span>
+      )}
     </div>
   );
 }

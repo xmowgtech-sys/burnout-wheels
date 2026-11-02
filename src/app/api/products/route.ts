@@ -65,7 +65,12 @@ export async function DELETE(req: NextRequest) {
     const id = Number(req.nextUrl.searchParams.get("id"));
     if (!id) return Response.json({ error: "id required" }, { status: 400 });
     const product = getProductById(id);
-    if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
+    if (!product) {
+      revalidatePath("/admin/products");
+      revalidatePath("/shop");
+      revalidatePath("/");
+      return Response.json({ ok: true, mode: "already_deleted" });
+    }
     const res = deleteProduct(id);
     logActivity(me.email, "product.delete", product.slug, product.name);
     revalidatePath("/admin/products");
