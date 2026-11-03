@@ -1,5 +1,4 @@
 import { getDb, run, nowIso, tx } from "./db";
-import { bootstrapStore } from "./bootstrap-data";
 import { checkoutSchema, type CheckoutInput } from "./validation";
 import type { Customer, CustomerWithOrders, Order, OrderEvent, OrderItem, OrderStatus, OrderWithRelations, Product, StorefrontSettings } from "./types";
 import { DEFAULT_STOREFRONT } from "./settings";
@@ -63,7 +62,7 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
   // 0. Idempotency Check — Never create duplicate orders for the same checkout
   if (input.idempotencyKey) {
     const existing = db
-      .prepare("SELECT * FROM orders WHERE idempotencyKey = ? AND (isArchived = 0 OR isArchived IS NULL)")
+      .prepare("SELECT * FROM orders WHERE idempotencyKey = ? LIMIT 1")
       .get(input.idempotencyKey) as Record<string, unknown> | undefined;
     if (existing) {
       return {
@@ -85,42 +84,50 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
     // Check idempotency again under transaction lock
     if (input.idempotencyKey) {
       const existingInLock = db
-        .prepare("SELECT * FROM orders WHERE idempotencyKey = ? AND (isArchived = 0 OR isArchived IS NULL)")
+        .prepare("SELECT * FROM orders WHERE idempotencyKey = ? LIMIT 1")
         .get(input.idempotencyKey) as Record<string, unknown> | undefined;
       if (existingInLock) {
         return adminGetOrder(Number(existingInLock.id))!;
       }
     }
 
-    // 1. Resolve active products (fresh stock read happens inside the lock)
-    const products = new Map<number, Product & Record<string, unknown>>();
-    const fetchProduct = db.prepare(
-      "SELECT * FROM products WHERE (id = ? OR (slug = ? AND slug IS NOT NULL AND slug != '')) LIMIT 1"
-    );
+    // 1. Resolve the exact products the customer put in the cart. Never substitute
+    //    a different item — that used to charge customers for something they did
+    //    not choose when a serverless instance had lost its catalog.
+    const lines: { product: Product & Record<string, unknown>; qty: number }[] = [];
+    const byId = db.prepare("SELECT * FROM products WHERE id = ? LIMIT 1");
+    const bySlug = db.prepare("SELECT * FROM products WHERE slug = ? LIMIT 1");
     for (const item of items) {
-      const slugVal = (item as { slug?: string }).slug ?? "";
-      let row = fetchProduct.get(item.productId, slugVal) as Record<string, unknown> | undefined;
+      const slugVal = (item as { slug?: string }).slug?.trim() ?? "";
+      let row = byId.get(item.productId) as Record<string, unknown> | undefined;
+      if (!row && slugVal) row = bySlug.get(slugVal) as Record<string, unknown> | undefined;
       if (!row) {
-        // Resilient fallback to any active product if id changed across DB seed
-        row = db.prepare("SELECT * FROM products WHERE status = 'ACTIVE' ORDER BY id ASC LIMIT 1").get() as Record<string, unknown> | undefined;
+        throw new ApiError(422, "One item in your cart is no longer available. Refresh the shop and add it again.");
       }
-      if (!row) {
-        bootstrapStore(db);
-        row = db.prepare("SELECT * FROM products WHERE status = 'ACTIVE' ORDER BY id ASC LIMIT 1").get() as Record<string, unknown> | undefined;
+      if (String(row.status) !== "ACTIVE") {
+        throw new ApiError(422, `${String(row.name)} is not available for sale right now.`);
       }
-      if (!row) throw new ApiError(409, "Catalog is currently updating. Please refresh in a moment.");
-      products.set(item.productId, row as unknown as Product & Record<string, unknown>);
+      const available = Number(row.stock ?? 0);
+      if (available < item.qty) {
+        throw new ApiError(
+          409,
+          available <= 0
+            ? `${String(row.name)} is sold out.`
+            : `Only ${available} left of ${String(row.name)} — reduce the quantity and try again.`
+        );
+      }
+      lines.push({ product: row as unknown as Product & Record<string, unknown>, qty: item.qty });
     }
 
-    // 2. Compute totals
+    // 2. Compute totals from the exact resolved lines
     let subtotal = 0;
     let costTotal = 0;
     let feesTotal = 0;
-    for (const item of items) {
-      const p = products.get(item.productId)!;
-      subtotal += Number(p.priceSale) * item.qty;
-      costTotal += Number(p.priceCost) * item.qty;
-      feesTotal += Math.round(Number(p.priceSale) * item.qty * (Number(p.feePercent) / 100));
+    for (const line of lines) {
+      const p = line.product;
+      subtotal += Number(p.priceSale) * line.qty;
+      costTotal += Number(p.priceCost) * line.qty;
+      feesTotal += Math.round(Number(p.priceSale) * line.qty * (Number(p.feePercent) / 100));
     }
 
     // 3. Discount
@@ -156,17 +163,25 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
     // 5. Customer upsert & automatic customer account linkage
     const normalizedEmail = input.email.trim().toLowerCase();
     let acc = input.accountId ? accountById(input.accountId) : null;
+    // Never link an order (or save an address) to an account that does not own
+    // this email address, even if a stale/forged accountId is posted.
+    if (acc && acc.email.trim().toLowerCase() !== normalizedEmail) acc = null;
     if (!acc) acc = accountByEmail(normalizedEmail);
     if (!acc) {
-      acc = createAccount({
-        email: normalizedEmail,
-        name: input.name,
-        phone: input.phone || undefined,
-        verified: true,
-      });
+      try {
+        acc = createAccount({
+          email: normalizedEmail,
+          name: input.name,
+          phone: input.phone || undefined,
+          verified: true,
+        });
+      } catch {
+        acc = accountByEmail(normalizedEmail);
+      }
     } else if (!acc.phone && input.phone) {
       updateProfile(acc.email, { phone: input.phone });
     }
+    if (!acc) throw new ApiError(422, "Could not connect this order to a customer account. Try again.");
     const accountId = acc.id;
 
     const existingCustomer = db.prepare("SELECT id FROM customers WHERE LOWER(email) = LOWER(?)").get(normalizedEmail) as { id: number } | undefined;
@@ -200,15 +215,17 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
       }
     }
 
-    // 6. Insert order
-    const number = input.orderNumber?.trim().toUpperCase() || orderNumber();
-    const existingOrder = db.prepare("SELECT id FROM orders WHERE number = ?").get(number) as { id: number } | undefined;
-    if (existingOrder) {
-      return adminGetOrder(existingOrder.id)!;
+    // 6. Insert order. Customers never choose the order number — it is always
+    //    generated here, so one shopper can't request another shopper's order.
+    let number = orderNumber();
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const taken = db.prepare("SELECT 1 FROM orders WHERE number = ?").get(number);
+      if (!taken) break;
+      number = orderNumber();
     }
 
-    const initialStatus: OrderStatus = input.paymentChannel ? "PAYMENT_REVIEW" : "PENDING_PAYMENT";
-    const paymentStatus = input.paymentMethod === "COD" ? "ADVANCE_PENDING" : input.paymentChannel ? "REVIEW" : "PENDING";
+    const initialStatus: OrderStatus = "PAYMENT_REVIEW";
+    const paymentStatus = input.paymentMethod === "COD" ? "ADVANCE_PENDING" : "REVIEW";
     const billingAddress = input.billingAddress?.trim() || input.addressLine;
 
     const orderRes = run(
@@ -258,22 +275,17 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
        VALUES (?,?,?,?,?,?,?,?,?,?)`
     );
     const decStmt = db.prepare("UPDATE products SET stock = MAX(0, stock - ?), updatedAt = ? WHERE id = ?");
-    for (const item of items) {
-      const p = products.get(item.productId)!;
+    for (const line of lines) {
+      const p = line.product;
       const realProductId = Number(p.id);
       const images = safeImages(p.images);
-
-      // Auto-replenish allocation for active drop so customer checkout NEVER crashes with 409
-      if (Number(p.stock) < item.qty) {
-        db.prepare("UPDATE products SET stock = 100 WHERE id = ?").run(realProductId);
-      }
 
       run(
         itemStmt,
         orderId, realProductId, String(p.name), String(p.slug), String(p.condition), (p.scale as string) ?? null,
-        images[0] ?? null, Number(p.priceSale), Number(p.priceCost), item.qty
+        images[0] ?? null, Number(p.priceSale), Number(p.priceCost), line.qty
       );
-      decStmt.run(item.qty, ts, realProductId);
+      decStmt.run(line.qty, ts, realProductId);
     }
 
     // 8. Discount usage
@@ -281,14 +293,15 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
       db.prepare("UPDATE discounts SET usedCount = usedCount + 1 WHERE code = ?").run(discountCodeUsed);
     }
 
-    // 9. Customer aggregate
-    db.prepare("UPDATE customers SET ordersCount = ordersCount + 1, lifetimeValue = lifetimeValue + ?, lastOrderAt = ? WHERE id = ?")
-      .run(total, ts, customerId);
+    // 9. Customer aggregate — spend is only counted when the payment is accepted,
+    //    so unpaid checkouts never inflate lifetime value.
+    db.prepare("UPDATE customers SET ordersCount = ordersCount + 1, lastOrderAt = ? WHERE id = ?")
+      .run(ts, customerId);
 
     // 10. Event
     run(
       db.prepare("INSERT INTO orderEvents (orderId, status, note, actor, createdAt) VALUES (?,?,?,?,?)"),
-      orderId, initialStatus, "Order placed — stock reserved & synchronized to Pit Wall", input.name, ts
+      orderId, initialStatus, "Order placed — stock reserved, awaiting payment verification", input.name, ts
     );
 
     const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId) as OrderRow;
@@ -457,20 +470,48 @@ export function ordersForCustomer(customerId: number): Order[] {
 }
 
 /**
- * Returns complete orders (with items) placed by a customer by email or customerId.
+ * Returns complete orders (with items) placed by a customer.
+ *
+ * The caller must pass the scope it actually has: an account session supplies
+ * `accountId`, while the admin customer detail supplies a `customerId`. They
+ * live in different tables, and mixing them up leaked another shopper's orders.
  */
-export function getCustomerOrders(email: string, customerId?: number, includeArchived = false): OrderWithRelations[] {
+export function getCustomerOrders(
+  email: string,
+  scope: { accountId?: number; customerId?: number } = {},
+  includeArchived = false
+): OrderWithRelations[] {
   const db = getDb();
   const emailN = email.trim().toLowerCase();
   const archiveClause = includeArchived ? "" : "AND (isArchived = 0 OR isArchived IS NULL)";
+
+  const customerRows = (
+    scope.accountId
+      ? db
+          .prepare(
+            `SELECT id FROM customers
+             WHERE LOWER(TRIM(email)) = ?
+                OR (accountId IS NOT NULL AND accountId = ?)`
+          )
+          .all(emailN, scope.accountId)
+      : db.prepare("SELECT id FROM customers WHERE LOWER(TRIM(email)) = ?").all(emailN)
+  ) as { id: number }[];
+
+  const customerIds = new Set(customerRows.map((r) => Number(r.id)));
+  if (scope.customerId) customerIds.add(scope.customerId);
+
+  const idList = [...customerIds];
+  const idPlaceholders = idList.map(() => "?").join(",");
+  const scopeClause = idList.length
+    ? `(LOWER(TRIM(email)) = ? OR customerId IN (${idPlaceholders}))`
+    : "LOWER(TRIM(email)) = ?";
+
   const rows = db.prepare(
-    `SELECT * FROM orders 
-     WHERE (LOWER(TRIM(email)) = ? 
-        OR (customerId IS NOT NULL AND customerId = ?)
-        OR customerId IN (SELECT id FROM customers WHERE LOWER(TRIM(email)) = ?))
-        ${archiveClause}
+    `SELECT * FROM orders
+     WHERE ${scopeClause}
+       ${archiveClause}
      ORDER BY placedAt DESC LIMIT 50`
-  ).all(emailN, customerId ?? -1, emailN) as unknown as Record<string, unknown>[];
+  ).all(emailN, ...idList) as unknown as Record<string, unknown>[];
 
   return rows.map((row) => ({
     ...parseOrder(row),
@@ -538,6 +579,17 @@ export function updateOrderStatus(id: number, update: StatusUpdate): OrderWithRe
       const restock = db.prepare("UPDATE products SET stock = stock + ?, updatedAt = ? WHERE id = ?");
       for (const item of items) {
         if (item.productId) restock.run(item.qty, ts, item.productId);
+      }
+    }
+
+    // Lifetime value follows real money: add it when the payment is accepted,
+    // remove it if that accepted order is later cancelled or refunded.
+    if (order.customerId) {
+      const wasPaid = order.paymentStatus === "PAID";
+      if (update.to === "PAID" && !wasPaid) {
+        db.prepare("UPDATE customers SET lifetimeValue = lifetimeValue + ? WHERE id = ?").run(order.total, order.customerId);
+      } else if ((update.to === "CANCELLED" || update.to === "REFUNDED") && wasPaid) {
+        db.prepare("UPDATE customers SET lifetimeValue = MAX(0, lifetimeValue - ?) WHERE id = ?").run(order.total, order.customerId);
       }
     }
 
@@ -678,208 +730,6 @@ export function deleteOrder(id: number, actor: string): boolean {
   return true;
 }
 
-/* ---------------- order intake & recovery ---------------- */
-
-export interface IntakeOrderInput {
-  orderNumber: string;
-  name?: string;
-  email?: string;
-  phone?: string;
-  total?: number;
-  paymentChannel?: "DISCORD" | "WHATSAPP";
-  status?: OrderStatus;
-  notes?: string;
-  actor: string;
-}
-
-export function intakeOrder(input: IntakeOrderInput): OrderWithRelations {
-  const db = getDb();
-  const numClean = input.orderNumber.trim().toUpperCase();
-  if (!numClean) throw new ApiError(400, "Order number is required");
-
-  const ts = nowIso();
-  const totalAmount = input.total && input.total > 0 ? (input.total < 1000 ? input.total * 100 : input.total) : 199900;
-  const channel = input.paymentChannel === "WHATSAPP" ? "WHATSAPP" : "DISCORD";
-  const initialStatus: OrderStatus = input.status || "PAID";
-  const customerName = input.name?.trim() || "Racer";
-  const customerEmail = input.email?.trim().toLowerCase() || "customer@burnoutwheels.com";
-
-  // Check if order already exists in DB
-  const existing = db.prepare("SELECT * FROM orders WHERE UPPER(number) = ?").get(numClean) as Record<string, unknown> | undefined;
-
-  let orderId: number;
-
-  if (existing) {
-    orderId = Number(existing.id);
-    db.prepare(`
-      UPDATE orders 
-      SET status = ?, paymentChannel = ?, paymentStatus = 'PAID', paymentClaimedAt = COALESCE(paymentClaimedAt, ?), updatedAt = ?
-      WHERE id = ?
-    `).run(initialStatus, channel, ts, ts, orderId);
-
-    db.prepare("INSERT INTO orderEvents (orderId, status, note, actor, createdAt) VALUES (?, ?, ?, ?, ?)")
-      .run(orderId, initialStatus, `Order verified & accepted via ${channel} #billing`, input.actor, ts);
-  } else {
-    // Look up any active product for the orderItem link
-    const prod = db.prepare("SELECT * FROM products WHERE status = 'ACTIVE' LIMIT 1").get() as Record<string, unknown> | undefined;
-    const prodId = prod ? Number(prod.id) : null;
-    const prodName = prod ? String(prod.name) : "Red Bull Racing RB20 F1";
-    const prodSlug = prod ? String(prod.slug) : "red-bull-racing-rb20-f1";
-
-    const stmt = db.prepare(`
-      INSERT INTO orders (
-        number, status, paymentMethod, paymentChannel, paymentStatus, paymentClaimedAt, shippingMethod,
-        email, name, phone, addressLine, city, state, pincode, country,
-        notes, subtotal, discountTotal, shippingFee, total, costTotal, feesTotal, profit,
-        source, placedAt, updatedAt
-      ) VALUES (
-        ?, ?, 'UPI', ?, 'PAID', ?, 'STANDARD',
-        ?, ?, ?, 'Delivery address confirmed via chat', 'India', 'Dispatch Zone', '110001', 'India',
-        ?, ?, 0, 0, ?, 0, 0, 0,
-        'INTAKE', ?, ?
-      )
-    `);
-
-    const res = run(
-      stmt,
-      numClean, initialStatus, channel, ts,
-      customerEmail, customerName, input.phone || null,
-      input.notes || `Order intake from ${channel} #billing`, totalAmount, totalAmount,
-      ts, ts
-    );
-
-    orderId = res.id;
-
-    db.prepare(`
-      INSERT INTO orderItems (orderId, productId, name, slug, condition, scale, price, qty)
-      VALUES (?, ?, ?, ?, 'NEW', '1:64', ?, 1)
-    `).run(orderId, prodId, prodName, prodSlug, totalAmount);
-
-    db.prepare("INSERT INTO orderEvents (orderId, status, note, actor, createdAt) VALUES (?, ?, ?, ?, ?)")
-      .run(orderId, initialStatus, `Order intaked into Pit Wall & verified via ${channel}`, input.actor, ts);
-  }
-
-  logActivity(input.actor, "order.intake", numClean, `Intaked order #${numClean} (${initialStatus})`);
-
-  const order = adminGetOrder(orderId);
-  if (!order) throw new Error("Order intake retrieval failed");
-  return order;
-}
-
-/**
- * Resilient multi-instance synchronization: restores an order from client telemetry
- * into the current server's SQLite database so all server routes immediately see it.
- */
-export function syncOrderToDb(rawOrder: Partial<OrderWithRelations>): OrderWithRelations {
-  const db = getDb();
-  const numClean = (rawOrder.number || "").trim().toUpperCase();
-  if (!numClean) throw new ApiError(400, "Order number is required");
-
-  const existing = adminGetOrder(numClean);
-  if (existing) return existing;
-
-  const ts = rawOrder.placedAt || nowIso();
-  const email = (rawOrder.email || "customer@burnoutwheels.com").trim().toLowerCase();
-  const name = rawOrder.name || "Racer";
-  const subtotal = rawOrder.subtotal || rawOrder.total || 199900;
-  const total = rawOrder.total || subtotal;
-  const taxesTotal = rawOrder.taxesTotal ?? Math.round(subtotal * 0.18);
-  const status = rawOrder.status || "PAYMENT_REVIEW";
-  const paymentStatus = rawOrder.paymentStatus || (status === "PAID" ? "PAID" : "PENDING");
-  const cost = rawOrder.costTotal || 0;
-  const fees = rawOrder.feesTotal || Math.round(total * 0.02);
-  const profit = rawOrder.profit || total - cost - fees;
-
-  const res = run(
-    db.prepare(`
-      INSERT INTO orders (
-        number, status, paymentMethod, paymentChannel, paymentStatus, shippingMethod,
-        email, name, phone, addressLine, city, state, pincode, country, billingAddress,
-        notes, subtotal, discountTotal, shippingFee, taxesTotal, total, costTotal, feesTotal, profit,
-        trackingCarrier, trackingNumber, source, placedAt, updatedAt
-      ) VALUES (
-        ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?, ?, ?, ?, ?,
-        ?, ?, 'SYNC', ?, ?
-      )
-    `),
-    numClean,
-    status,
-    rawOrder.paymentMethod || "UPI",
-    rawOrder.paymentChannel || "DISCORD",
-    paymentStatus,
-    rawOrder.shippingMethod || "STANDARD",
-    email,
-    name,
-    rawOrder.phone || null,
-    rawOrder.addressLine || "Delivery address confirmed",
-    rawOrder.city || "Dispatch Zone",
-    rawOrder.state || "Punjab",
-    rawOrder.pincode || "160017",
-    rawOrder.country || "India",
-    rawOrder.billingAddress || null,
-    rawOrder.notes || null,
-    subtotal,
-    rawOrder.discountTotal || 0,
-    rawOrder.shippingFee || 0,
-    taxesTotal,
-    total,
-    cost,
-    fees,
-    profit,
-    rawOrder.trackingCarrier || null,
-    rawOrder.trackingNumber || null,
-    ts,
-    ts
-  );
-
-  const orderId = res.id;
-
-  if (Array.isArray(rawOrder.items) && rawOrder.items.length > 0) {
-    const insItem = db.prepare(`
-      INSERT INTO orderItems (orderId, productId, name, slug, condition, scale, price, cost, qty, image)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    for (const item of rawOrder.items) {
-      insItem.run(
-        orderId,
-        item.productId || 1,
-        item.name || "Collector Piece",
-        item.slug || "red-bull-racing-rb20-f1",
-        item.condition || "NEW",
-        item.scale || "1:64",
-        item.price || total,
-        item.cost || 0,
-        item.qty || 1,
-        item.image || "/uploads/u-mvxjll11-0wvz0.png"
-      );
-    }
-  } else {
-    db.prepare(`
-      INSERT INTO orderItems (orderId, productId, name, slug, condition, scale, price, qty, image)
-      VALUES (?, 1, 'Collector Piece', 'red-bull-racing-rb20-f1', 'NEW', '1:64', ?, 1, '/uploads/u-mvxjll11-0wvz0.png')
-    `).run(orderId, total);
-  }
-
-  db.prepare(`
-    INSERT INTO orderEvents (orderId, status, note, actor, createdAt)
-    VALUES (?, ?, 'Order synced into Pit Wall database', 'sync_service', ?)
-  `).run(orderId, status, ts);
-
-  db.prepare(`
-    INSERT INTO customers (email, name, phone, ordersCount, lifetimeValue, createdAt, lastOrderAt)
-    VALUES (?, ?, ?, 1, ?, ?, ?)
-    ON CONFLICT(email) DO UPDATE SET
-      ordersCount = ordersCount + 1,
-      lifetimeValue = lifetimeValue + excluded.lifetimeValue,
-      lastOrderAt = excluded.lastOrderAt
-  `).run(email, name, rawOrder.phone || null, total, ts, ts);
-
-  return adminGetOrder(orderId)!;
-}
-
-/* ---------------- customers ---------------- */
 
 export function listCustomers(q?: string): CustomerWithOrders[] {
   const db = getDb();
@@ -991,7 +841,7 @@ export function getCustomerDetail(idOrEmail: string | number): CustomerDetail | 
   }
 
   // All customer orders
-  const orders = getCustomerOrders(email, customerId);
+  const orders = getCustomerOrders(email, { customerId });
 
   // Synthesize addresses from orders if no customerAddresses exist
   if (addresses.length === 0) {

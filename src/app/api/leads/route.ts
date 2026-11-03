@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getDb, run, nowIso } from "@/lib/db";
 import { rateLimit, ipOf } from "@/lib/auth";
 
-/** Public lead capture (newsletter / chatbot email). */
+/** Public lead capture (newsletter email). */
 export async function POST(req: NextRequest) {
   try {
     if (!rateLimit(`lead:${ipOf(req)}`, 6, 30 * 60_000)) {
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     if (!db.prepare("SELECT 1 FROM leads WHERE email = ?").get(clean)) {
       run(
         db.prepare("INSERT INTO leads (email, source, createdAt) VALUES (?,?,?)"),
-        clean, source === "chatbot" ? "chatbot" : "footer", nowIso()
+        clean, source || "footer", nowIso()
       );
     }
     return Response.json({ ok: true }, { status: 201 });

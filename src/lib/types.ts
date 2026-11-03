@@ -195,31 +195,6 @@ export interface Review {
   createdAt: string;
 }
 
-export type ConversationStatus = "BOT" | "HANDOFF_PENDING" | "HANDOFF_ACTIVE" | "RESOLVED";
-
-export interface Conversation {
-  id: number;
-  sessionId: string;
-  email: string | null;
-  name: string | null;
-  status: ConversationStatus;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ChatMessage {
-  id: number;
-  conversationId: number;
-  role: "user" | "bot" | "admin";
-  content: string;
-  createdAt: string;
-}
-
-export interface ConversationWithExcerpt extends Conversation {
-  lastMessage: string;
-  messageCount: number;
-}
-
 export interface HomeSettings {
   heroDesktopImage: string;
   heroMobileImage: string;
@@ -253,18 +228,6 @@ export interface StorefrontSettings {
   returnsDays: number;
   paymentMethods: ("UPI" | "COD")[];
   home: HomeSettings;
-}
-
-export interface ChatbotSettings {
-  enabled: boolean;
-  name: string;
-  greeting: string;
-  suggestProducts: boolean;
-  showStock: boolean;
-  faqs: { keywords: string[]; answer: string }[];
-  leadCapture: boolean;
-  handoffEmail: string;
-  handoffWebhook: string;
 }
 
 export interface TrustpilotSettings {

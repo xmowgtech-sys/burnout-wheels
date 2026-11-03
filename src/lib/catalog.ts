@@ -229,6 +229,10 @@ export function createProduct(input: ProductInput): Product {
     ts,
     ts
   );
+  // A deliberate re-listing clears the tombstone so future seed runs don't
+  // treat this slug as permanently deleted.
+  db.prepare("DELETE FROM deleted_products WHERE slug = ?").run(safeSlug);
+
   const product = getProductById(res.id);
   if (!product) throw new Error("Product insert failed");
   return product;

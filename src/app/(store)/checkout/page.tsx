@@ -9,8 +9,6 @@ import {
   Tag,
   Lock,
   Zap,
-  Copy,
-  Check,
   ShieldCheck,
   UserCheck,
   Plus,
@@ -25,19 +23,11 @@ import { fmtUSD } from "@/lib/money";
 import { COD_ADVANCE_LABEL, COD_ADVANCE_PAISE, PAYMENT_HELP, codBalance } from "@/lib/payments";
 import type { CustomerAddress } from "@/lib/addresses";
 
-type Stage = "cart" | "details" | "placing" | "paying" | "error";
+type Stage = "cart" | "details" | "placing" | "error";
 
 interface Applied {
   code: string;
   amount: number;
-}
-
-interface PlacedOrderState {
-  number: string;
-  total: number;
-  name: string;
-  email: string;
-  channel: "DISCORD" | "WHATSAPP";
 }
 
 export default function CheckoutPage() {
@@ -95,10 +85,7 @@ export default function CheckoutPage() {
   const [otpErr, setOtpErr] = useState("");
   const [otpNotice, setOtpNotice] = useState("");
 
-  // Order confirmation modal
-  const [placedOrder, setPlacedOrder] = useState<PlacedOrderState | null>(null);
-  const [copiedCode, setCopiedCode] = useState(false);
-  const [upiCopied, setUpiCopied] = useState(false);
+  // Order flow state
   const [pendingFormSubmit, setPendingFormSubmit] = useState(false);
 
   // Storage hydration fallback so cart is never lost on navigation/refresh
@@ -227,8 +214,8 @@ export default function CheckoutPage() {
     return <PageHero label="Checkout" title="Loading cart" sub="Reading the paddock state…" />;
   }
 
-  // Never hijack screen if an order was placed or order is currently in-flight
-  if (activeLines.length === 0 && !placedOrder && stage !== "placing") {
+  // Never hijack screen while the order is currently in-flight
+  if (activeLines.length === 0 && stage !== "placing") {
     return (
       <>
         <PageHero label="Checkout" title="Nothing to settle" sub="Your cart is empty — load a piece first." />
@@ -414,7 +401,6 @@ export default function CheckoutPage() {
           billingAddress: resolvedBillingAddress || undefined,
           shippingMethod,
           paymentMethod,
-          paymentChannel: "DISCORD",
           discountCode: applied?.code ?? "",
           notes: notes.trim() || undefined,
           idempotencyKey,
@@ -427,58 +413,12 @@ export default function CheckoutPage() {
         window.sessionStorage.removeItem("bw:idempotencyKey");
       } catch {}
       const orderNumber = data.number!;
-      const totalAmount = data.total || total;
 
-      // 1. Copy order number to clipboard
+      // 1. Mark this cart as converted for abandonment telemetry. Order details
+      //    are read from the database only — never from browser storage.
       try {
-        await navigator.clipboard.writeText(orderNumber);
-        setCopiedCode(true);
-      } catch {
-        /* Clipboard fallback */
-      }
-
-      // 2. Persist order details in client storage so success page and account paddock render 100% reliably
-      const orderSummary = {
-        number: orderNumber,
-        name: customerName,
-        email: email.trim(),
-        phone: phone.trim(),
-        addressLine: addressLine.trim(),
-        city: city.trim(),
-        state: state.trim(),
-        pincode: pincode.trim(),
-        total: totalAmount,
-        subtotal,
-        shippingFee,
-        discountTotal: discount,
-        paymentMethod,
-        paymentChannel: "DISCORD",
-        shippingMethod,
-        status: data.status || "PAYMENT_REVIEW",
-        placedAt: new Date().toISOString(),
-        items: activeLines.map((l) => ({
-          id: l.productId,
-          productId: l.productId,
-          name: l.name,
-          slug: l.slug,
-          price: l.price,
-          qty: l.qty,
-          image: l.image,
-          condition: l.condition,
-        })),
-      };
-      try {
-        window.sessionStorage.setItem("bw:lastOrder", JSON.stringify(orderSummary));
         window.sessionStorage.setItem("bw:orderPlaced", orderNumber);
         window.sessionStorage.removeItem("bw:cartAbandonedNoted");
-
-        // Save order to persistent customer orders list in localStorage
-        const existingRaw = window.localStorage.getItem("bw:customerOrders");
-        const list = existingRaw ? JSON.parse(existingRaw) : [];
-        if (!Array.isArray(list) || !list.some((x: { number: string }) => x.number === orderNumber)) {
-          const updated = Array.isArray(list) ? [orderSummary, ...list] : [orderSummary];
-          window.localStorage.setItem("bw:customerOrders", JSON.stringify(updated.slice(0, 50)));
-        }
       } catch {
         /* private mode */
       }
@@ -495,11 +435,7 @@ export default function CheckoutPage() {
       toast(`Order #${orderNumber} registered successfully!`, "ok");
 
       // 4. Automatically navigate directly to the order confirmation page
-      router.push(
-        `/checkout/success/${orderNumber}?email=${encodeURIComponent(email.trim())}&channel=discord&name=${encodeURIComponent(
-          customerName
-        )}&total=${totalAmount}`
-      );
+      router.push(`/checkout/success/${orderNumber}?channel=discord`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Order failed";
       setError(msg);
@@ -516,50 +452,6 @@ export default function CheckoutPage() {
         toast("Order didn't land — check the message", "err");
       }
     }
-  };
-
-  const copyOrderNumber = () => {
-    if (!placedOrder) return;
-    navigator.clipboard.writeText(placedOrder.number);
-    setCopiedCode(true);
-    toast(`Order #${placedOrder.number} copied to clipboard!`, "ok");
-    setTimeout(() => setCopiedCode(false), 2500);
-  };
-
-  const handlePayDiscord = () => {
-    if (!placedOrder) return;
-    fetch("/api/orders/channel", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ orderNumber: placedOrder.number, channel: "discord" }),
-    }).catch(() => {});
-    window.open("https://discord.gg/WRZDQEnA2", "_blank");
-    router.push(
-      `/checkout/success/${placedOrder.number}?email=${encodeURIComponent(placedOrder.email)}&channel=discord&name=${encodeURIComponent(
-        placedOrder.name
-      )}&total=${placedOrder.total}`
-    );
-  };
-
-  const handlePayWhatsApp = () => {
-    if (!placedOrder) return;
-    fetch("/api/orders/channel", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ orderNumber: placedOrder.number, channel: "whatsapp" }),
-    }).catch(() => {});
-    const totalRupees = Math.round(placedOrder.total / 100);
-    const waMsg = encodeURIComponent(
-      `Hi Burnout Wheels! I placed Order #${placedOrder.number} for ₹${totalRupees.toLocaleString(
-        "en-IN"
-      )}. My name is ${placedOrder.name}. Please send the QR code for payment.`
-    );
-    window.open(`https://wa.me/917889079186?text=${waMsg}`, "_blank");
-    router.push(
-      `/checkout/success/${placedOrder.number}?email=${encodeURIComponent(placedOrder.email)}&channel=whatsapp&name=${encodeURIComponent(
-        placedOrder.name
-      )}&total=${placedOrder.total}`
-    );
   };
 
   return (
@@ -1175,179 +1067,6 @@ export default function CheckoutPage() {
                 className="mt-2 text-center text-xs text-dim hover:text-white underline underline-offset-4"
               >
                 Skip login and continue as guest →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. ORDER RESERVED & PAYMENT POPUP */}
-      {placedOrder && (
-        <div
-          className="fixed inset-0 z-[110] flex items-center justify-center bg-ink/90 p-4 backdrop-blur-md anim-fade"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Order reserved and payment instructions"
-        >
-          <div className="u-card relative w-full max-w-lg border-2 border-red/60 bg-panel p-6 sm:p-8 anim-rise shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-line pb-4">
-              <div>
-                <span className="inline-flex items-center gap-1 rounded bg-mint/15 px-2 py-0.5 text-[10px] font-bold text-mint uppercase tracking-wider">
-                  <Check className="size-3" /> Order Reserved
-                </span>
-                <h2 className="u-h2 mt-1 text-2xl font-black text-white">Your Order Number</h2>
-              </div>
-              <span className="u-mono text-lg font-bold text-bone">
-                ₹{Math.round(placedOrder.total / 100).toLocaleString("en-IN")}
-              </span>
-            </div>
-
-            {/* Prominently Highlighted Order Number with Copy Button */}
-            <div className="mt-5 flex flex-col items-center justify-center gap-2 rounded-md border-2 border-red bg-red/[0.08] p-5 text-center shadow-inner">
-              <p className="u-label text-dim">Copy and drop this inside #billing or WhatsApp</p>
-              <p className="u-mono text-3xl font-black tracking-widest text-white sm:text-4xl selection:bg-red selection:text-white">
-                {placedOrder.number}
-              </p>
-              <button
-                type="button"
-                onClick={copyOrderNumber}
-                className="u-btn u-btn-primary mt-2 flex items-center gap-2 px-5! py-2.5! text-xs font-bold transition-transform active:scale-95"
-              >
-                {copiedCode ? <Check className="size-4 text-mint" /> : <Copy className="size-4" />}
-                <span>{copiedCode ? "Copied to Clipboard! ✓" : "Copy Order Number"}</span>
-              </button>
-            </div>
-
-            {/* Clear Instructions */}
-            <div className="mt-5 rounded border border-line bg-surface p-4 text-left">
-              <p className="u-label text-white">What to do next:</p>
-              <ol className="mt-2.5 flex flex-col gap-2.5 text-[12.5px] leading-relaxed text-fog">
-                <li className="flex items-start gap-2.5">
-                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-red text-[11px] font-bold text-white">
-                    1
-                  </span>
-                  <span>
-                    <strong>Copy your order number</strong> ({placedOrder.number}) using the button above.
-                  </span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-red text-[11px] font-bold text-white">
-                    2
-                  </span>
-                  <span>
-                    <strong>Drop it inside Discord #billing or WhatsApp below</strong> to receive the payment QR code.
-                  </span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-red text-[11px] font-bold text-white">
-                    3
-                  </span>
-                  <span>
-                    <strong>Scan &amp; Pay:</strong> A real agent verifies the payment, marks the product as{" "}
-                    <strong className="text-white">SOLD</strong> in our store, and dispatches via{" "}
-                    <strong className="text-white">Shiprocket</strong> with doorstep tracking!
-                  </span>
-                </li>
-              </ol>
-            </div>
-
-            {/* Fast Navi UPI QR Code Section */}
-            <div className="mt-5 rounded border border-line bg-surface p-4 text-center">
-              <p className="u-label text-mint flex items-center justify-center gap-1.5 font-bold">
-                ⚡ Fast Payment — Scan Navi UPI QR Code
-              </p>
-              <div className="mt-3 flex flex-col sm:flex-row items-center justify-center gap-4">
-                <div className="rounded border border-line bg-white p-2 shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/images/upi-qr.png" alt="Navi UPI QR Code" className="size-40 object-contain" />
-                </div>
-                <div className="text-left text-xs text-fog flex flex-col gap-1.5 min-w-0">
-                  <p>Bank: <span className="text-bone">Navi Axis Bank</span></p>
-                  <p>Amount: <strong className="text-mint text-sm">₹{Math.round(placedOrder.total / 100).toLocaleString("en-IN")}</strong></p>
-                  <div className="mt-1 flex items-center gap-2 rounded border border-line bg-ink px-2.5 py-1.5 font-mono text-white text-[12px]">
-                    <span className="truncate">7889079186@naviaxis</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText("7889079186@naviaxis");
-                        setUpiCopied(true);
-                        setTimeout(() => setUpiCopied(false), 2500);
-                      }}
-                      className="text-red hover:underline shrink-0 text-[11px] font-bold ml-auto"
-                    >
-                      {upiCopied ? "Copied ✓" : "Copy UPI"}
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-dim mt-0.5">Pay using GPay, PhonePe, Paytm, or Navi UPI app.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Direct Action Buttons: Discord and WhatsApp */}
-            <div className="mt-5 flex flex-col gap-3">
-              {/* Discord Option */}
-              <button
-                type="button"
-                onClick={handlePayDiscord}
-                className="u-card group relative flex flex-col items-start gap-1.5 border-2 border-red bg-red/[0.06] p-4 text-left transition-all hover:bg-red/[0.12]"
-              >
-                <div className="flex w-full items-center justify-between">
-                  <span className="text-base font-bold text-bone flex items-center gap-2">
-                    Pay on Discord
-                  </span>
-                  <span className="u-badge bg-red text-white text-[10px] font-bold">
-                    MOST POPULAR
-                  </span>
-                </div>
-                <p className="text-[12px] text-fog leading-relaxed">
-                  Drops you into our Discord server. Drop your order number inside the{" "}
-                  <strong className="text-white">#billing</strong> channel to complete payment via QR code.
-                </p>
-                <div className="mt-1 flex items-center gap-1 text-xs font-bold text-red group-hover:translate-x-1 transition-transform">
-                  <span>Continue to Discord #billing (discord.gg/WRZDQEnA2)</span>
-                  <span>→</span>
-                </div>
-              </button>
-
-              {/* WhatsApp Option */}
-              <button
-                type="button"
-                onClick={handlePayWhatsApp}
-                className="u-card group relative flex flex-col items-start gap-1.5 border border-line bg-surface p-4 text-left transition-all hover:border-mint hover:bg-mint/[0.04]"
-              >
-                <div className="flex w-full items-center justify-between">
-                  <span className="text-base font-bold text-bone flex items-center gap-2">
-                    Pay on WhatsApp
-                  </span>
-                  <span className="u-badge border-mint text-mint text-[10px] font-bold">
-                    DIRECT CHAT
-                  </span>
-                </div>
-                <p className="text-[12px] text-fog leading-relaxed">
-                  Chat directly with our team. Send your order number and our agent will send you the QR code for payment.
-                </p>
-                <div className="mt-1 flex items-center gap-1 text-xs font-bold text-mint group-hover:translate-x-1 transition-transform">
-                  <span>Continue to WhatsApp (+91 78890 79186)</span>
-                  <span>→</span>
-                </div>
-              </button>
-            </div>
-
-            {/* Link to order status / success page */}
-            <div className="mt-4 text-center">
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(
-                    `/checkout/success/${placedOrder.number}?email=${encodeURIComponent(
-                      placedOrder.email
-                    )}&channel=discord&name=${encodeURIComponent(placedOrder.name)}&total=${placedOrder.total}`
-                  )
-                }
-                className="text-xs text-dim hover:text-white underline underline-offset-4"
-              >
-                View full order confirmation &amp; UPI QR code on site →
               </button>
             </div>
           </div>

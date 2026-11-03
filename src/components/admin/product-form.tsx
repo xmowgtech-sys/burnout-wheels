@@ -6,7 +6,6 @@ import { Field, ConfirmDialog } from "@/components/admin/admin-ui";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { fmtUSD } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { saveCustomProductLocal, markProductDeletedLocal } from "@/lib/products-client";
 import type { ImageFit, ImagePosition, Product, ProductStatus, ProductCondition } from "@/lib/types";
 
 interface FormState {
@@ -113,11 +112,6 @@ export function ProductForm({ initial }: { initial: Product | null }) {
       });
       const data = (await res.json()) as { error?: string; product?: Product };
       if (!res.ok) throw new Error(data.error || "Save failed");
-
-      // Persist in client storage across Vercel ephemeral lambdas
-      if (data.product) {
-        saveCustomProductLocal(data.product);
-      }
 
       router.push("/admin/products");
       router.refresh();
@@ -266,7 +260,6 @@ export function ProductForm({ initial }: { initial: Product | null }) {
                   const res = await fetch(`/api/products?id=${initial.id}`, { method: "DELETE" });
                   const data = (await res.json().catch(() => ({}))) as { error?: string; mode?: string; ok?: boolean };
                   if (res.ok || res.status === 404 || data.mode === "already_deleted") {
-                    markProductDeletedLocal(initial.id, initial.slug);
                     router.push("/admin/products");
                     router.refresh();
                     return;

@@ -41,7 +41,7 @@ export default async function AccountPage({
   }
   if (!acc) redirect("/login?next=/account");
 
-  const orders = getCustomerOrders(acc.email, acc.id).slice(0, 50);
+  const orders = getCustomerOrders(acc.email, { accountId: acc.id }).slice(0, 50);
 
   return (
     <main className="min-h-[80vh] pt-28 md:pt-32">

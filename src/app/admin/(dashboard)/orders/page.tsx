@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { OrdersTable, OrderIntakeCard } from "@/components/admin/order-rows";
+import { OrdersTable } from "@/components/admin/order-rows";
 import { adminListOrders } from "@/lib/orders";
 import type { OrderStatus } from "@/lib/types";
 
@@ -101,8 +101,6 @@ export default async function AdminOrdersPage({
         initialPaymentStatus={paymentStatus}
         initialFulfilmentStatus={fulfilmentStatus}
       />
-
-      <OrderIntakeCard />
     </div>
   );
 }

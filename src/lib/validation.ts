@@ -17,7 +17,6 @@ export const checkoutSchema = z.object({
     )
     .min(1, "Your cart is empty")
     .max(20, "Too many line items"),
-  orderNumber: z.string().trim().max(40).optional(),
   idempotencyKey: z.string().trim().max(100).optional(),
   accountId: z.coerce.number().int().positive().optional(),
   name: z.string().trim().min(2, "Enter the delivery name").max(120),
@@ -84,25 +83,6 @@ export const teamCreateSchema = z.object({
   email: z.string().trim().email().max(190).toLowerCase(),
   role: z.enum(["ADMIN", "STAFF"]),
   password: z.string().min(8, "Use at least 8 characters").max(72),
-});
-
-export const chatSettingsSchema = z.object({
-  enabled: z.boolean(),
-  name: z.string().trim().min(1).max(40),
-  greeting: z.string().trim().min(1).max(500),
-  suggestProducts: z.boolean(),
-  showStock: z.boolean(),
-  leadCapture: z.boolean(),
-  handoffEmail: z.string().trim().email("Enter a valid handoff email").max(190).or(z.literal("")),
-  handoffWebhook: z.string().trim().url("Webhook must be a valid URL").max(500).or(z.literal("")),
-  faqs: z
-    .array(
-      z.object({
-        keywords: z.array(z.string().trim().min(1).max(60)).min(1).max(10),
-        answer: z.string().trim().min(2).max(800),
-      })
-    )
-    .max(16),
 });
 
 const homeImage = z.string().trim().max(2000);

@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { getDb, nowIso, run } from "./db";
-import type { ChatbotSettings, StorefrontSettings, TrustpilotSettings } from "./types";
+import type { StorefrontSettings, TrustpilotSettings } from "./types";
 
 export const DEFAULT_HERO_IMAGE =
   "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b3/2024-08-25_Motorsport%2C_Formel_1%2C_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3937_by_Stepro.jpg/1920px-2024-08-25_Motorsport%2C_Formel_1%2C_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3937_by_Stepro.jpg";
@@ -45,40 +45,6 @@ export const DEFAULT_STOREFRONT: StorefrontSettings = {
   },
 };
 
-export const DEFAULT_CHATBOT: ChatbotSettings = {
-  enabled: true,
-  name: "Pit Crew",
-  greeting:
-    "Hey! I'm the pit crew bot. Ask me about the RB20, shipping, or refunds — or type “human” to flag a teammate.",
-  suggestProducts: true,
-  showStock: true,
-  faqs: [
-    {
-      keywords: ["ship", "dispatch", "deliver", "courier", "track"],
-      answer:
-        "Orders are reserved the moment you place them. Standard shipping takes 2–4 business days, express is faster. Every order gets a tracking number you can follow on the Track page.",
-    },
-    {
-      keywords: ["return", "refund", "exchange", "change my mind"],
-      answer:
-        "Cancellation is free until the parcel ships. After delivery, refunds are only for proven damage or a not-as-listed item, claimed with an unboxing video within 48 hours. There are no general returns — the full protocol is on the Refund & cancellation page.",
-    },
-    {
-      keywords: ["authentic", "original", "hypershop", "fake", "real"],
-      answer:
-        "Every piece we list is sourced sealed from authorised suppliers, inspected at the pit lane before dispatch, and shipped in factory packaging. Details in the Trust page.",
-    },
-    {
-      keywords: ["cod", "cash on delivery", "cash"],
-      answer:
-        "Yes — cash on delivery is available pan-India. COD orders need a ₹200 online advance before we pack; it is adjusted against your total, and the balance is paid to the courier. Pay the advance live with a human on WhatsApp or Discord.",
-    },
-  ],
-  leadCapture: true,
-  handoffEmail: "",
-  handoffWebhook: "",
-};
-
 export const DEFAULT_TRUSTPILOT: TrustpilotSettings = {
   mode: "coming_soon",
   profileUrl: "",
@@ -113,7 +79,6 @@ function readSetting<T>(key: string, fallback: T): T {
 
 /** Per-request deduped settings reads (React.cache). */
 export const getStorefront = cache((): StorefrontSettings => readSetting("storefront", DEFAULT_STOREFRONT));
-export const getChatbotSettings = cache((): ChatbotSettings => readSetting("chatbot", DEFAULT_CHATBOT));
 export const getTrustpilot = cache((): TrustpilotSettings => readSetting("trustpilot", DEFAULT_TRUSTPILOT));
 
 /** Merge a patch into a JSON settings blob. */

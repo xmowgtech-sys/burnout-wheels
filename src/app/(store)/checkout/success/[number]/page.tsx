@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { getOrderByNumber } from "@/lib/orders";
-import { ORDER_STATUS_LABELS, type OrderWithRelations } from "@/lib/types";
+import { ORDER_STATUS_LABELS } from "@/lib/types";
 import { fmtUSD, fmtDate } from "@/lib/money";
 import { COD_ADVANCE_LABEL, codBalance } from "@/lib/payments";
 import { PaymentRedirectCard } from "@/components/store/payment-redirect-card";
+import { CONTACT } from "@/lib/contact";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Order confirmed", robots: { index: false } };
@@ -14,47 +15,38 @@ export default async function SuccessPage({
   searchParams,
 }: {
   params: Promise<{ number: string }>;
-  searchParams: Promise<{ email?: string; channel?: string; name?: string; total?: string }>;
+  searchParams: Promise<{ channel?: string }>;
 }) {
   const [{ number }, sp] = await Promise.all([params, searchParams]);
-  const email = sp.email ? decodeURIComponent(sp.email) : undefined;
   const channel = sp.channel === "whatsapp" ? "whatsapp" : "discord";
   const numClean = number.toUpperCase();
 
-  let order = getOrderByNumber(numClean);
+  const order = getOrderByNumber(numClean);
 
-  // Resilient fallback: Serverless Lambdas on Vercel run in isolated instances,
-  // so if DB doesn't have this row yet, we synthesize from URL/client state — NEVER 404.
   if (!order) {
-    const rawTotal = sp.total ? Number(sp.total) : 39900;
-    order = {
-      id: 0,
-      number: numClean,
-      status: "PAYMENT_REVIEW",
-      paymentMethod: "UPI",
-      paymentChannel: channel === "whatsapp" ? "WHATSAPP" : "DISCORD",
-      shippingMethod: "STANDARD",
-      email: email || "customer@burnoutwheels.com",
-      name: sp.name ? decodeURIComponent(sp.name) : "Racer",
-      phone: null,
-      addressLine: "",
-      city: "",
-      state: "",
-      pincode: "",
-      country: "India",
-      subtotal: rawTotal,
-      discountTotal: 0,
-      shippingFee: 0,
-      total: rawTotal,
-      costTotal: 0,
-      feesTotal: 0,
-      profit: 0,
-      source: "LOCAL",
-      placedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      items: [],
-      events: [],
-    } as unknown as OrderWithRelations;
+    return (
+      <div className="mx-auto max-w-2xl px-4 pb-24 pt-28 md:px-8 md:pt-40">
+        <div className="u-card p-8 md:p-10">
+          <p className="u-label text-yellow">Order lookup</p>
+          <h1 className="u-h2 mt-3 break-all">{numClean}</h1>
+          <p className="mt-4 text-[15px] leading-relaxed text-fog">
+            We could not find this order on the server that handled this page. Keep the order
+            number above and contact the crew before paying again — we will check it manually.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <a href={CONTACT.discord} target="_blank" rel="noopener noreferrer" className="u-btn u-btn-primary">
+              Check on Discord
+            </a>
+            <a href={CONTACT.whatsappPayment} target="_blank" rel="noopener noreferrer" className="u-btn u-btn-ghost">
+              Message on WhatsApp
+            </a>
+            <Link href="/account" className="u-btn u-btn-ghost">
+              Open my account
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

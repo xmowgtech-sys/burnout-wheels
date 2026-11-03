@@ -151,21 +151,6 @@ putSetting("storefront", {
   returnsDays: 7,
   paymentMethods: ["UPI", "COD"],
 });
-putSetting("chatbot", {
-  enabled: true,
-  name: "Sparky",
-  greeting: "Sparky here — pitside concierge. Ask me about the drop, shipping, returns, anything.",
-  suggestProducts: true,
-  showStock: true,
-  faqs: [
-    { keywords: ["dispatch", "how long", "ship time"], answer: "Dispatch runs every working morning. Standard delivery is 2–4 business days with door-step tracking; express leaves first." },
-    { keywords: ["cod", "cash"], answer: "Yes — cash on delivery is available pan-India. Keep the exact amount ready for the courier." },
-    { keywords: ["gst", "invoice", "bill"], answer: "Every order ships with a GST invoice — it's in the box with the inspection card." },
-  ],
-  leadCapture: true,
-  handoffEmail: process.env.ADMIN_EMAIL ?? "owner@burnoutwheels.in",
-  handoffWebhook: "",
-});
 putSetting("trustpilot", {
   mode: "coming_soon",
   profileUrl: "",
@@ -335,24 +320,7 @@ if (!NO_DEMO) {
     console.log("· 90 days of visits written");
   }
 
-  // 2 seeded chat conversations: one resolved bot story, one handed-off thread
-  const hasConvs = db.prepare("SELECT 1 FROM conversations LIMIT 1").get();
-  if (!hasConvs) {
-    const insConv = db.prepare("INSERT INTO conversations (sessionId, email, name, status, createdAt, updatedAt) VALUES (?,?,?,?,?,?)");
-    const insMsg = db.prepare("INSERT INTO messages (conversationId, role, content, createdAt) VALUES (?,?,?,?)");
-
-    const c1 = insConv.run("seed-conv-fixture-1", "rhea.m@example.in", "Rhea Menon", "RESOLVED", daysAgo(5, 14), daysAgo(5, 15)).lastInsertRowid;
-    insMsg.run(Number(c1), "bot", "Sparky here — pitside concierge. Ask me about the drop, shipping, returns, anything.", daysAgo(5, 14));
-    insMsg.run(Number(c1), "user", "Is the RB20 sealed in the factory box?", daysAgo(5, 14));
-    insMsg.run(Number(c1), "bot", "Yes — it arrives factory-boxed, and every unit goes through a pit inspection before dispatch. You also get an inspection card in the box.", daysAgo(5, 14));
-    insMsg.run(Number(c1), "user", "Perfect, ordering one.", daysAgo(5, 15));
-
-    const c2 = insConv.run("seed-conv-fixture-2", null, null, "HANDOFF_PENDING", daysAgo(1, 11), daysAgo(1, 12)).lastInsertRowid;
-    insMsg.run(Number(c2), "user", "My parcel shows delivered but I'm yet to see it — help?", daysAgo(1, 11));
-    insMsg.run(Number(c2), "bot", "That needs a human on the case — I've flagged the crew with your message. They'll hop into this thread shortly.", daysAgo(1, 12));
-    console.log("· 2 demo conversations written");
   }
-}
 
 const counts = ["users", "products", "orders", "reviews", "visits", "settings"].map((t) => `${t}:${db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n}`);
 console.log("· seed complete →", counts.join(" "));

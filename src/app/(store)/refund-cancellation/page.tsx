@@ -49,7 +49,7 @@ export default function RefundCancellationPage() {
               <span className="u-mono mr-3 text-red">01</span> Record the <strong className="text-bone">unboxing video from the seam outward</strong>: packet closed, label visible, box opening, contents shown, then the damage close-up. No video, no claim — this protects the honest 99.
             </li>
             <li>
-              <span className="u-mono mr-3 text-red">02</span> Flag it within <strong className="text-bone">48 hours of delivery</strong> with the order number and the video. 24/7 support — email or the chatbot gets you to the crew.
+              <span className="u-mono mr-3 text-red">02</span> Flag it within <strong className="text-bone">48 hours of delivery</strong> with the order number and the video. 24/7 support — email or WhatsApp gets you to the crew.
             </li>
             <li>
               <span className="u-mono mr-3 text-red">03</span> The crew reviews the video against the listing's claimed condition. The decision is written to your order — approved or declined, with the reason.

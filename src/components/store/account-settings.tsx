@@ -50,65 +50,8 @@ export function AccountSettings({ account, orders }: Props) {
 
   const [activeTab, setActiveTab] = useState<"profile" | "addresses" | "billing" | "orders" | "cart" | "track">("profile");
 
-  // Orders State (synced from server props + client storage fallback)
-  const [customerOrders, setCustomerOrders] = useState<OrderWithRelations[]>(orders);
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem("bw:customerOrders");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const userEmail = account.email.trim().toLowerCase();
-          const localMatching = parsed.filter(
-            (o: { email?: string; number?: string }) =>
-              o.number && (!o.email || o.email.trim().toLowerCase() === userEmail)
-          );
-          if (localMatching.length > 0) {
-            setCustomerOrders((prev) => {
-              const prevNumbers = new Set(prev.map((o) => o.number.toUpperCase()));
-              const toAdd: OrderWithRelations[] = [];
-              for (const lo of localMatching) {
-                if (!prevNumbers.has(lo.number.toUpperCase())) {
-                  toAdd.push({
-                    id: Math.floor(Math.random() * 1000000) + 1000,
-                    number: lo.number.toUpperCase(),
-                    status: lo.status || "PAYMENT_REVIEW",
-                    paymentMethod: lo.paymentMethod || "UPI",
-                    paymentChannel: lo.paymentChannel || "DISCORD",
-                    shippingMethod: lo.shippingMethod || "STANDARD",
-                    email: lo.email || account.email,
-                    name: lo.name || account.name || "Racer",
-                    phone: lo.phone || null,
-                    addressLine: lo.addressLine || "",
-                    city: lo.city || "",
-                    state: lo.state || "",
-                    pincode: lo.pincode || "",
-                    country: lo.country || "India",
-                    subtotal: lo.subtotal || lo.total || 0,
-                    discountTotal: lo.discountTotal || 0,
-                    shippingFee: lo.shippingFee || 0,
-                    total: lo.total || 0,
-                    costTotal: 0,
-                    feesTotal: 0,
-                    profit: 0,
-                    source: "LOCAL",
-                    placedAt: lo.placedAt || new Date().toISOString(),
-                    updatedAt: lo.placedAt || new Date().toISOString(),
-                    items: lo.items || [],
-                    events: [],
-                  } as unknown as OrderWithRelations);
-                }
-              }
-              return toAdd.length > 0 ? [...toAdd, ...prev] : prev;
-            });
-          }
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [account.email, account.name]);
+  // Orders come from the server only. No browser-only orders can appear here.
+  const customerOrders: OrderWithRelations[] = orders;
 
   // Profile State
   const [name, setName] = useState(account.name);

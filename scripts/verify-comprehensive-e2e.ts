@@ -127,7 +127,7 @@ async function main() {
 
   // Step 7: Customer Paddock Account persistence
   console.log("\n--- Step 7: Customer Paddock Orders Lookup ---");
-  const paddockOrders = getCustomerOrders(customerEmail, acc.id);
+  const paddockOrders = getCustomerOrders(customerEmail, { accountId: acc.id });
   assert(paddockOrders.length >= 1, "Paddock query must return customer orders");
   assert(paddockOrders.some((o) => o.number === orderNum), "Paddock orders must include Order #" + orderNum);
   console.log(`✓ Customer signed-in paddock orders verified: ${paddockOrders.length} order(s) connected to account #${acc.id}`);
@@ -269,7 +269,7 @@ async function main() {
   assert(activatedAcc.verified, "Account must be verified");
 
   // Check paddock retrieval after activation
-  const guestPaddockOrders = getCustomerOrders(guestEmail, activatedAcc.id);
+  const guestPaddockOrders = getCustomerOrders(guestEmail, { accountId: activatedAcc.id });
   assert(guestPaddockOrders.some((o) => o.number === guestResult.number), "Guest order must be accessible in newly activated account paddock");
   console.log(`✓ Guest order #${guestResult.number} seamlessly linked and accessible in activated account paddock`);
 

@@ -21,7 +21,6 @@ export default function PrivacyPage() {
             ["Account email & name", "For sign-in only; Google accounts verify the email for us. Passwords are stored as bcrypt hashes, never in readable form."],
             ["Analytics (only with consent)", "Anonymous visit counts and funnel events (view → cart → checkout) with a random per-session id. No cross-site tracking, no ad profiles."],
             ["Ops telemetry (scrubbed)", "JS errors, failed requests, slow pages and failed uploads — path plus a shortened message. Form values, passwords and tokens are stripped before storage."],
-            ["Chatbot", "Messages you send support, for answering and quality. Leads are an email address you give us on purpose."],
           ].map(([k, v]) => (
             <div key={k} className="flex flex-col gap-1 p-5 md:flex-row md:gap-8">
               <p className="w-44 shrink-0 text-[14px] font-bold uppercase tracking-wide text-bone">{k}</p>

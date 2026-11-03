@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { OrderActions } from "@/components/admin/order-rows";
 import { StatusBadge } from "@/components/admin/admin-ui";
 import { fmtUSD, fmtDate } from "@/lib/money";
 import type { OrderWithRelations } from "@/lib/types";
-import { ArrowLeft, RefreshCw, AlertCircle, Search } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 export function AdminOrderDetailView({ order }: { order: OrderWithRelations }) {
   const formattedPlacedDate = new Date(order.placedAt).toLocaleString("en-IN", {
@@ -217,134 +216,3 @@ export function AdminOrderDetailView({ order }: { order: OrderWithRelations }) {
   );
 }
 
-/**
- * Resilient Client Fallback:
- * When an order isn't present in this specific Vercel Lambda's local SQLite DB,
- * it searches client storage (session/local storage), renders the order immediately,
- * and syncs it back into the server database in the background.
- */
-export function AdminOrderDetailClient({ fallbackId }: { fallbackId: string }) {
-  const [order, setOrder] = useState<OrderWithRelations | null>(null);
-  const [searching, setSearching] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
-
-  useEffect(() => {
-    let resolved: OrderWithRelations | null = null;
-    const cleanId = String(fallbackId).trim();
-
-    // 1. Check sessionStorage active order
-    try {
-      const activeRaw = window.sessionStorage.getItem("bw:activeOrder");
-      if (activeRaw) {
-        const parsed = JSON.parse(activeRaw);
-        if (
-          String(parsed.id) === cleanId ||
-          String(parsed.number).toLowerCase() === cleanId.toLowerCase() ||
-          String(parsed.number).replace(/^#/, "").toLowerCase() === cleanId.replace(/^#/, "").toLowerCase()
-        ) {
-          resolved = parsed;
-        }
-      }
-    } catch {}
-
-    // 2. Check direct order cache
-    if (!resolved) {
-      try {
-        const direct = window.localStorage.getItem(`bw:order:${cleanId}`);
-        if (direct) resolved = JSON.parse(direct);
-      } catch {}
-    }
-
-    // 3. Search orders list cache
-    if (!resolved) {
-      try {
-        const listRaw = window.localStorage.getItem("bw:admin:orders") || window.localStorage.getItem("bw:customerOrders");
-        if (listRaw) {
-          const list = JSON.parse(listRaw);
-          if (Array.isArray(list)) {
-            const match = list.find(
-              (o: { id?: number; number?: string }) =>
-                String(o.id) === cleanId ||
-                String(o.number).toLowerCase() === cleanId.toLowerCase() ||
-                String(o.number).replace(/^#/, "").toLowerCase() === cleanId.replace(/^#/, "").toLowerCase()
-            );
-            if (match) resolved = match;
-          }
-        }
-      } catch {}
-    }
-
-    if (resolved) {
-      setOrder(resolved);
-      setSearching(false);
-      // Auto-sync order into server SQLite in the background
-      fetch("/api/orders/sync", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ order: resolved }),
-      }).catch(() => {});
-      return;
-    }
-
-    // 4. Fallback: try fetching from API by query
-    fetch(`/api/orders?id=${encodeURIComponent(cleanId)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.order) {
-          setOrder(data.order);
-        } else {
-          return fetch(`/api/orders?q=${encodeURIComponent(cleanId)}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((qData) => {
-              if (Array.isArray(qData?.orders) && qData.orders.length > 0) {
-                setOrder(qData.orders[0]);
-              } else {
-                setErrorMsg(`Order "${cleanId}" was not found in the current telemetry.`);
-              }
-            });
-        }
-      })
-      .catch(() => {
-        setErrorMsg(`Unable to load order "${cleanId}".`);
-      })
-      .finally(() => {
-        setSearching(false);
-      });
-  }, [fallbackId]);
-
-  if (searching) {
-    return (
-      <div className="py-24 flex flex-col items-center justify-center gap-3 text-center">
-        <RefreshCw className="size-6 text-mint animate-spin" />
-        <p className="text-sm font-semibold text-white">Retrieving Order #{fallbackId}…</p>
-        <p className="text-xs text-fog max-w-sm">Querying Pit Wall telemetry and database cache.</p>
-      </div>
-    );
-  }
-
-  if (order) {
-    return <AdminOrderDetailView order={order} />;
-  }
-
-  return (
-    <div className="py-16 flex flex-col items-center justify-center gap-4 text-center max-w-md mx-auto">
-      <div className="size-12 rounded-full bg-yellow/10 border border-yellow/30 flex items-center justify-center text-yellow">
-        <AlertCircle className="size-6" />
-      </div>
-      <div>
-        <h2 className="text-lg font-bold text-white">Order #{fallbackId} Not In Telemetry</h2>
-        <p className="mt-1 text-xs text-fog leading-relaxed">
-          {errorMsg || "This order has not landed in this instance's database yet."}
-        </p>
-      </div>
-      <div className="flex flex-wrap gap-3 mt-2">
-        <Link href="/admin/orders" className="u-btn u-btn-primary text-xs">
-          ← Back to Orders List
-        </Link>
-        <Link href="/admin" className="u-btn u-btn-ghost text-xs">
-          Return to Cockpit
-        </Link>
-      </div>
-    </div>
-  );
-}

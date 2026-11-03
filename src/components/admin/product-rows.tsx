@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -9,7 +9,6 @@ import { ConfirmDialog } from "./admin-ui";
 import { fmtUSD } from "@/lib/money";
 import { imageFitClass } from "@/lib/images";
 import { cn } from "@/lib/utils";
-import { markProductDeletedLocal, getDeletedLocalSets } from "@/lib/products-client";
 import type { Product } from "@/lib/types";
 
 const toPayload = (product: Product, status: Product["status"]) => ({
@@ -50,19 +49,13 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
       if (res.ok || res.status === 404 || data.mode === "already_deleted") {
         setConfirm(false);
         setError("");
-        markProductDeletedLocal(product.id, product.slug);
         onDeleted?.(product.id);
         router.refresh();
         return;
       }
       throw new Error(data.error || `Delete failed (${res.status})`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Delete failed";
-      setError(msg);
-      if (msg.toLowerCase().includes("not found")) {
-        markProductDeletedLocal(product.id, product.slug);
-        onDeleted?.(product.id);
-      }
+      setError(err instanceof Error ? err.message : "Delete failed");
     } finally {
       setBusy(false);
     }
@@ -100,80 +93,19 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
         confirmLabel={busy ? "Deleting…" : "Delete"}
         danger
       />
-      {error && (
-        <span className="flex items-center gap-1.5 text-[11px] text-red">
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={() => {
-              markProductDeletedLocal(product.id, product.slug);
-              onDeleted?.(product.id);
-            }}
-            className="text-[10px] text-yellow underline hover:text-white"
-            title="Force remove from screen"
-          >
-            [Force remove]
-          </button>
-        </span>
-      )}
+      {error && <span className="text-[11px] text-red">{error}</span>}
     </div>
   );
 }
 
 export function ProductsGrid({ products }: { products: Product[] }) {
-  const [items, setItems] = useState<Product[]>(() => {
-    const { ids: deletedIds, slugs: deletedSlugs } = getDeletedLocalSets();
-    return products.filter((p) => !deletedIds.has(p.id) && (!p.slug || !deletedSlugs.has(p.slug)));
-  });
-
-  // Sync with incoming server props when filters change
-  const [prevProps, setPrevProps] = useState(products);
-  if (products !== prevProps) {
-    setPrevProps(products);
-    const { ids: deletedIds, slugs: deletedSlugs } = getDeletedLocalSets();
-    setItems(products.filter((p) => !deletedIds.has(p.id) && (!p.slug || !deletedSlugs.has(p.slug))));
-  }
-
-  useEffect(() => {
-    try {
-      const { ids: deletedIds, slugs: deletedSlugs } = getDeletedLocalSets();
-      const raw = window.localStorage.getItem("bw:custom_products");
-      let custom: Product[] = [];
-      if (raw) {
-        const parsed = JSON.parse(raw) as Product[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          custom = parsed.filter(
-            (p) => !deletedIds.has(p.id) && (!p.slug || !deletedSlugs.has(p.slug))
-          );
-        }
-      }
-
-      setItems((current) => {
-        const withoutDeleted = current.filter(
-          (p) => !deletedIds.has(p.id) && (!p.slug || !deletedSlugs.has(p.slug))
-        );
-        if (custom.length === 0) return withoutDeleted;
-        const existingIds = new Set(withoutDeleted.map((p) => p.id));
-        const existingSlugs = new Set(withoutDeleted.map((p) => p.slug));
-        const missing = custom.filter((p) => !existingIds.has(p.id) && (!p.slug || !existingSlugs.has(p.slug)));
-        if (missing.length === 0) return withoutDeleted;
-        return [...missing, ...withoutDeleted];
-      });
-
-      if (custom.length > 0) {
-        fetch("/api/products/sync", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ products: custom }),
-        }).catch(() => {});
-      }
-    } catch {}
-  }, []);
+  // Hide a row immediately after a confirmed server delete, then let the
+  // refreshed server data take over. No browser cache is merged in.
+  const [removedIds, setRemovedIds] = useState<number[]>([]);
+  const items = products.filter((p) => !removedIds.includes(p.id));
 
   const handleDeleted = (id: number) => {
-    const target = items.find((p) => p.id === id);
-    setItems((current) => current.filter((p) => p.id !== id));
-    markProductDeletedLocal(id, target?.slug);
+    setRemovedIds((current) => (current.includes(id) ? current : [...current, id]));
   };
 
   return (

@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { saveSettings, getStorefront, getChatbotSettings, getTrustpilot } from "@/lib/settings";
+import { saveSettings, getStorefront, getTrustpilot } from "@/lib/settings";
 import { getPayments, setPayments } from "@/lib/razorpay";
 import { requireApiUser, apiErrorResponse } from "@/lib/auth";
 import { logActivity } from "@/lib/analytics";
-import { storefrontSettingsSchema, trustpilotSettingsSchema, chatSettingsSchema } from "@/lib/validation";
+import { storefrontSettingsSchema, trustpilotSettingsSchema } from "@/lib/validation";
 
 /** GET — current settings bundle (settings.manage). Secrets are never echoed. */
 export async function GET() {
@@ -14,7 +14,6 @@ export async function GET() {
     return Response.json({
       storefront: getStorefront(),
       trustpilot: getTrustpilot(),
-      chatbot: getChatbotSettings(),
       payments: { keyId: pay?.razorpayKeyId ?? "", upiVpa: pay?.upiVpa ?? "", secretSet: Boolean(pay) },
     });
   } catch (err) {
@@ -28,7 +27,7 @@ const paymentsSchema = z.object({
   upiVpa: z.string().trim().max(80),
 });
 
-/** PATCH ?key=storefront|trustpilot|chatbot|payments — validated merge. */
+/** PATCH ?key=storefront|trustpilot|payments — validated merge. */
 export async function PATCH(req: NextRequest) {
   try {
     const me = await requireApiUser("settings.manage");
@@ -48,7 +47,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const schema =
-      key === "storefront" ? storefrontSettingsSchema : key === "trustpilot" ? trustpilotSettingsSchema : key === "chatbot" ? chatSettingsSchema : null;
+      key === "storefront" ? storefrontSettingsSchema : key === "trustpilot" ? trustpilotSettingsSchema : null;
     if (!schema) return Response.json({ error: "Unknown settings key" }, { status: 400 });
     const parsed = schema.safeParse(raw);
     if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid settings" }, { status: 422 });

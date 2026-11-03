@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { Copy, Check, ExternalLink, ShieldCheck, Clock, Truck, MessageSquare, QrCode } from "lucide-react";
 import { CONTACT } from "@/lib/contact";
 import { fmtUSD } from "@/lib/money";
-import type { OrderWithRelations, OrderItem } from "@/lib/types";
+import type { OrderWithRelations } from "@/lib/types";
 
 interface Props {
   order: OrderWithRelations;
@@ -19,47 +18,18 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
   const [channel, setChannel] = useState<"discord" | "whatsapp">(
     initialChannel === "whatsapp" || order.paymentChannel === "WHATSAPP" ? "whatsapp" : "discord"
   );
-  const [cachedItems, setCachedItems] = useState<OrderItem[]>(order.items ?? []);
-  const [displayTotal, setDisplayTotal] = useState<number>(order.total);
+  const items = order.items ?? [];
+  const displayTotal = order.total;
 
-  // If server order has 0 items (serverless fallback), recover full item details from client sessionStorage
-  useEffect(() => {
-    if (order.items && order.items.length > 0) return;
-    try {
-      const stored = window.sessionStorage.getItem("bw:lastOrder");
-      if (stored) {
-        const parsed = JSON.parse(stored) as {
-          number?: string;
-          total?: number;
-          items?: { id?: number; productId?: number; name: string; slug?: string; price: number; qty: number; image?: string | null; condition?: string }[];
-        };
-        if (parsed.number?.toUpperCase() === order.number.toUpperCase()) {
-          if (parsed.items && parsed.items.length > 0) {
-            setCachedItems(
-              parsed.items.map((it, idx) => ({
-                id: it.id || idx + 1,
-                orderId: order.id,
-                productId: it.productId ?? null,
-                name: it.name,
-                slug: it.slug ?? null,
-                condition: it.condition ?? "New / Boxed",
-                scale: "1:64",
-                image: it.image ?? null,
-                price: it.price,
-                cost: 0,
-                qty: it.qty || 1,
-              }))
-            );
-          }
-          if (parsed.total) {
-            setDisplayTotal(parsed.total);
-          }
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [order.number, order.items, order.id]);
+  const selectChannel = (next: "discord" | "whatsapp") => {
+    setChannel(next);
+    // Persist the route so the Pit Wall can see how this customer intends to pay.
+    fetch("/api/orders/channel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ orderNumber: order.number, channel: next }),
+    }).catch(() => {});
+  };
 
   const copyOrderNumber = () => {
     navigator.clipboard.writeText(order.number);
@@ -80,15 +50,6 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
   const whatsappUrl = `https://wa.me/917889079186?text=${whatsappMessage}`;
   const discordUrl = CONTACT.discord;
 
-  // Auto-copy order number on mount for convenience
-  useEffect(() => {
-    try {
-      navigator.clipboard.writeText(order.number);
-    } catch {
-      /* ignore */
-    }
-  }, [order.number]);
-
   const qrUrl = `/images/upi-qr.png`;
 
   return (
@@ -101,7 +62,7 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
             {order.number}
           </p>
           <p className="mt-1 text-xs text-mint">
-            ✓ Copied to clipboard — ready to paste in #{channel === "discord" ? "billing" : "WhatsApp"}
+            Copy this number and paste it in #{channel === "discord" ? "billing" : "WhatsApp"} when you pay.
           </p>
         </div>
         <button
@@ -123,12 +84,12 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
         </button>
       </div>
 
-      {/* Ordered Items Summary (Hydrated from local cache or database) */}
-      {cachedItems.length > 0 && (
+      {/* Ordered items from the persisted order record */}
+      {items.length > 0 && (
         <div className="border-b border-line py-4">
           <p className="u-label text-dim mb-2">Reserved Items:</p>
           <div className="flex flex-wrap gap-3">
-            {cachedItems.map((item) => (
+            {items.map((item) => (
               <div key={item.id} className="flex items-center gap-2 rounded border border-line bg-surface/60 px-3 py-2 text-xs">
                 {item.image && (
                   <div className="relative size-8 shrink-0 overflow-hidden rounded bg-ink">
@@ -151,18 +112,18 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setChannel("discord")}
+            onClick={() => selectChannel("discord")}
             className={`px-3.5 py-2 text-xs font-bold transition-all ${
               channel === "discord"
                 ? "bg-red text-white shadow-sm ring-1 ring-red"
                 : "border border-line bg-surface text-fog hover:text-white"
             }`}
           >
-            Pay on Discord (Most popular)
+            Pay on Discord (most popular on Discord)
           </button>
           <button
             type="button"
-            onClick={() => setChannel("whatsapp")}
+            onClick={() => selectChannel("whatsapp")}
             className={`px-3.5 py-2 text-xs font-bold transition-all ${
               channel === "whatsapp"
                 ? "bg-mint text-ink font-extrabold shadow-sm ring-1 ring-mint"

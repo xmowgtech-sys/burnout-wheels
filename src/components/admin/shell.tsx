@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  LayoutDashboard, Package, ShoppingBag, Wallet, Users, TicketPercent, Star, Bot, Settings2, UserCog, LogOut, Menu, X, ExternalLink, Activity, RefreshCcw,
+  LayoutDashboard, Package, ShoppingBag, Wallet, Users, TicketPercent, Star, Settings2, UserCog, LogOut, Menu, X, ExternalLink, Activity, RefreshCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Perm, Role } from "@/lib/permissions";
@@ -24,7 +24,6 @@ const NAV: NavItem[] = [
   { href: "/admin/customers", label: "Customers", perm: "customers.view", icon: Users },
   { href: "/admin/discounts", label: "Discounts", perm: "discounts.manage", icon: TicketPercent },
   { href: "/admin/reviews", label: "Reviews", perm: "reviews.moderate", icon: Star },
-  { href: "/admin/chatbot", label: "Chatbot", perm: "chatbot.view", icon: Bot },
   { href: "/admin/shopify", label: "Shopify", perm: "settings.manage", icon: RefreshCcw },
   { href: "/admin/monitoring", label: "Monitoring", perm: null, icon: Activity },
   { href: "/admin/settings", label: "Settings", perm: "settings.manage", icon: Settings2 },
