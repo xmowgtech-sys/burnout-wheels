@@ -14,7 +14,6 @@ import { getStorefront, getTrustpilot, DEFAULT_HERO_IMAGE } from "@/lib/settings
 import { fmtUSD } from "@/lib/money";
 import { CONDITION_LABELS } from "@/lib/types";
 import { COD_ADVANCE_LABEL } from "@/lib/payments";
-
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
