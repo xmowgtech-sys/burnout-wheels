@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import DevModal from "@/components/DevModal";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, ShieldCheck, Undo2, Lock } from "lucide-react";
 import { Hero } from "@/components/store/hero";
@@ -56,7 +55,6 @@ export default async function HomePage() {
 
   return (
     <>
-      <DevModal />
       <Hero
         heroImage={home.heroDesktopImage || DEFAULT_HERO_IMAGE}
         mobileImage={home.heroMobileImage || undefined}
