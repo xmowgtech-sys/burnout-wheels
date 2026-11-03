@@ -1,0 +1,25 @@
+﻿// Cold-start catalog seed â€” generated from the operator's real product catalog.
+// Only active, authentic products are included. Demo/placeholder items removed.
+export type SeedProduct = {
+  slug: string;
+  name: string;
+  brand: string | null;
+  category: string;
+  scale: string | null;
+  condition: string;
+  description: string;
+  highlights: string[];
+  tags: string;
+  images: string[];
+  priceSale: number;
+  priceCost: number;
+  feePercent: number;
+  stock: number;
+  lowStockThreshold: number;
+  status: string;
+  featured: number;
+  dropAt: string | null;
+};
+
+
+
