@@ -60,6 +60,35 @@ const products = rows.map((row) => ({
   imagePosition: row.imagePosition ?? "center",
 }));
 
+// Copy every local product photo into public/uploads so it ships with the
+// deployment. Admin uploads live in data/uploads (gitignored); the seed points
+// at /uploads/... which is served statically by Vercel from public/uploads.
+const uploadsDir = path.join(root, "data", "uploads");
+const publicUploadsDir = path.join(root, "public", "uploads");
+fs.mkdirSync(publicUploadsDir, { recursive: true });
+
+const localImages = [
+  ...new Set(
+    products.flatMap((product) =>
+      product.images.filter((image) => typeof image === "string" && image.startsWith("/uploads/"))
+    )
+  ),
+];
+
+let synced = 0;
+const missing = [];
+for (const image of localImages) {
+  const name = image.slice("/uploads/".length);
+  const source = path.join(uploadsDir, name);
+  const destination = path.join(publicUploadsDir, name);
+  if (fs.existsSync(source)) {
+    fs.copyFileSync(source, destination);
+    synced += 1;
+  } else if (!fs.existsSync(destination)) {
+    missing.push(name);
+  }
+}
+
 const header = `// Cold-start catalog seed — generated from the operator's real product catalog.
 // Only active, authentic products are included. Demo/placeholder items removed.
 // Regenerate with: npm run seed:export
@@ -90,6 +119,11 @@ export const SEED_PRODUCTS: SeedProduct[] = `;
 
 fs.writeFileSync(outPath, header + JSON.stringify(products, null, 2) + ";\n", "utf8");
 console.log(`Wrote ${products.length} products to ${path.relative(root, outPath)}`);
+console.log(`Synced ${synced} product photo(s) into public/uploads`);
+if (missing.length > 0) {
+  console.warn(`WARNING: ${missing.length} referenced photo(s) are missing from both data/uploads and public/uploads:`);
+  for (const name of missing) console.warn(` - ${name}`);
+}
 for (const product of products) {
   console.log(` - ${product.slug}  INR ${product.priceSale / 100} / cost ${product.priceCost / 100}`);
 }

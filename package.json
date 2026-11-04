@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "seed": "node scripts/seed.mjs",
     "seed:fresh": "node scripts/seed.mjs --fresh",
-    "seed:export": "node scripts/export-seed.mjs"
+    "seed:export": "node scripts/export-seed.mjs",
+    "catalog:publish": "node scripts/publish-catalog.mjs"
   },
   "engines": {
     "node": ">=22.5.0"
