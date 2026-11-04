@@ -21,12 +21,23 @@ export function AdminOrderDrawer({
 }) {
   const [copied, setCopied] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const isOpen = Boolean(order);
 
   useEffect(() => {
-    if (!order) return;
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Reset scroll only when a different order is opened — not on the admin
+  // table's 4-second polling refresh.
+  useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
+  }, [order?.number]);
+
+  useEffect(() => {
+    if (!isOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     };
     document.addEventListener("keydown", onKey);
     const previousOverflow = document.body.style.overflow;
@@ -35,7 +46,7 @@ export function AdminOrderDrawer({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
     };
-  }, [order, onClose]);
+  }, [isOpen]);
 
   useEffect(() => {
     setCopied(false);
