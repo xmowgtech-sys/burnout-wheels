@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "seed": "node scripts/seed.mjs",
-    "seed:fresh": "node scripts/seed.mjs --fresh"
+    "seed:fresh": "node scripts/seed.mjs --fresh",
+    "seed:export": "node scripts/export-seed.mjs"
   },
   "engines": {
     "node": ">=22.5.0"

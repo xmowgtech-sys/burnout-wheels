@@ -40,8 +40,8 @@ export function bootstrapStore(db: DatabaseSync): void {
   // 3. catalog — the operator's real listings; image files ship from public/uploads
   const insert = db.prepare(
     `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images,
-       priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, createdAt, updatedAt)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, imageFit, imagePosition, createdAt, updatedAt)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(slug) DO NOTHING`
   );
   for (const p of SEED_PRODUCTS) {
@@ -64,6 +64,8 @@ export function bootstrapStore(db: DatabaseSync): void {
       p.status,
       p.featured,
       p.dropAt,
+      p.imageFit,
+      p.imagePosition,
       ts,
       ts
     );

@@ -61,8 +61,8 @@ export function ensureSeedProducts(db: DatabaseSync): void {
     const ts = nowIso();
     const insert = db.prepare(
       `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images,
-         priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, createdAt, updatedAt)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, imageFit, imagePosition, createdAt, updatedAt)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT(slug) DO NOTHING`
     );
     const deletedSlugs = new Set(
@@ -89,6 +89,8 @@ export function ensureSeedProducts(db: DatabaseSync): void {
         p.status,
         p.featured,
         p.dropAt,
+        p.imageFit,
+        p.imagePosition,
         ts,
         ts
       );
