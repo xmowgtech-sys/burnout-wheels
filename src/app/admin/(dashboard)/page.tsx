@@ -5,6 +5,7 @@ import { fmtUSD, fmtDate } from "@/lib/money";
 import { overview, monthlySeries, bestSellers, lowStockProducts } from "@/lib/finance";
 import { sessionsSince, recentActivity } from "@/lib/analytics";
 import { adminListOrders } from "@/lib/orders";
+import { hydrateAllOrders } from "@/lib/order-store";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Overview · Pit wall", robots: { index: false } };
@@ -12,6 +13,7 @@ export const metadata = { title: "Overview · Pit wall", robots: { index: false 
 type MonthPoint = { month: string; revenue: number; cost: number; fees: number; profit: number; orders: number; refunds: number };
 
 export default async function AdminOverviewPage() {
+  await hydrateAllOrders({ force: true });
   const sessions28 = sessionsSince(28);
   const stats = overview(sessions28);
   const months = monthlySeries(8) as MonthPoint[];
@@ -84,7 +86,7 @@ export default async function AdminOverviewPage() {
         <Table head={["Order", "Customer", "Status", "Total", "Placed"]}>
           {recentOrders.map((o) => (
             <tr key={o.id}>
-              <Td><Link href={`/admin/orders/${o.id}`} className="u-mono font-semibold hover:text-red">{o.number}</Link></Td>
+              <Td><Link href={`/admin/orders/${o.number}`} className="u-mono font-semibold hover:text-red">{o.number}</Link></Td>
               <Td className="truncate">{o.name}</Td>
               <Td><StatusBadge status={o.status} /></Td>
               <Td className="u-mono">{fmtUSD(o.total)}</Td>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { OrdersTable } from "@/components/admin/order-rows";
 import { adminListOrders } from "@/lib/orders";
+import { hydrateAllOrders } from "@/lib/order-store";
 import type { OrderStatus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,10 @@ export default async function AdminOrdersPage({
   const paymentMethod = sp.paymentMethod ?? "ALL";
   const paymentStatus = sp.paymentStatus ?? "ALL";
   const fulfilmentStatus = sp.fulfilmentStatus ?? "ALL";
+
+  // Orders live in Blob between cold starts. Pull them in before filtering so
+  // the list, pending counter, and status tabs all see the same records.
+  await hydrateAllOrders({ force: true });
 
   const orders = adminListOrders({
     status,

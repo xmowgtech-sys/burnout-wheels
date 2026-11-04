@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { rateLimit, ipOf } from "@/lib/auth";
 import { getPayments, findOrderForPayment, createRazorpayOrder } from "@/lib/razorpay";
+import { hydrateOrderByNumber } from "@/lib/order-store";
 import { logEvent } from "@/lib/ops";
 
 /**
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
     const parsed = z.object({ number: z.string().min(4).max(40) }).safeParse(await req.json());
     if (!parsed.success) return Response.json({ error: "Order number required." }, { status: 422 });
 
+    await hydrateOrderByNumber(parsed.data.number, { refresh: true });
     const order = findOrderForPayment(parsed.data.number);
     if (!order) return Response.json({ error: "Order not found." }, { status: 404 });
     if (order.status !== "PENDING_PAYMENT") {

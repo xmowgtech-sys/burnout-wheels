@@ -139,14 +139,14 @@ export function AdminOrderDetailView({ order }: { order: OrderWithRelations }) {
             <div className="flex items-center justify-between">
               <p className="u-label">Customer</p>
               <Link
-                href={`/admin/customers/${order.customerId || encodeURIComponent(order.email)}`}
+                href={`/admin/customers/${encodeURIComponent(order.email)}`}
                 className="text-xs text-mint hover:underline font-medium flex items-center gap-1"
               >
                 View Profile ↗
               </Link>
             </div>
             <Link
-              href={`/admin/customers/${order.customerId || encodeURIComponent(order.email)}`}
+              href={`/admin/customers/${encodeURIComponent(order.email)}`}
               className="mt-3 block text-[15px] font-semibold text-white hover:text-mint transition-colors"
             >
               {order.name}

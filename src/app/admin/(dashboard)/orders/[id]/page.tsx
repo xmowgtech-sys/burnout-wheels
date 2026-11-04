@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { adminGetOrder } from "@/lib/orders";
+import { adminFindOrderExact } from "@/lib/orders";
+import { hydrateOrderByNumber } from "@/lib/order-store";
 import { AdminOrderDetailView } from "@/components/admin/order-detail-view";
 
 export const dynamic = "force-dynamic";
@@ -7,7 +8,8 @@ export const metadata = { title: "Order · Pit wall", robots: { index: false } }
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const order = adminGetOrder(id);
+  await hydrateOrderByNumber(id, { refresh: true });
+  const order = adminFindOrderExact(id);
 
   if (order) {
     return <AdminOrderDetailView order={order} />;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCustomerDetail } from "@/lib/orders";
+import { hydrateAllOrders } from "@/lib/order-store";
 import { fmtUSD, fmtDate } from "@/lib/money";
 import { StatusBadge, Table, Td } from "@/components/admin/admin-ui";
 import { CustomerNotesEditor } from "@/components/admin/customer-notes";
@@ -10,6 +11,9 @@ export const metadata = { title: "Customer Profile · Pit wall", robots: { index
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // A customer's local SQLite id changes on every cold start. Their orders are
+  // the durable source, so rebuild the customer records before looking one up.
+  await hydrateAllOrders({ force: true });
   const detail = getCustomerDetail(id);
   if (!detail) notFound();
 
@@ -138,7 +142,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                     <tr key={o.id}>
                       <Td>
                         <Link
-                          href={`/admin/orders/${o.id}`}
+                          href={`/admin/orders/${o.number}`}
                           className="u-mono block font-semibold text-white hover:text-mint transition-colors"
                         >
                           {o.number}
@@ -170,7 +174,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                       </Td>
                       <Td>
                         <Link
-                          href={`/admin/orders/${o.id}`}
+                          href={`/admin/orders/${o.number}`}
                           className="u-btn u-btn-ghost inline-flex items-center px-2 py-1 text-xs"
                         >
                           View →

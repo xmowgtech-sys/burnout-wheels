@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { CheckCircle2, Clock, LogIn, ShieldAlert, Timer } from "lucide-react";
 import { readCustomerSession, accountByEmail, accountById } from "@/lib/accounts";
 import { getCustomerOrders } from "@/lib/orders";
+import { hydrateOrdersForEmail } from "@/lib/order-store";
 import { AccountSettings } from "@/components/store/account-settings";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,7 @@ export default async function AccountPage({
   }
   if (!acc) redirect("/login?next=/account");
 
+  await hydrateOrdersForEmail(acc.email);
   const orders = getCustomerOrders(acc.email, { accountId: acc.id }).slice(0, 50);
 
   return (

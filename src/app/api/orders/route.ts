@@ -1,8 +1,9 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import {
   adminListOrders,
   adminGetOrder,
+  adminFindOrderExact,
   createOrderFromCheckout,
   notifyDiscordOrder,
   updateOrderStatus,
@@ -16,6 +17,20 @@ import {
 } from "@/lib/orders";
 import { requireApiUser, apiErrorResponse, rateLimit, ipOf } from "@/lib/auth";
 import type { OrderStatus } from "@/lib/types";
+import {
+  hydrateAllOrders,
+  hydrateOrderByIdempotencyKey,
+  hydrateOrderByNumber,
+  persistOrderByNumber,
+  persistOrderSnapshot,
+  removeOrderSnapshot,
+} from "@/lib/order-store";
+import {
+  RECOVERY_COOKIE_MAX_AGE,
+  RECOVERY_COOKIE_NAME,
+  RECOVERY_COOKIE_PATH,
+  sealOrderRecovery,
+} from "@/lib/order-recovery";
 
 /** GET — admin order list with full filters. */
 export async function GET(req: NextRequest) {
@@ -23,10 +38,15 @@ export async function GET(req: NextRequest) {
     await requireApiUser("orders.view");
     const id = req.nextUrl.searchParams.get("id");
     if (id) {
+      await hydrateOrderByNumber(id, { refresh: true });
       const order = adminGetOrder(id);
       if (!order) return Response.json({ error: "Not found" }, { status: 404 });
       return Response.json({ order });
     }
+
+    // The admin table polls every few seconds. Hydrate on a short TTL unless the
+    // operator pressed Refresh — this keeps Blob reads inside the free tier.
+    await hydrateAllOrders({ force: req.nextUrl.searchParams.get("fresh") === "1" });
 
     const status = (req.nextUrl.searchParams.get("status") ?? "ALL") as OrderStatus | "ALL" | "ARCHIVED";
     const q = req.nextUrl.searchParams.get("q") ?? undefined;
@@ -57,14 +77,39 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Too many checkouts in a row — take a breath and retry in a minute." }, { status: 429 });
     }
     const body = await req.json();
+
+    // A retry can land on a serverless instance that never saw the original
+    // insert. Recover the existing order by its idempotency key before the
+    // checkout code decides whether to create a duplicate.
+    if (typeof body?.idempotencyKey === "string") {
+      await hydrateOrderByIdempotencyKey(body.idempotencyKey);
+    }
+
     const result = createOrderFromCheckout(body);
+    const fullOrder = adminGetOrder(result.number);
+    await persistOrderByNumber(result.number);
     if (result.created !== false) await notifyDiscordOrder(result, body);
+
     revalidatePath("/admin/orders");
     revalidatePath("/admin/customers");
     revalidatePath("/account");
     revalidatePath("/shop");
     revalidatePath("/");
-    return Response.json(result, { status: 201 });
+
+    const response = NextResponse.json(result, { status: 201 });
+    // Even if Blob is unavailable or the redirect beats the write, the browser
+    // can show the real confirmation page from this encrypted, HttpOnly cookie.
+    const recovery = fullOrder ? sealOrderRecovery(fullOrder) : null;
+    if (recovery) {
+      response.cookies.set(RECOVERY_COOKIE_NAME, recovery, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: RECOVERY_COOKIE_PATH,
+        maxAge: RECOVERY_COOKIE_MAX_AGE,
+      });
+    }
+    return response;
   } catch (err) {
     return apiErrorResponse(err);
   }
@@ -74,8 +119,16 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const me = await requireApiUser("orders.manage");
-    const id = Number(req.nextUrl.searchParams.get("id"));
-    if (!id) return Response.json({ error: "id required" }, { status: 400 });
+    const ref = req.nextUrl.searchParams.get("id");
+    if (!ref) return Response.json({ error: "id required" }, { status: 400 });
+
+    // Admin links use the stable order number. Recover the order into this
+    // instance (and refresh it if another instance changed it) before writing.
+    await hydrateOrderByNumber(ref, { refresh: true });
+    const target = adminFindOrderExact(ref);
+    if (!target) return Response.json({ error: "Order not found" }, { status: 404 });
+    const id = target.id;
+    const orderNumber = target.number;
 
     const body = (await req.json()) as Partial<StatusUpdate> & {
       action?: "archive" | "restore" | "delete";
@@ -90,15 +143,17 @@ export async function PATCH(req: NextRequest) {
 
     if (body.action === "archive") {
       const order = archiveOrder(id, me.email);
+      await persistOrderSnapshot(order);
       revalidatePath(`/admin/orders`);
-      revalidatePath(`/admin/orders/${id}`);
+      revalidatePath(`/admin/orders/${orderNumber}`);
       return Response.json({ order, message: "Order archived successfully" });
     }
 
     if (body.action === "restore") {
       const order = restoreOrder(id, me.email);
+      await persistOrderSnapshot(order);
       revalidatePath(`/admin/orders`);
-      revalidatePath(`/admin/orders/${id}`);
+      revalidatePath(`/admin/orders/${orderNumber}`);
       return Response.json({ order, message: "Order restored successfully" });
     }
 
@@ -110,8 +165,9 @@ export async function PATCH(req: NextRequest) {
         trackingCarrier: body.trackingCarrier ?? undefined,
         trackingNumber: body.trackingNumber ?? undefined,
       });
+      await persistOrderSnapshot(order);
       revalidatePath(`/admin/orders`);
-      revalidatePath(`/admin/orders/${id}`);
+      revalidatePath(`/admin/orders/${orderNumber}`);
       return Response.json({ order });
     }
 
@@ -122,15 +178,17 @@ export async function PATCH(req: NextRequest) {
       body.shiprocketLabelUrl !== undefined
     ) {
       const order = updateShiprocket(id, body, me.email);
+      await persistOrderSnapshot(order);
       revalidatePath(`/admin/orders`);
-      revalidatePath(`/admin/orders/${id}`);
+      revalidatePath(`/admin/orders/${orderNumber}`);
       return Response.json({ order });
     }
 
     if (body.trackingCarrier !== undefined || body.trackingNumber !== undefined) {
       const order = updateTracking(id, body.trackingCarrier ?? "", body.trackingNumber ?? "", me.email);
+      await persistOrderSnapshot(order);
       revalidatePath(`/admin/orders`);
-      revalidatePath(`/admin/orders/${id}`);
+      revalidatePath(`/admin/orders/${orderNumber}`);
       return Response.json({ order });
     }
 
@@ -144,18 +202,25 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const me = await requireApiUser("orders.manage");
-    const id = Number(req.nextUrl.searchParams.get("id"));
-    if (!id) return Response.json({ error: "id required" }, { status: 400 });
+    const ref = req.nextUrl.searchParams.get("id");
+    if (!ref) return Response.json({ error: "id required" }, { status: 400 });
+
+    await hydrateOrderByNumber(ref, { refresh: true });
+    const target = adminFindOrderExact(ref);
+    if (!target) return Response.json({ error: "Order not found" }, { status: 404 });
+    const id = target.id;
 
     const hard = req.nextUrl.searchParams.get("hard") === "true";
     if (hard) {
       deleteOrder(id, me.email);
+      await removeOrderSnapshot(target.number);
       revalidatePath(`/admin/orders`);
       return Response.json({ ok: true, message: "Order deleted permanently" });
     } else {
       const order = archiveOrder(id, me.email);
+      await persistOrderSnapshot(order);
       revalidatePath(`/admin/orders`);
-      revalidatePath(`/admin/orders/${id}`);
+      revalidatePath(`/admin/orders/${target.number}`);
       return Response.json({ order, message: "Order archived" });
     }
   } catch (err) {

@@ -58,7 +58,7 @@ export function OrderActions({ order }: { order: OrderWithRelations }) {
     setErr("");
     setBusy(true);
     try {
-      const res = await fetch(`/api/orders?id=${order.id}`, {
+      const res = await fetch(`/api/orders?id=${encodeURIComponent(order.number)}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
@@ -78,7 +78,7 @@ export function OrderActions({ order }: { order: OrderWithRelations }) {
     setErr("");
     setBusy(true);
     try {
-      const res = await fetch(`/api/orders?id=${order.id}&hard=true`, {
+      const res = await fetch(`/api/orders?id=${encodeURIComponent(order.number)}&hard=true`, {
         method: "DELETE",
       });
       const data = (await res.json()) as { error?: string; message?: string };
@@ -507,6 +507,7 @@ export function OrdersTable({
     try {
       if (manual) setIsRefreshing(true);
       const params = new URLSearchParams();
+      if (manual) params.set("fresh", "1");
       if (statusFilter && statusFilter !== "ALL") params.set("status", statusFilter);
       if (searchQ) params.set("q", searchQ);
       if (paymentMethodFilter && paymentMethodFilter !== "ALL") params.set("paymentMethod", paymentMethodFilter);
@@ -564,17 +565,17 @@ export function OrdersTable({
     setShowLogs(!showLogs);
   };
 
-  const handleStatusChange = (orderId: number, nextStatus: OrderStatus) => {
+  const handleStatusChange = (orderNumber: string, nextStatus: OrderStatus) => {
     setItems((current) =>
-      current.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
+      current.map((o) => (o.number === orderNumber ? { ...o, status: nextStatus } : o))
     );
   };
 
-  const handleQuickArchive = async (e: React.MouseEvent, orderId: number) => {
+  const handleQuickArchive = async (e: React.MouseEvent, orderNumber: string) => {
     e.preventDefault();
     e.stopPropagation();
     try {
-      const res = await fetch(`/api/orders?id=${orderId}`, {
+      const res = await fetch(`/api/orders?id=${encodeURIComponent(orderNumber)}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "archive" }),
@@ -778,7 +779,7 @@ export function OrdersTable({
                   key={order.id}
                   order={order}
                   onStatusChange={handleStatusChange}
-                  onQuickArchive={(e) => void handleQuickArchive(e, order.id)}
+                  onQuickArchive={(e) => void handleQuickArchive(e, order.number)}
                 />
               ))}
             </tbody>
@@ -795,7 +796,7 @@ function OrderTableRow({
   onQuickArchive,
 }: {
   order: OrderWithRelations;
-  onStatusChange: (id: number, s: OrderStatus) => void;
+  onStatusChange: (orderNumber: string, s: OrderStatus) => void;
   onQuickArchive: (e: React.MouseEvent) => void;
 }) {
   const router = useRouter();
@@ -818,14 +819,14 @@ function OrderTableRow({
     e.stopPropagation();
     setBusy(true);
     try {
-      const res = await fetch(`/api/orders?id=${order.id}`, {
+      const res = await fetch(`/api/orders?id=${encodeURIComponent(order.number)}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ to: "PAID", note: "Accepted by operator from Pit Wall" }),
       });
       if (res.ok) {
         setAcceptedNotice(true);
-        onStatusChange(order.id, "PAID");
+        onStatusChange(order.number, "PAID");
         setTimeout(() => setAcceptedNotice(false), 3000);
         router.refresh();
       }
@@ -837,7 +838,7 @@ function OrderTableRow({
   };
 
   const navigateToDetail = () => {
-    router.push(`/admin/orders/${order.id}`);
+    router.push(`/admin/orders/${order.number}`);
   };
 
   return (
@@ -851,7 +852,7 @@ function OrderTableRow({
       <td className="px-4 py-3.5 font-mono font-bold text-white whitespace-nowrap">
         <div className="flex items-center gap-1.5">
           <Link
-            href={`/admin/orders/${order.id}`}
+            href={`/admin/orders/${order.number}`}
             onClick={(e) => {
               e.stopPropagation();
             }}
@@ -945,7 +946,7 @@ function OrderTableRow({
           ) : null}
 
           <Link
-            href={`/admin/orders/${order.id}`}
+            href={`/admin/orders/${order.number}`}
             className="u-btn u-btn-ghost text-[11px]! py-1! px-2!"
           >
             Details →

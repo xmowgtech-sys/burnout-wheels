@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { rateLimit, ipOf } from "@/lib/auth";
+import { hydrateOrderByNumber, persistOrderByNumber } from "@/lib/order-store";
 
 const schema = z.object({
   orderNumber: z.string().trim().min(4).max(40),
@@ -23,6 +24,11 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     const number = parsed.data.orderNumber.toUpperCase();
     const channel = parsed.data.channel === "whatsapp" ? "WHATSAPP" : "DISCORD";
+
+    // The success page may be served by an instance that has never seen this
+    // order. Recover it before trying to switch its payment route.
+    await hydrateOrderByNumber(number);
+
     const order = db
       .prepare("SELECT id, status FROM orders WHERE UPPER(number) = ? LIMIT 1")
       .get(number) as { id: number; status: string } | undefined;
@@ -41,6 +47,8 @@ export async function POST(req: NextRequest) {
       "customer",
       ts
     );
+
+    await persistOrderByNumber(number);
 
     return Response.json({ ok: true, channel });
   } catch (err) {

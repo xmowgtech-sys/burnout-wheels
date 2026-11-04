@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { Check } from "lucide-react";
 import { getOrderByNumber } from "@/lib/orders";
+import { hydrateOrderByNumber } from "@/lib/order-store";
+import { openOrderRecovery, RECOVERY_COOKIE_NAME } from "@/lib/order-recovery";
 import { ORDER_STATUS_LABELS } from "@/lib/types";
 import { fmtUSD, fmtDate } from "@/lib/money";
 import { COD_ADVANCE_LABEL, codBalance } from "@/lib/payments";
@@ -21,7 +24,17 @@ export default async function SuccessPage({
   const channel = sp.channel === "whatsapp" ? "whatsapp" : "discord";
   const numClean = number.toUpperCase();
 
-  const order = getOrderByNumber(numClean);
+  // The redirect after checkout can land on a different serverless instance.
+  // Pull the durable snapshot in first, then fall back to the encrypted copy
+  // this browser received with the checkout response.
+  await hydrateOrderByNumber(numClean, { refresh: true });
+  let order = getOrderByNumber(numClean);
+
+  if (!order) {
+    const cookieStore = await cookies();
+    const recovered = openOrderRecovery(cookieStore.get(RECOVERY_COOKIE_NAME)?.value);
+    if (recovered && recovered.number.toUpperCase() === numClean) order = recovered;
+  }
 
   if (!order) {
     return (
@@ -30,8 +43,9 @@ export default async function SuccessPage({
           <p className="u-label text-yellow">Order lookup</p>
           <h1 className="u-h2 mt-3 break-all">{numClean}</h1>
           <p className="mt-4 text-[15px] leading-relaxed text-fog">
-            We could not find this order on the server that handled this page. Keep the order
-            number above and contact the crew before paying again — we will check it manually.
+            We could not load the full order on this device. Keep the order number above and
+            contact the crew before paying again — we will check it manually and confirm your
+            reservation.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a href={CONTACT.discord} target="_blank" rel="noopener noreferrer" className="u-btn u-btn-primary">

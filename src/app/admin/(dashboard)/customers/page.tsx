@@ -2,12 +2,14 @@ import Link from "next/link";
 import { Table, Td } from "@/components/admin/admin-ui";
 import { fmtUSD, fmtDate } from "@/lib/money";
 import { listCustomers } from "@/lib/orders";
+import { hydrateAllOrders } from "@/lib/order-store";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Customers · Pit wall", robots: { index: false } };
 
 export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
+  await hydrateAllOrders({ force: true });
   const customers = listCustomers(q || undefined);
 
   return (
@@ -78,7 +80,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                     )}
                     <div className="min-w-0">
                       <Link
-                        href={`/admin/customers/${c.id}`}
+                        href={`/admin/customers/${encodeURIComponent(c.email)}`}
                         className="block truncate font-semibold text-white hover:text-mint transition-colors"
                       >
                         {c.name}
@@ -110,7 +112,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                   {c.latestOrder ? (
                     <div>
                       <Link
-                        href={`/admin/orders/${c.orders[0]?.id ?? c.latestOrder.number}`}
+                        href={`/admin/orders/${c.latestOrder.number}`}
                         className="u-mono block text-xs font-semibold text-white hover:text-mint transition-colors"
                       >
                         {c.latestOrder.number}
@@ -126,7 +128,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                 <Td className="u-label-txt text-xs">{fmtDate(c.createdAt)}</Td>
                 <Td>
                   <Link
-                    href={`/admin/customers/${c.id}`}
+                    href={`/admin/customers/${encodeURIComponent(c.email)}`}
                     className="u-btn u-btn-ghost inline-flex items-center gap-1 px-2.5 py-1 text-xs"
                   >
                     Profile →

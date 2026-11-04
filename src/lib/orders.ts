@@ -416,6 +416,34 @@ export function adminGetOrder(idOrNumber: number | string): OrderWithRelations |
   return { ...parseOrder(row), items: listItems(id), events: listEvents(id) };
 }
 
+/**
+ * Resolve an order by an exact numeric id or exact order number.
+ *
+ * Mutating routes must not use the fuzzy `adminGetOrder` lookup: an operator
+ * action should never land on a different order just because the reference was
+ * a partial match. Returns null when there is no exact hit.
+ */
+export function adminFindOrderExact(idOrNumber: number | string): OrderWithRelations | null {
+  const db = getDb();
+  const raw = String(idOrNumber).trim();
+  if (!raw) return null;
+  const numericId = Number(raw);
+  let row: Record<string, unknown> | undefined;
+
+  if (!Number.isNaN(numericId) && numericId > 0 && /^\d+$/.test(raw)) {
+    row = db.prepare("SELECT * FROM orders WHERE id = ? LIMIT 1").get(numericId) as Record<string, unknown> | undefined;
+  }
+  if (!row) {
+    const clean = raw.replace(/^#/, "");
+    row = db
+      .prepare("SELECT * FROM orders WHERE LOWER(number) = LOWER(?) LIMIT 1")
+      .get(clean) as Record<string, unknown> | undefined;
+  }
+  if (!row) return null;
+  const id = Number(row.id);
+  return { ...parseOrder(row), items: listItems(id), events: listEvents(id) };
+}
+
 export interface AdminOrderQuery {
   status?: OrderStatus | "ALL" | "ARCHIVED";
   q?: string;
