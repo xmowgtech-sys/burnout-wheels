@@ -4,6 +4,7 @@ import {
   adminListOrders,
   adminGetOrder,
   createOrderFromCheckout,
+  notifyDiscordOrder,
   updateOrderStatus,
   updateTracking,
   updateShiprocket,
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
     }
     const body = await req.json();
     const result = createOrderFromCheckout(body);
+    if (result.created !== false) await notifyDiscordOrder(result, body);
     revalidatePath("/admin/orders");
     revalidatePath("/admin/customers");
     revalidatePath("/account");

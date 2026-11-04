@@ -43,6 +43,8 @@ export interface CheckoutResult {
   status: OrderStatus;
   paymentMethod: string;
   paymentChannel?: string | null;
+  /** false when an idempotent retry returned an order that already existed. */
+  created?: boolean;
 }
 
 export function createOrderFromCheckout(raw: unknown): CheckoutResult {
@@ -71,6 +73,7 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
         status: existing.status as OrderStatus,
         paymentMethod: String(existing.paymentMethod),
         paymentChannel: (existing.paymentChannel as string) ?? null,
+        created: false,
       };
     }
   }
@@ -242,33 +245,6 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
     );
     const orderId = orderRes.id;
 
-    // Optional Discord webhook notification to #billing / staff channel
-    if (process.env.DISCORD_WEBHOOK_URL) {
-      try {
-        fetch(process.env.DISCORD_WEBHOOK_URL, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            content: `🏎️ **New Burnout Wheels Order #${number}**`,
-            embeds: [
-              {
-                title: `Order #${number}`,
-                color: input.paymentChannel === "WHATSAPP" ? 3066993 : 15548997,
-                fields: [
-                  { name: "Customer", value: `${input.name} (${input.email})`, inline: true },
-                  { name: "Total", value: `₹${(total / 100).toFixed(0)}`, inline: true },
-                  { name: "Payment Route", value: input.paymentChannel || "Discord #billing", inline: true },
-                  { name: "Status", value: initialStatus, inline: true },
-                  { name: "Address", value: `${input.addressLine || ""}, ${input.city || ""} ${input.pincode || ""}` },
-                ],
-                timestamp: ts,
-              },
-            ],
-          }),
-        }).catch(() => {});
-      } catch {}
-    }
-
     // 7. Items + stock decrement (validated inside the lock)
     const itemStmt = db.prepare(
       `INSERT INTO orderItems (orderId, productId, name, slug, condition, scale, image, price, cost, qty)
@@ -312,7 +288,55 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
 
   logActivity(input.email, "order.placed", order.number, `₹${(order.total / 100).toFixed(0)} · ${input.paymentMethod}`);
 
-  return { number: order.number, total: order.total, status: order.status, paymentMethod: order.paymentMethod, paymentChannel: order.paymentChannel };
+  return {
+    number: order.number,
+    total: order.total,
+    status: order.status,
+    paymentMethod: order.paymentMethod,
+    paymentChannel: order.paymentChannel,
+    created: true,
+  };
+}
+
+/**
+ * Optional order alert for the staff Discord channel. Awaited by the checkout
+ * route so Vercel does not terminate the request before Discord receives it.
+ * This is the safety net when the deployment has no persistent database.
+ * Never throws — a notification failure must not fail the customer's order.
+ */
+export async function notifyDiscordOrder(
+  result: CheckoutResult,
+  input: Record<string, unknown>
+): Promise<void> {
+  const url = process.env.DISCORD_WEBHOOK_URL;
+  if (!url) return;
+  const text = (value: unknown, fallback = "") => (typeof value === "string" ? value : fallback);
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: AbortSignal.timeout(5000),
+      body: JSON.stringify({
+        content: `🏎️ **New Burnout Wheels Order #${result.number}**`,
+        embeds: [
+          {
+            title: `Order #${result.number}`,
+            color: result.paymentChannel === "WHATSAPP" ? 3066993 : 15548997,
+            fields: [
+              { name: "Customer", value: `${text(input.name, "Customer")} (${text(input.email)})`, inline: true },
+              { name: "Total", value: `₹${(result.total / 100).toFixed(0)}`, inline: true },
+              { name: "Payment Route", value: result.paymentChannel || "Discord #billing", inline: true },
+              { name: "Status", value: result.status, inline: true },
+              { name: "Address", value: `${text(input.addressLine)}, ${text(input.city)} ${text(input.pincode)}` },
+            ],
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      }),
+    });
+  } catch (err) {
+    console.error("[burnout] Discord order notification failed:", err);
+  }
 }
 
 function safeImages(v: unknown): string[] {
