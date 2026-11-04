@@ -7,6 +7,9 @@ import { ApiError } from "./auth";
 import { orderNumber } from "./utils";
 import { accountByEmail, accountById, createAccount, updateProfile } from "./accounts";
 import type { CustomerAddress } from "./addresses";
+import { fmtUSD } from "./money";
+import { orderAddress, orderPaymentStatus, orderTaxesTotal } from "./order-summary";
+import { siteUrl } from "./site";
 
 /* ---------------- status flow ---------------- */
 
@@ -303,32 +306,129 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
  * route so Vercel does not terminate the request before Discord receives it.
  * This is the safety net when the deployment has no persistent database.
  * Never throws — a notification failure must not fail the customer's order.
+ *
+ * Set `DISCORD_ORDERS_WEBHOOK_URL` to send new orders to their own channel.
+ * It falls back to `DISCORD_WEBHOOK_URL` for existing deployments.
  */
 export async function notifyDiscordOrder(
   result: CheckoutResult,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  order?: OrderWithRelations | null
 ): Promise<void> {
-  const url = process.env.DISCORD_WEBHOOK_URL;
-  if (!url) return;
+  const webhookUrl =
+    process.env.DISCORD_ORDERS_WEBHOOK_URL?.trim() || process.env.DISCORD_WEBHOOK_URL?.trim();
+  if (!webhookUrl) return;
+
   const text = (value: unknown, fallback = "") => (typeof value === "string" ? value : fallback);
+  const clamp = (value: string, max = 1024) =>
+    value.length > max ? `${value.slice(0, max - 1)}…` : value;
+
   try {
-    await fetch(url, {
+    type DiscordField = { name: string; value: string; inline?: boolean };
+    const fields: DiscordField[] = [];
+    const total = order?.total ?? result.total;
+    const units = order?.items.reduce((sum, item) => sum + item.qty, 0) ?? 0;
+
+    if (order) {
+      fields.push({
+        name: "Customer",
+        value: clamp(`${order.name}\n${order.email}`),
+        inline: true,
+      });
+      fields.push({
+        name: "Phone",
+        value: clamp(order.phone || "Not provided"),
+        inline: true,
+      });
+      fields.push({
+        name: "Payment",
+        value: clamp(
+          `${order.paymentMethod}${order.paymentChannel ? ` · via ${order.paymentChannel}` : ""}\nStatus: ${orderPaymentStatus(order)}`
+        ),
+        inline: true,
+      });
+      fields.push({
+        name: "Delivery Address",
+        value: clamp(orderAddress(order) || "Not provided"),
+      });
+
+      const itemLines = order.items.map((item) => {
+        const meta = [item.condition, item.scale].filter(Boolean).join(" · ");
+        return `• **${item.qty}×** ${item.name}${meta ? ` (${meta})` : ""} — ${fmtUSD(item.price * item.qty)}`;
+      });
+      fields.push({
+        name: `Items (${units} unit${units === 1 ? "" : "s"})`,
+        value: clamp(itemLines.length > 0 ? itemLines.join("\n") : `Order total ${fmtUSD(order.total)}`),
+      });
+
+      fields.push({ name: "Subtotal", value: fmtUSD(order.subtotal), inline: true });
+      fields.push({
+        name: order.discountCode ? `Coupon / discount (${order.discountCode})` : "Coupon / discount",
+        value: order.discountTotal > 0 ? `−${fmtUSD(order.discountTotal)}` : "None",
+        inline: true,
+      });
+      fields.push({
+        name: "Shipping",
+        value: order.shippingFee === 0 ? "FREE" : fmtUSD(order.shippingFee),
+        inline: true,
+      });
+      fields.push({
+        name: "GST (18%, included)",
+        value: fmtUSD(orderTaxesTotal(order)),
+        inline: true,
+      });
+      fields.push({ name: "TOTAL", value: `**${fmtUSD(order.total)}**`, inline: true });
+      fields.push({
+        name: "Order status",
+        value: order.status.replace(/_/g, " "),
+        inline: true,
+      });
+
+      if (order.notes) fields.push({ name: "Customer note", value: clamp(order.notes) });
+
+      const adminUrl = `${siteUrl()}/admin/orders/${encodeURIComponent(order.number)}`;
+      fields.push({ name: "Admin", value: `[Open order in admin](${adminUrl})` });
+    } else {
+      // Defensive fallback: the order row could not be read back after insert.
+      fields.push({
+        name: "Customer",
+        value: clamp(`${text(input.name, "Customer")}\n${text(input.email)}`),
+        inline: true,
+      });
+      fields.push({ name: "Phone", value: clamp(text(input.phone, "Not provided")), inline: true });
+      fields.push({
+        name: "Payment",
+        value: clamp(`${text(input.paymentMethod)}${result.paymentChannel ? ` · via ${result.paymentChannel}` : ""}\nStatus: ${result.status}`),
+        inline: true,
+      });
+      fields.push({
+        name: "Delivery Address",
+        value: clamp(
+          [text(input.addressLine), text(input.city), text(input.state), text(input.pincode), text(input.country)]
+            .filter(Boolean)
+            .join(", ") || "Not provided"
+        ),
+      });
+      fields.push({ name: "TOTAL", value: `**${fmtUSD(total)}**`, inline: true });
+      if (text(input.notes)) fields.push({ name: "Customer note", value: clamp(text(input.notes)) });
+    }
+
+    await fetch(webhookUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
       signal: AbortSignal.timeout(5000),
       body: JSON.stringify({
-        content: `🏎️ **New Burnout Wheels Order #${result.number}**`,
+        content: `🏎️ **New Burnout Wheels Order #${result.number}** — ${fmtUSD(total)}`,
+        allowed_mentions: { parse: [] },
         embeds: [
           {
             title: `Order #${result.number}`,
+            description: order
+              ? `${units} item unit${units === 1 ? "" : "s"} · ${order.shippingMethod} shipping · placed ${new Date(order.placedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+              : "New checkout — full details could not be read back on this instance.",
             color: result.paymentChannel === "WHATSAPP" ? 3066993 : 15548997,
-            fields: [
-              { name: "Customer", value: `${text(input.name, "Customer")} (${text(input.email)})`, inline: true },
-              { name: "Total", value: `₹${(result.total / 100).toFixed(0)}`, inline: true },
-              { name: "Payment Route", value: result.paymentChannel || "Discord #billing", inline: true },
-              { name: "Status", value: result.status, inline: true },
-              { name: "Address", value: `${text(input.addressLine)}, ${text(input.city)} ${text(input.pincode)}` },
-            ],
+            fields,
+            footer: { text: `Burnout Wheels · ${siteUrl()}` },
             timestamp: new Date().toISOString(),
           },
         ],

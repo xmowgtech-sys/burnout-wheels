@@ -86,7 +86,29 @@ Then redeploy.
   browser via the encrypted recovery cookie.
 - Admin cannot recover the order on another instance.
 - The Discord webhook alert (if configured) remains the manual safety net.
-  Set `DISCORD_WEBHOOK_URL` in Vercel → Settings → Environment Variables.
+
+## Admin order details and copy
+
+The orders list already contains every order's line items, customer, address,
+phone, totals, GST, coupon and audit trail. Clicking **Details** (or the order
+number) opens a slide-over drawer built from that response, so it works even on
+a cold instance or before Blob is connected. **Copy details** copies a complete
+plain-text order snapshot to the clipboard. **Full page** opens the standalone
+admin order page when deeper actions are needed.
+
+## Discord order alerts
+
+Set `DISCORD_ORDERS_WEBHOOK_URL` to send new-order alerts to a dedicated
+channel. If it is not set, the app falls back to `DISCORD_WEBHOOK_URL`.
+
+Each alert includes the order number and admin link, customer name, email and
+phone, full delivery address, every product with quantity and line total,
+subtotal, coupon/discount, shipping, included GST, final total, payment method
+and route, payment status, order status and any customer note.
+
+To create the webhook: Discord server → **Channel Settings → Integrations →
+Webhooks → New Webhook**, copy the URL, then add it in Vercel → **Settings →
+Environment Variables** and redeploy.
 
 ## Orders lost before this fix
 

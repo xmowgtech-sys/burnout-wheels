@@ -13,13 +13,14 @@ import {
   ExternalLink,
   Truck,
   Package,
-  AlertTriangle,
   Activity,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
 import { StatusBadge, ConfirmDialog } from "@/components/admin/admin-ui";
+import { AdminOrderDrawer } from "@/components/admin/order-detail-drawer";
 import { fmtUSD, fmtDate } from "@/lib/money";
+import { formatOrderSummary } from "@/lib/order-summary";
 import type { OrderWithRelations, OrderStatus, OpsEvent, SyncLog } from "@/lib/types";
 
 /* -------------------------------------------------------------
@@ -471,6 +472,13 @@ export function OrdersTable({
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>(initialPaymentStatus);
   const [fulfilmentFilter, setFulfilmentFilter] = useState<string>(initialFulfilmentStatus);
 
+  // Detail drawer — opens from data already loaded in the list, so it never
+  // depends on a fresh serverless instance or the durable order store.
+  const [selectedOrderNumber, setSelectedOrderNumber] = useState<string | null>(null);
+  const selectedOrder = selectedOrderNumber
+    ? items.find((order) => order.number === selectedOrderNumber) ?? null
+    : null;
+
   // Sync / Error Logs drawer state
   const [showLogs, setShowLogs] = useState(false);
   const [logsBusy, setLogsBusy] = useState(false);
@@ -778,6 +786,7 @@ export function OrdersTable({
                 <OrderTableRow
                   key={order.id}
                   order={order}
+                  onOpenDetails={() => setSelectedOrderNumber(order.number)}
                   onStatusChange={handleStatusChange}
                   onQuickArchive={(e) => void handleQuickArchive(e, order.number)}
                 />
@@ -786,21 +795,26 @@ export function OrdersTable({
           </table>
         </div>
       )}
+
+      <AdminOrderDrawer order={selectedOrder} onClose={() => setSelectedOrderNumber(null)} />
     </div>
   );
 }
 
 function OrderTableRow({
   order,
+  onOpenDetails,
   onStatusChange,
   onQuickArchive,
 }: {
   order: OrderWithRelations;
+  onOpenDetails: () => void;
   onStatusChange: (orderNumber: string, s: OrderStatus) => void;
   onQuickArchive: (e: React.MouseEvent) => void;
 }) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
+  const [detailsCopied, setDetailsCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [acceptedNotice, setAcceptedNotice] = useState(false);
 
@@ -812,6 +826,26 @@ function OrderTableRow({
     navigator.clipboard.writeText(order.number);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyDetails = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const text = formatOrderSummary(order);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      document.body.removeChild(area);
+    }
+    setDetailsCopied(true);
+    setTimeout(() => setDetailsCopied(false), 2000);
   };
 
   const handleAccept = async (e: React.MouseEvent) => {
@@ -837,13 +871,9 @@ function OrderTableRow({
     }
   };
 
-  const navigateToDetail = () => {
-    router.push(`/admin/orders/${order.number}`);
-  };
-
   return (
     <tr
-      onClick={navigateToDetail}
+      onClick={onOpenDetails}
       className={`group cursor-pointer transition-colors ${
         isAwaitingAcceptance ? "bg-yellow/[0.03] hover:bg-yellow/[0.08]" : "hover:bg-surface/50"
       }`}
@@ -851,15 +881,16 @@ function OrderTableRow({
       {/* Order Number */}
       <td className="px-4 py-3.5 font-mono font-bold text-white whitespace-nowrap">
         <div className="flex items-center gap-1.5">
-          <Link
-            href={`/admin/orders/${order.number}`}
+          <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
+              onOpenDetails();
             }}
-            className="hover:text-red hover:underline"
+            className="text-left hover:text-red hover:underline"
           >
             {order.number}
-          </Link>
+          </button>
           <button
             type="button"
             onClick={copyNumber}
@@ -945,12 +976,23 @@ function OrderTableRow({
             </button>
           ) : null}
 
-          <Link
-            href={`/admin/orders/${order.number}`}
+          <button
+            type="button"
+            onClick={(e) => void copyDetails(e)}
+            className="p-1 text-dim hover:text-mint transition-colors"
+            title="Copy full order details"
+            aria-label={`Copy full details for order ${order.number}`}
+          >
+            {detailsCopied ? <Check className="size-3.5 text-mint" /> : <Copy className="size-3.5" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenDetails}
             className="u-btn u-btn-ghost text-[11px]! py-1! px-2!"
           >
             Details →
-          </Link>
+          </button>
 
           {!order.isArchived && (
             <button

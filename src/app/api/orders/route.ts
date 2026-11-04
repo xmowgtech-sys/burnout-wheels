@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     const result = createOrderFromCheckout(body);
     const fullOrder = adminGetOrder(result.number);
     await persistOrderByNumber(result.number);
-    if (result.created !== false) await notifyDiscordOrder(result, body);
+    if (result.created !== false) await notifyDiscordOrder(result, body, fullOrder);
 
     revalidatePath("/admin/orders");
     revalidatePath("/admin/customers");
