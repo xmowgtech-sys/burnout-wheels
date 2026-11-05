@@ -295,6 +295,13 @@ export async function ensureCatalogHydrated(options: { force?: boolean } = {}): 
 export async function persistCatalogSnapshot(): Promise<boolean> {
   if (catalogStoreMode() === "off") return true;
 
+  // Never overwrite a snapshot we could not read: that would replace the
+  // owner's live catalog with the seed-only rows on this instance.
+  if (!(await ensureCatalogHydrated())) {
+    console.error("[catalog] Refusing to overwrite the durable catalog because it could not be read.");
+    return false;
+  }
+
   try {
     const products = allProductsForStore();
     const db = getDb();

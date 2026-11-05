@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     // A checkout can land on an instance that has never served the storefront.
     // Recover the current catalog (including live-added products) before
     // resolving the cart.
-    await ensureCatalogHydrated();
+    const catalogReady = await ensureCatalogHydrated();
     const body = await req.json();
 
     // A retry can land on a serverless instance that never saw the original
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     await persistOrderByNumber(result.number);
     // Stock was reserved above. Save the new counts so another instance does
     // not resurrect the old stock level on the next cold start.
-    if (result.created !== false) await persistCatalogSnapshot();
+    if (result.created !== false && catalogReady) await persistCatalogSnapshot();
     if (result.created !== false) await notifyDiscordOrder(result, body, fullOrder);
 
     revalidatePath("/admin/orders");
