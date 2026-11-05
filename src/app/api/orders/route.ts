@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     await persistOrderByNumber(result.number);
     // Stock was reserved above. Save the new counts so another instance does
     // not resurrect the old stock level on the next cold start.
-    if (result.created !== false && catalogReady) await persistCatalogSnapshot();
+    if (result.created !== false && catalogReady) await persistCatalogSnapshot({ hydrated: true });
     if (result.created !== false) await notifyDiscordOrder(result, body, fullOrder);
 
     revalidatePath("/admin/orders");
@@ -166,6 +166,15 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (body.to) {
+      // Cancelling restocks the product. Hydrate BEFORE the restock, otherwise
+      // the snapshot would overwrite the restored stock with its old count.
+      const restocking = body.to === "CANCELLED";
+      if (restocking) {
+        const ready = await ensureCatalogHydrated({ force: true });
+        if (!ready) {
+          return Response.json({ error: "The catalog store is unavailable — the order was not changed. Try again in a minute." }, { status: 503 });
+        }
+      }
       const order = updateOrderStatus(id, {
         to: body.to as OrderStatus,
         note: body.note,
@@ -174,9 +183,8 @@ export async function PATCH(req: NextRequest) {
         trackingNumber: body.trackingNumber ?? undefined,
       });
       // Cancelling puts stock back on the shelf; persist the new counts.
-      if (body.to === "CANCELLED") {
-        await ensureCatalogHydrated({ force: true });
-        await persistCatalogSnapshot();
+      if (restocking) {
+        await persistCatalogSnapshot({ hydrated: true });
       }
       await persistOrderSnapshot(order);
       revalidatePath(`/admin/orders`);

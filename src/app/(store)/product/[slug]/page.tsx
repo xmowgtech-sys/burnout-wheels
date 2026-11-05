@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   await ensureCatalogHydrated();
   const product = getProductBySlug(slug);
-  if (!product) return { title: "Not found" };
+  if (!product || product.status !== "ACTIVE") return { title: "Not found" };
   return {
     title: product.name,
     description: product.description.slice(0, 155),

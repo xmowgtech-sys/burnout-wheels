@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductForm } from "@/components/admin/product-form";
-import { getProductById } from "@/lib/catalog";
+import { getProductById, getProductBySlug } from "@/lib/catalog";
 import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { fmtDate } from "@/lib/money";
 
@@ -10,8 +10,10 @@ export const metadata = { title: "Edit product · Pit wall", robots: { index: fa
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await ensureCatalogHydrated();
-  const product = getProductById(Number(id));
+  // Admin links use the slug (stable across cold starts). Older links used the
+  // numeric id, so keep accepting that too.
+  await ensureCatalogHydrated({ force: true });
+  const product = getProductBySlug(id) ?? getProductById(Number(id));
   if (!product) notFound();
 
   return (
@@ -20,7 +22,11 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         <Link href="/admin/products" className="u-label hover:text-bone">← All products</Link>
         <h1 className="u-h1 mt-3 text-3xl md:text-4xl">{product.name}</h1>
         <p className="u-label-txt mt-2">
-          <Link href={`/product/${product.slug}`} target="_blank" className="underline underline-offset-4 hover:text-bone">View live page</Link>
+          {product.status === "ACTIVE" ? (
+            <Link href={`/product/${product.slug}`} target="_blank" className="underline underline-offset-4 hover:text-bone">View live page</Link>
+          ) : (
+            <span className="text-yellow">{product.status === "DRAFT" ? "Hidden from the storefront" : "Archived — not on the storefront"}</span>
+          )}
           {" · "}created {fmtDate(product.createdAt)} · updated {fmtDate(product.updatedAt)}
         </p>
       </header>

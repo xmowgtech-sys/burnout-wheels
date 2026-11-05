@@ -63,6 +63,15 @@ export function ProductForm({ initial }: { initial: Product | null }) {
 
   // money helpers — DB stores paise
   const cpp = (v: string) => Math.round((Number(v || 0) * 100 + Number.EPSILON));
+  /** An explicit 0 is valid (sold out / no low-stock alert); only blank/NaN falls back. */
+  const whole = (v: string, fallback: number) => {
+    const n = Number(v);
+    return v.trim() !== "" && Number.isFinite(n) ? Math.round(n) : fallback;
+  };
+  const decimal = (v: string, fallback: number) => {
+    const n = Number(v);
+    return v.trim() !== "" && Number.isFinite(n) ? n : fallback;
+  };
   const sale = cpp(f.priceSale);
   const cost = cpp(f.priceCost);
   const fee = Math.round((sale * (Number(f.feePercent) || 0)) / 100);
@@ -93,9 +102,9 @@ export function ProductForm({ initial }: { initial: Product | null }) {
         featured: f.featured,
         priceSale: sale || 199900,
         priceCost: cost || 0,
-        feePercent: Number(f.feePercent) || 2,
-        stock: Math.max(0, Math.round(Number(f.stock) || 10)),
-        lowStockThreshold: Math.max(0, Math.round(Number(f.lowStockThreshold) || 3)),
+        feePercent: decimal(f.feePercent, 2),
+        stock: Math.max(0, whole(f.stock, 10)),
+        lowStockThreshold: Math.max(0, whole(f.lowStockThreshold, 3)),
         dropAt: f.dropAt || "",
         description: f.description.trim() || `${f.name.trim()} in mint authentic condition.`,
         highlights: f.highlights.split("\n").map((x) => x.trim()).filter(Boolean),
@@ -105,7 +114,7 @@ export function ProductForm({ initial }: { initial: Product | null }) {
         imagePosition: f.imagePosition,
       };
 
-      const res = await fetch(editing ? `/api/products?id=${initial!.id}` : "/api/products", {
+      const res = await fetch(editing ? `/api/products?slug=${encodeURIComponent(initial!.slug)}` : "/api/products", {
         method: editing ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
@@ -178,8 +187,8 @@ export function ProductForm({ initial }: { initial: Product | null }) {
       </fieldset>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Stock on shelf *"><input type="number" min="0" value={f.stock} onChange={(e) => set("stock", e.target.value)} required className="u-input" /></Field>
-        <Field label="Low-stock threshold"><input type="number" min="0" value={f.lowStockThreshold} onChange={(e) => set("lowStockThreshold", e.target.value)} className="u-input" /></Field>
+        <Field label="Stock on shelf *" hint="0 keeps the listing visible and marks it Sold out."><input type="number" min="0" value={f.stock} onChange={(e) => set("stock", e.target.value)} required className="u-input" /></Field>
+        <Field label="Low-stock threshold" hint="0 turns off the low-stock warning."><input type="number" min="0" value={f.lowStockThreshold} onChange={(e) => set("lowStockThreshold", e.target.value)} className="u-input" /></Field>
       </div>
 
       <Field label="Description">
@@ -257,7 +266,7 @@ export function ProductForm({ initial }: { initial: Product | null }) {
                 setBusy(true);
                 setError("");
                 try {
-                  const res = await fetch(`/api/products?id=${initial.id}`, { method: "DELETE" });
+                  const res = await fetch(`/api/products?slug=${encodeURIComponent(initial.slug)}`, { method: "DELETE" });
                   const data = (await res.json().catch(() => ({}))) as { error?: string; mode?: string; ok?: boolean };
                   if (res.ok || res.status === 404 || data.mode === "already_deleted") {
                     router.push("/admin/products");

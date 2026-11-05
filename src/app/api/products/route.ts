@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const parsed = normalizeProductInput(raw);
     if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 422 });
     const product = createProduct(parsed.data);
-    const durable = await persistCatalogSnapshot();
+    const durable = await persistCatalogSnapshot({ hydrated: true });
     logActivity(me.email, "product.create", product.slug, product.name);
     revalidatePath("/admin/products");
     revalidatePath("/shop");
@@ -43,27 +43,38 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** PATCH ?id= — update a product (products.manage). */
+/** PATCH ?slug= (or ?id=) — update a product (products.manage). */
 export async function PATCH(req: NextRequest) {
   try {
     const me = await requireApiUser("products.manage");
+    const slugParam = req.nextUrl.searchParams.get("slug");
     const id = Number(req.nextUrl.searchParams.get("id"));
-    if (!id) return Response.json({ error: "id required" }, { status: 400 });
-    // Hydration can change row ids. Remember the slug first, then resolve the
-    // same product after the snapshot has been applied.
-    const before = getProductById(id);
+    if (!slugParam && !id) return Response.json({ error: "slug or id required" }, { status: 400 });
+    // Hydration can change row ids, and a stale admin card may still point at
+    // an old id. Resolve by slug first, then re-resolve after the snapshot has
+    // been applied so the update lands on the current row.
+    const before = slugParam ? getProductBySlug(slugParam) : getProductById(id);
     const ready = await ensureCatalogHydrated({ force: true });
     if (!ready) {
       return Response.json({ error: "The catalog store is unavailable — nothing was changed. Try again in a minute." }, { status: 503 });
     }
-    const target = before ? getProductBySlug(before.slug) : getProductById(id);
-    if (!target) return Response.json({ error: "Product not found" }, { status: 404 });
+    const target = slugParam
+      ? getProductBySlug(slugParam)
+      : before
+        ? getProductBySlug(before.slug)
+        : getProductById(id);
+    if (!target) {
+      return Response.json(
+        { error: "This product changed on another instance — refresh the product list and try again." },
+        { status: 404 }
+      );
+    }
     const raw = (await req.json()) as Record<string, unknown>;
     const parsed = normalizeProductInput(raw);
     if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 422 });
     const product = updateProduct(target.id, parsed.data, me.email);
     if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
-    const durable = await persistCatalogSnapshot();
+    const durable = await persistCatalogSnapshot({ hydrated: true });
     logActivity(me.email, "product.update", product.slug, product.name);
     revalidatePath("/admin/products");
     revalidatePath("/shop");
@@ -74,19 +85,24 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-/** DELETE ?id= — delete/archive (products.delete). */
+/** DELETE ?slug= (or ?id=) — delete/archive (products.delete). */
 export async function DELETE(req: NextRequest) {
   try {
     const me = await requireApiUser();
     if (!can(me.role, "products.delete")) return Response.json({ error: "Not allowed for your role" }, { status: 403 });
+    const slugParam = req.nextUrl.searchParams.get("slug");
     const id = Number(req.nextUrl.searchParams.get("id"));
-    if (!id) return Response.json({ error: "id required" }, { status: 400 });
-    const before = getProductById(id);
+    if (!slugParam && !id) return Response.json({ error: "slug or id required" }, { status: 400 });
+    const before = slugParam ? getProductBySlug(slugParam) : getProductById(id);
     const ready = await ensureCatalogHydrated({ force: true });
     if (!ready) {
       return Response.json({ error: "The catalog store is unavailable — nothing was changed. Try again in a minute." }, { status: 503 });
     }
-    const product = before ? getProductBySlug(before.slug) : getProductById(id);
+    const product = slugParam
+      ? getProductBySlug(slugParam)
+      : before
+        ? getProductBySlug(before.slug)
+        : getProductById(id);
     if (!product) {
       revalidatePath("/admin/products");
       revalidatePath("/shop");
@@ -94,7 +110,7 @@ export async function DELETE(req: NextRequest) {
       return Response.json({ ok: true, mode: "already_deleted" });
     }
     const res = deleteProduct(product.id);
-    const durable = await persistCatalogSnapshot();
+    const durable = await persistCatalogSnapshot({ hydrated: true });
     logActivity(me.email, "product.delete", product.slug, product.name);
     revalidatePath("/admin/products");
     revalidatePath("/shop");

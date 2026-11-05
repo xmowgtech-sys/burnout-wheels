@@ -140,6 +140,13 @@ export type CheckoutInput = z.infer<typeof checkoutSchema>;
 export type ProductInput = z.infer<typeof productInputSchema>;
 export type DiscountInput = z.infer<typeof discountSchema>;
 
+/** An explicit 0 is a real value (sold out, no fee, no warning). Only blank/NaN use the fallback. */
+function numericOr(value: unknown, fallback: number): number {
+  if (value === null || value === undefined || value === "") return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 /** Preprocess and normalize a product payload so minor formatting variations never block creation. */
 export function normalizeProductInput(raw: Record<string, unknown>) {
   const name = String(raw.name ?? "").trim();
@@ -185,11 +192,11 @@ export function normalizeProductInput(raw: Record<string, unknown>) {
     images: rawImages,
     brand: raw.brand != null ? String(raw.brand).trim() : "",
     scale: raw.scale != null ? String(raw.scale).trim() : "1:64",
-    priceSale: Math.max(100, Math.round(Number(raw.priceSale) || 199900)),
-    priceCost: Math.max(0, Math.round(Number(raw.priceCost) || 0)),
-    feePercent: Math.max(0, Math.min(40, Number(raw.feePercent) || 2)),
-    stock: Math.max(0, Math.round(Number(raw.stock) || 10)),
-    lowStockThreshold: Math.max(0, Math.round(Number(raw.lowStockThreshold) || 3)),
+    priceSale: Math.max(100, Math.round(numericOr(raw.priceSale, 199900))),
+    priceCost: Math.max(0, Math.round(numericOr(raw.priceCost, 0))),
+    feePercent: Math.max(0, Math.min(40, numericOr(raw.feePercent, 2))),
+    stock: Math.max(0, Math.round(numericOr(raw.stock, 10))),
+    lowStockThreshold: Math.max(0, Math.round(numericOr(raw.lowStockThreshold, 3))),
     featured: Boolean(raw.featured),
     dropAt: raw.dropAt != null ? String(raw.dropAt).trim() : "",
     highlights: Array.isArray(raw.highlights)

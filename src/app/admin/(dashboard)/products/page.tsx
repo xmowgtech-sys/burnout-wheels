@@ -8,7 +8,10 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Products · Pit wall", robots: { index: false } };
 
 export default async function AdminProductsPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
-  await ensureCatalogHydrated();
+  // Always read the latest snapshot. A stale list can point at a product that
+  // another instance has already deleted, which makes the edit/hide actions
+  // appear broken.
+  await ensureCatalogHydrated({ force: true });
   const sp = await searchParams;
   const q = sp.q ?? "";
   const status = (sp.status as "ACTIVE" | "DRAFT" | "ARCHIVED" | undefined) ?? undefined;

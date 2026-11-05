@@ -44,7 +44,7 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
     setBusy(true);
     setError("");
     try {
-      const res = await fetch(`/api/products?id=${product.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/products?slug=${encodeURIComponent(product.slug)}`, { method: "DELETE" });
       const data = (await res.json().catch(() => ({}))) as { error?: string; mode?: string; ok?: boolean };
       if (res.ok || res.status === 404 || data.mode === "already_deleted") {
         setConfirm(false);
@@ -63,15 +63,19 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
 
   const toggleStatus = async () => {
     setBusy(true);
+    setError("");
     const next = product.status === "ACTIVE" ? "DRAFT" : "ACTIVE";
     try {
-      const res = await fetch(`/api/products?id=${product.id}`, {
+      const res = await fetch(`/api/products?slug=${encodeURIComponent(product.slug)}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(toPayload(product, next)),
       });
-      if (!res.ok) throw new Error();
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error || `Update failed (${res.status})`);
       router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed");
     } finally {
       setBusy(false);
     }
@@ -79,7 +83,7 @@ export function ProductRowActions({ product, onDeleted }: { product: Product; on
 
   return (
     <div className="flex items-center gap-1.5">
-      <Link href={`/admin/products/${product.id}`} className="u-btn u-btn-ghost px-2! py-2!" aria-label={`Edit ${product.name}`}><Pencil className="size-3.5" /></Link>
+      <Link href={`/admin/products/${product.slug}`} className="u-btn u-btn-ghost px-2! py-2!" aria-label={`Edit ${product.name}`}><Pencil className="size-3.5" /></Link>
       <button onClick={toggleStatus} disabled={busy} className="u-btn u-btn-ghost px-2! py-2!" aria-label={product.status === "ACTIVE" ? "Unlist product" : "Publish product"}>
         {product.status === "ACTIVE" ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
       </button>
@@ -113,8 +117,8 @@ export function ProductsGrid({ products }: { products: Product[] }) {
       {items.map((p) => {
         const margin = p.priceSale > 0 ? Math.round(((p.priceSale - p.priceCost - Math.round((p.priceSale * p.feePercent) / 100)) / p.priceSale) * 100) : 0;
         return (
-          <article key={p.id} className="u-card overflow-hidden">
-            <Link href={`/admin/products/${p.id}`} className="u-media relative block aspect-[4/3]">
+          <article key={p.slug} className="u-card overflow-hidden">
+            <Link href={`/admin/products/${p.slug}`} className="u-media relative block aspect-[4/3]">
               {p.images[0] ? <Image src={p.images[0]} alt={p.name} fill sizes="(min-width:1024px) 33vw, 100vw" className={imageFitClass(p.imageFit, p.imagePosition)} /> : null}
               <span className="u-badge absolute left-3 top-3 bg-ink/85">
                 {p.status === "ACTIVE" ? <span className="text-mint">LIVE</span> : <span className="text-yellow">{p.status}</span>}

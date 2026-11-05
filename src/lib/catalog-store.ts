@@ -27,7 +27,22 @@ import type { Product } from "./types";
 const SNAPSHOT_VERSION = 1;
 const SNAPSHOT_PATH = "catalog/v1/products.json";
 const IMAGE_PREFIX = "catalog/v1/images/";
-const HYDRATION_TTL_MS = 60_000;
+
+/**
+ * How long a warm instance may reuse the catalog it already applied.
+ *
+ * Vercel runs several function instances at once. With a long cache, hiding or
+ * editing a product on one instance leaves the others serving the old catalog
+ * for up to a minute — the admin list shows a product that another instance has
+ * already deleted, and the edit link 404s. Freshness is more important than one
+ * cached read, so the default is a tiny 250 ms window that only coalesces the
+ * layout/page/metadata reads belonging to the same request. Set
+ * `CATALOG_HYDRATION_TTL_MS` higher if Blob operation usage ever needs to drop.
+ */
+const HYDRATION_TTL_MS = (() => {
+  const raw = Number(process.env.CATALOG_HYDRATION_TTL_MS);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 250;
+})();
 
 export type CatalogStoreMode = "blob" | "local" | "off";
 
@@ -292,12 +307,13 @@ export async function ensureCatalogHydrated(options: { force?: boolean } = {}): 
 }
 
 /** Write the current SQLite catalog to Blob. Safe to call after every mutation. */
-export async function persistCatalogSnapshot(): Promise<boolean> {
+export async function persistCatalogSnapshot(options: { hydrated?: boolean } = {}): Promise<boolean> {
   if (catalogStoreMode() === "off") return true;
 
   // Never overwrite a snapshot we could not read: that would replace the
-  // owner's live catalog with the seed-only rows on this instance.
-  if (!(await ensureCatalogHydrated())) {
+  // owner's live catalog with the seed-only rows on this instance. Callers that
+  // have just forced a successful hydration can skip the duplicate read.
+  if (!options.hydrated && !(await ensureCatalogHydrated())) {
     console.error("[catalog] Refusing to overwrite the durable catalog because it could not be read.");
     return false;
   }
