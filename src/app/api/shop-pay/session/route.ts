@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { getShopifyConfig } from "@/lib/shopify";
 import { rateLimit, ipOf } from "@/lib/auth";
 import { logEvent } from "@/lib/ops";
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
     const cfg = getShopifyConfig();
     if (!cfg) return Response.json({ eligible: false, reason: "Shopify store not connected." });
 
+    await ensureCatalogHydrated();
     const db = getDb();
     const stmt = db.prepare("SELECT id, source, shopifyVariantId, status, stock, priceSale FROM products WHERE id = ?");
     const variantIds: number[] = [];

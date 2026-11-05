@@ -1,11 +1,13 @@
 import type { NextRequest } from "next/server";
 import { mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import path from "node:path";
+import { del, put } from "@vercel/blob";
 import { requireApiUser, apiErrorResponse, rateLimit, ipOf, ApiError } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { logActivity } from "@/lib/analytics";
 import { logEvent } from "@/lib/ops";
 import { UPLOADS_DIR } from "@/lib/db";
+import { catalogImagePath, catalogStoreMode } from "@/lib/catalog-store";
 
 const ALLOWED = new Set(["jpg", "jpeg", "png", "webp", "avif", "gif"]);
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -68,7 +70,25 @@ export async function POST(req: NextRequest) {
 
         // Trust the sniffed kind over the client-provided extension.
         const name = `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}.${kind}`;
-        writeFileSync(path.join(UPLOADS_DIR, name), buf);
+        const contentType = kind === "jpg" ? "image/jpeg" : `image/${kind}`;
+
+        // Save to Blob first: that copy is what survives a cold start. A local
+        // copy is still written for immediate serving and for `catalog:publish`.
+        if (catalogStoreMode() === "blob") {
+          await put(catalogImagePath(name), buf, {
+            access: "private",
+            addRandomSuffix: false,
+            contentType,
+            cacheControlMaxAge: 60,
+          });
+        }
+        try {
+          mkdirSync(UPLOADS_DIR, { recursive: true });
+          writeFileSync(path.join(UPLOADS_DIR, name), buf);
+        } catch (err) {
+          if (catalogStoreMode() !== "blob") throw err;
+          // Blob has the durable copy; the ephemeral local write is optional.
+        }
         results.push({ name: file.name, ok: true, url: `/api/files/${name}` });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Upload failed";
@@ -110,6 +130,16 @@ export async function DELETE(req: NextRequest) {
     }
     const target = path.join(UPLOADS_DIR, file);
     if (!target.startsWith(UPLOADS_DIR)) return Response.json({ error: "Bad file name" }, { status: 400 });
+    if (catalogStoreMode() === "blob") {
+      try {
+        await del(catalogImagePath(file));
+      } catch (err) {
+        // A missing Blob is fine; the local unlink below is best-effort too.
+        if (!String(err instanceof Error ? err.message : err).toLowerCase().includes("not found")) {
+          logEvent({ source: "API", level: "WARN", type: "upload_fail", path: "/api/upload", message: `Could not delete Blob ${file}`, meta: `actor=${me.email}` });
+        }
+      }
+    }
     try {
       unlinkSync(target);
       logActivity(me.email, "delete", `file:${file}`, "uploaded image removed");

@@ -3,6 +3,7 @@ import { ShopFilters } from "@/components/store/filters";
 import { ShopProductsGrid } from "@/components/store/shop-products-grid";
 import { PageHero } from "@/components/ui";
 import { categoryCounts, listProducts } from "@/lib/catalog";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import type { ProductCondition } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default async function ShopPage({
 }: {
   searchParams: Promise<{ cat?: string; cond?: string; q?: string; sort?: string; stock?: string }>;
 }) {
+  await ensureCatalogHydrated();
   const sp = await searchParams;
   const cat = sp.cat ?? "";
   const cond = sp.cond ?? "";

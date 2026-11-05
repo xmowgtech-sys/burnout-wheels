@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductForm } from "@/components/admin/product-form";
 import { getProductById } from "@/lib/catalog";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { fmtDate } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,7 @@ export const metadata = { title: "Edit product · Pit wall", robots: { index: fa
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  await ensureCatalogHydrated();
   const product = getProductById(Number(id));
   if (!product) notFound();
 

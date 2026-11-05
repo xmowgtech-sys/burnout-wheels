@@ -1,62 +1,63 @@
-# Publishing the catalog (free Vercel plan)
+# Managing the catalog
 
-Vercel has no permanent disk. Products added in the **live** admin are stored in a
-temporary database and disappear on a cold start or redeploy.
+The live admin is the normal place to add, edit, hide and delete products:
 
-The permanent catalog lives in two places in the repository:
+<https://theburnoutwheels-vert.vercel.app/admin/products>
 
-- `src/lib/seed-catalog.ts` — the product data
-- `public/uploads/` — the product photos
+Product changes are saved to a private **Vercel Blob** store, so they survive
+cold starts and redeploys. Uploaded photos are stored in the same Blob store and
+served through `/api/files/[name]`.
 
-## Add or edit a product
+## Add or edit a product live
 
-1. Start the local site:
+1. Sign in at `/admin/login`.
+2. Add or edit the product in **Products**.
+3. Upload photos as usual. They are saved to Blob, not just the server's
+   temporary disk.
+4. Click **Save**. The product appears on `/shop` immediately.
 
-   ```powershell
-   npm run dev
-   ```
+Hidden (`DRAFT`), archived and deleted products are remembered too, so a cold
+start cannot bring them back.
 
-2. Open <http://localhost:3000/admin/products> and add or edit the product.
-   Upload its photo there as usual.
+## Why the repository copy still exists
 
-3. Publish it to the live site:
+`src/lib/seed-catalog.ts` and `public/uploads/` are the cold-start seed for a
+brand-new deployment that has no Blob snapshot yet. They are also a useful
+backup. You do **not** need to edit them for normal live changes.
 
-   ```powershell
-   npm run catalog:publish
-   ```
+If you prefer the old local workflow:
 
-4. Wait about 1–2 minutes for Vercel to redeploy, then check
-   <https://theburnoutwheels-vert.vercel.app/shop>.
+1. Run `npm run dev`.
+2. Edit products at <http://localhost:3000/admin/products>.
+3. Run `npm run catalog:publish` to export the local catalog into the seed and
+   push it to GitHub.
 
-`catalog:publish` does three things:
+## How persistence works
 
-- exports every **ACTIVE** product from `data/burnout.db` into `src/lib/seed-catalog.ts`
-- copies every referenced photo from `data/uploads/` into `public/uploads/`
-- commits and pushes only those files, which triggers the Vercel deploy
+- `catalog/v1/products.json` in Blob is a full snapshot of every product:
+  name, price, stock, photos, status and featured flag.
+- `catalog/v1/images/…` holds live-uploaded photos.
+- On a cold start, the app seeds SQLite from `seed-catalog.ts`, then applies the
+  Blob snapshot. Deleted slugs are tombstoned so they stay deleted.
+- If Blob is temporarily unavailable, product writes return an error instead of
+  overwriting the snapshot with partial data.
 
-If you only want to refresh the seed file without committing, run:
-
-```powershell
-npm run seed:export
-```
-
-## Delete a product
-
-Delete or archive the product in the local admin, then run
-`npm run catalog:publish`. It is removed from the seed and disappears after the
-Vercel redeploy.
-
-## Important limits of the free plan
-
-- **Never add products in the live Vercel admin.** They are temporary.
-- **Orders and customer accounts are also temporary on Vercel.** If you start
-  taking real orders, either move to a host with a persistent disk or set up a
-  hosted database.
-- Order safety net: create a Discord webhook for your order channel, then add it
-  to Vercel as the environment variable `DISCORD_WEBHOOK_URL`. Every new order is
-  posted there, so the details survive even if the Vercel database resets.
+Vercel's free Blob tier includes roughly 2,000 advanced operations (`put`,
+`list`) and 10,000 simple operations (`get`) per month. A product save uses one
+`put`; a checkout uses one `put` for the order and one for the stock update.
+Normal store traffic is well inside the free tier.
 
 ## Prices
 
-Prices are stored in paise (`29900` = ₹299). Change them in the local admin,
-then run `npm run catalog:publish`.
+Prices are stored in paise (`29900` = ₹299). Change them in the live admin.
+
+## If product changes look temporary
+
+Check `/api/health`. It should report:
+
+```json
+{ "durableCatalog": true, "catalogStore": "vercel-blob-private" }
+```
+
+If it says `not-configured`, connect a **private** Vercel Blob store to the
+project. Do not use a public store: order snapshots contain customer addresses.

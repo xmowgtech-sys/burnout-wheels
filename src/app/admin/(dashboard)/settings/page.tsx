@@ -1,12 +1,14 @@
 import { SettingsPanel } from "@/components/admin/settings-panel";
 import { getStorefront, getTrustpilot } from "@/lib/settings";
 import { listProducts } from "@/lib/catalog";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { getPayments } from "@/lib/razorpay";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Settings · Pit wall", robots: { index: false } };
 
-export default function SettingsAdminPage() {
+export default async function SettingsAdminPage() {
+  await ensureCatalogHydrated();
   const pay = getPayments();
   return (
     <div className="flex flex-col gap-8">

@@ -6,6 +6,7 @@ import { RaceLoader } from "@/components/store/loader";
 import { VisitsBeacon } from "@/components/store/visits-beacon";
 import { SiteMonitor } from "@/components/store/site-monitor";
 import { ConsentBanner } from "@/components/store/consent-banner";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 
 // The storefront renders live server data on every page (catalog, settings,
 // sessions, orders). Never prerender these pages at build time — the deployment
@@ -13,6 +14,9 @@ import { ConsentBanner } from "@/components/store/consent-banner";
 export const dynamic = "force-dynamic";
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
+  // Load the live catalog from Blob on a cold start. The call is deduped and
+  // cached for a minute, so it is cheap on warm instances.
+  await ensureCatalogHydrated();
   return (
     <StoreProviders>
       <VisitsBeacon />

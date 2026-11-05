@@ -3,6 +3,7 @@ import { AlertTriangle, Activity, CheckCircle2, Mail, Package, XCircle } from "l
 import { Table, StatCard, Td } from "@/components/admin/admin-ui";
 import { recentEvents, eventCounts, funnel, recentSyncs, recentUnreadMail, alerts } from "@/lib/ops";
 import { listProducts } from "@/lib/catalog";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { sessionsSince, visitsSeries } from "@/lib/analytics";
 import type { OpsEvent, SyncLog, Product } from "@/lib/types";
 
@@ -21,7 +22,8 @@ function ago(iso: string): string {
   return `${Math.round(hrs / 24)}d ago`;
 }
 
-export default function MonitoringPage() {
+export default async function MonitoringPage() {
+  await ensureCatalogHydrated();
   const products = listProducts({ status: "ACTIVE" });
   const counts = eventCounts(24);
   const events = recentEvents(60);

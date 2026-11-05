@@ -2,11 +2,13 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { ProductsGrid } from "@/components/admin/product-rows";
 import { listProducts, productCount } from "@/lib/catalog";
+import { catalogStoreMode, catalogStoreLabel, ensureCatalogHydrated } from "@/lib/catalog-store";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Products · Pit wall", robots: { index: false } };
 
 export default async function AdminProductsPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
+  await ensureCatalogHydrated();
   const sp = await searchParams;
   const q = sp.q ?? "";
   const status = (sp.status as "ACTIVE" | "DRAFT" | "ARCHIVED" | undefined) ?? undefined;
@@ -26,9 +28,14 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
 
       {process.env.VERCEL ? (
         <div className="u-card flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-sm">
-          <span className="font-medium">Free Vercel plan:</span>
-          <span className="u-label-txt">products added here are temporary. Add them locally, then run</span>
-          <code className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-xs">npm run catalog:publish</code>
+          <span className="font-medium">Catalog storage:</span>
+          {catalogStoreMode() === "off" ? (
+            <span className="u-label-txt">temporary on this deployment. Connect a private Vercel Blob store to keep product changes.</span>
+          ) : (
+            <span className="u-label-txt">
+              {catalogStoreLabel()} — add, edit, hide and delete here persist across restarts and redeploys.
+            </span>
+          )}
         </div>
       ) : null}
 

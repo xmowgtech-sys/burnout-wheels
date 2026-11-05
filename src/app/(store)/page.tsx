@@ -10,6 +10,7 @@ import { Marquee } from "@/components/store/marquee";
 import { PitWall } from "@/components/store/pit-wall";
 import { ProductIndex } from "@/components/store/product-index";
 import { categoryCounts, featuredProduct, listProducts } from "@/lib/catalog";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { getStorefront, getTrustpilot, DEFAULT_HERO_IMAGE } from "@/lib/settings";
 import { fmtUSD } from "@/lib/money";
 import { CONDITION_LABELS } from "@/lib/types";
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
+  await ensureCatalogHydrated();
   const storefront = getStorefront();
   const home = storefront.home;
   const [featured, allProducts, categories, trust] = await Promise.all([

@@ -25,6 +25,7 @@ import {
   persistOrderSnapshot,
   removeOrderSnapshot,
 } from "@/lib/order-store";
+import { ensureCatalogHydrated, persistCatalogSnapshot } from "@/lib/catalog-store";
 import {
   RECOVERY_COOKIE_MAX_AGE,
   RECOVERY_COOKIE_NAME,
@@ -76,6 +77,10 @@ export async function POST(req: NextRequest) {
     if (!rateLimit(`checkout:${ipOf(req)}`, 15, 10 * 60_000)) {
       return Response.json({ error: "Too many checkouts in a row — take a breath and retry in a minute." }, { status: 429 });
     }
+    // A checkout can land on an instance that has never served the storefront.
+    // Recover the current catalog (including live-added products) before
+    // resolving the cart.
+    await ensureCatalogHydrated();
     const body = await req.json();
 
     // A retry can land on a serverless instance that never saw the original
@@ -88,6 +93,9 @@ export async function POST(req: NextRequest) {
     const result = createOrderFromCheckout(body);
     const fullOrder = adminGetOrder(result.number);
     await persistOrderByNumber(result.number);
+    // Stock was reserved above. Save the new counts so another instance does
+    // not resurrect the old stock level on the next cold start.
+    if (result.created !== false) await persistCatalogSnapshot();
     if (result.created !== false) await notifyDiscordOrder(result, body, fullOrder);
 
     revalidatePath("/admin/orders");
@@ -165,6 +173,11 @@ export async function PATCH(req: NextRequest) {
         trackingCarrier: body.trackingCarrier ?? undefined,
         trackingNumber: body.trackingNumber ?? undefined,
       });
+      // Cancelling puts stock back on the shelf; persist the new counts.
+      if (body.to === "CANCELLED") {
+        await ensureCatalogHydrated({ force: true });
+        await persistCatalogSnapshot();
+      }
       await persistOrderSnapshot(order);
       revalidatePath(`/admin/orders`);
       revalidatePath(`/admin/orders/${orderNumber}`);

@@ -2,12 +2,14 @@ import Link from "next/link";
 import { ProductCard } from "@/components/store/product-card";
 import { PageHero, EmptyState } from "@/components/ui";
 import { listProducts } from "@/lib/catalog";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Search", robots: { index: false } };
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  await ensureCatalogHydrated();
   const { q } = await searchParams;
   const term = (q ?? "").trim();
   const results = term ? listProducts({ status: "ACTIVE", q: term, limit: 60 }) : [];

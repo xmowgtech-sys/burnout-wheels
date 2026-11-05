@@ -121,12 +121,11 @@ returns 500 so Shopify retries. **The store currency must be INR** (this ledger 
 1. Push this folder to GitHub and "Add new site → Import project" on Netlify
 2. Set env vars: `SESSION_SECRET` (32-byte hex), `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
    `NEXT_PUBLIC_SITE_URL`, plus Google/SMTP if used
-3. Build. **Caveat:** the SQLite file (and uploads) live in the function's ephemeral
-   `/tmp` — they reset per cold start. Fine for demos; for production connect a real
-   volume/database. The easiest true-persistence paths:
-   - Run on a small VPS/Railway/Fly with a persistent disk (zero code changes), or
-   - Swap `db.ts` to **Turso** (libsql, has a SQLite-compatible HTTP driver) —
-     `uploads` would move to blob storage (e.g. Netlify Blobs) in the same pass.
+3. Build. **Caveat:** SQLite lives in the function's ephemeral `/tmp` and resets
+   per cold start. On Vercel, orders, the product catalog and uploaded photos are
+   made durable through a private Vercel Blob store (`BLOB_STORE_ID`). For
+   Netlify or another host, either use a persistent disk or add an equivalent
+   Blob adapter for `order-store.ts` / `catalog-store.ts`.
 
 ## Stack
 

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getDb, run, nowIso } from "@/lib/db";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { requireApiUser, apiErrorResponse, rateLimit, ipOf } from "@/lib/auth";
 import { reviewSchema } from "@/lib/validation";
 import { logActivity } from "@/lib/analytics";
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
     const parsed = reviewSchema.safeParse(await req.json());
     if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid review" }, { status: 422 });
 
+    await ensureCatalogHydrated();
     const product = getDb().prepare("SELECT id, name FROM products WHERE id = ?").get(parsed.data.productId) as
       | { id: number; name: string }
       | undefined;

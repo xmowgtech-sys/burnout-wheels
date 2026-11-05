@@ -8,6 +8,7 @@ import { ProductCard } from "@/components/store/product-card";
 import { Reveal } from "@/components/store/reveal";
 import { EmptyState, SectionHead } from "@/components/ui";
 import { getProductBySlug, publishedReviews, relatedProducts } from "@/lib/catalog";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { getShopifyConfig } from "@/lib/shopify";
 import { getTrustpilot } from "@/lib/settings";
 import { fmtUSD } from "@/lib/money";
@@ -18,6 +19,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
+  await ensureCatalogHydrated();
   const product = getProductBySlug(slug);
   if (!product) return { title: "Not found" };
   return {
@@ -30,6 +32,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  await ensureCatalogHydrated();
   const product = getProductBySlug(slug);
   if (!product || product.status !== "ACTIVE") notFound();
 

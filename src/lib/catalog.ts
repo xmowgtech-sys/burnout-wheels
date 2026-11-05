@@ -157,6 +157,13 @@ export function getProductBySlug(slug: string): Product | null {
   return row ? parseProduct(row) : null;
 }
 
+/** Every product row — used to build the durable catalog snapshot for Vercel Blob. */
+export function allProductsForStore(): Product[] {
+  const db = getDb();
+  const rows = db.prepare(`SELECT ${COLS} FROM products ORDER BY id ASC`).all() as ProductRow[];
+  return rows.map(parseProduct);
+}
+
 export function getProductById(id: number): Product | null {
   const db = getDb();
   const row = db.prepare(`SELECT ${COLS} FROM products WHERE id = ?`).get(id) as ProductRow | undefined;
@@ -244,6 +251,7 @@ export function updateProduct(id: number, input: ProductInput, actor: string): P
   try {
     // Re-check slug for collisions created between form load and save.
     const slug = uniqueSlug(input.slug, id);
+    const previous = db.prepare("SELECT slug FROM products WHERE id = ?").get(id) as { slug: string } | undefined;
     db.prepare(
       `UPDATE products SET slug=?, name=?, brand=?, category=?, scale=?, condition=?, description=?, highlights=?,
         tags=?, images=?, imageFit=?, imagePosition=?, priceSale=?, priceCost=?, feePercent=?, stock=?, lowStockThreshold=?, status=?, featured=?,
@@ -255,6 +263,13 @@ export function updateProduct(id: number, input: ProductInput, actor: string): P
       input.priceSale, input.priceCost, input.feePercent, input.stock, input.lowStockThreshold,
       input.status, input.featured ? 1 : 0, input.dropAt || null, nowIso(), id
     );
+    // Changing a slug leaves the old seed slug behind on the next cold start,
+    // which would resurrect the product under its old name. Remember the old
+    // slug as a tombstone, and clear the new one if it was deleted before.
+    if (previous && previous.slug !== slug) {
+      db.prepare("INSERT OR REPLACE INTO deleted_products (slug, deletedAt) VALUES (?, ?)").run(previous.slug, nowIso());
+    }
+    db.prepare("DELETE FROM deleted_products WHERE slug = ?").run(slug);
     db.exec("COMMIT;");
   } catch (err) {
     db.exec("ROLLBACK;");

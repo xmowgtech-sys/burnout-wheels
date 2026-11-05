@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { readCustomerSession } from "@/lib/accounts";
 import { getAccountWishlist, toggleAccountWishlist, syncAccountWishlist, removeAccountWishlist } from "@/lib/wishlist";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { logEvent } from "@/lib/ops";
 
 export async function GET() {
@@ -9,6 +10,7 @@ export async function GET() {
     if (!session) {
       return Response.json({ authenticated: false, items: [] });
     }
+    await ensureCatalogHydrated();
     const items = getAccountWishlist(session.aid);
     return Response.json({ authenticated: true, items });
   } catch (err) {
@@ -24,6 +26,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ authenticated: false, items: [] });
     }
 
+    await ensureCatalogHydrated();
     const body = (await req.json().catch(() => ({}))) as {
       action?: "toggle" | "sync" | "remove";
       productId?: number;
