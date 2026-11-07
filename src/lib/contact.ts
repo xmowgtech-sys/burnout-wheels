@@ -4,7 +4,7 @@
  * announcement banner, footer, trust page, policy pages.
  */
 
-const PHONE_LOCAL = "7889079186"; // temporary enquiry number — swap back to 9876596647 when ready
+const PHONE_LOCAL = "7837147831";
 const PHONE_CC = "91"; // India country code
 const PHONE_E164 = `${PHONE_CC}${PHONE_LOCAL}`;
 

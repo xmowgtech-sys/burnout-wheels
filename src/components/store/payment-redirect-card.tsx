@@ -38,7 +38,7 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
   };
 
   const copyUpiId = () => {
-    navigator.clipboard.writeText("7889079186@naviaxis");
+    navigator.clipboard.writeText("amanjot7@fam");
     setUpiCopied(true);
     setTimeout(() => setUpiCopied(false), 2500);
   };
@@ -47,8 +47,8 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
   const whatsappMessage = encodeURIComponent(
     `Hi Burnout Wheels! I placed Order #${order.number} for ₹${totalInRupees.toLocaleString("en-IN")}. My name is ${order.name}. Please send me the payment QR code so I can complete payment.`
   );
-  const whatsappUrl = `https://wa.me/917889079186?text=${whatsappMessage}`;
-  const discordUrl = CONTACT.discord;
+  const whatsappUrl = `https://wa.me/917837147831?text=${whatsappMessage}`;
+  const discordUrl = "https://discord.gg/nzHTBVbxZW";
 
   const qrUrl = `/images/upi-qr.png`;
 
@@ -187,7 +187,7 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
                 <p>Payee: <strong className="text-white">AMANJOT SINGH</strong> (Navi Axis Bank)</p>
                 <p>Scan with Google Pay, PhonePe, Paytm, or Navi.</p>
                 <div className="flex items-center gap-2 rounded border border-line bg-ink px-3 py-2 font-mono text-white">
-                  <span>7889079186@naviaxis</span>
+                  <span>amanjot7@fam</span>
                   <button type="button" onClick={copyUpiId} className="text-red hover:underline text-[11px] ml-1">
                     {upiCopied ? "Copied ✓" : "Copy UPI"}
                   </button>
@@ -251,7 +251,7 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
                 <p>Payee: <strong className="text-white">AMANJOT SINGH</strong> (Navi Axis Bank)</p>
                 <p>Scan with any UPI app, pay <strong className="text-bone">₹{totalInRupees}</strong>, and send screenshot to WhatsApp.</p>
                 <div className="flex items-center gap-2 rounded border border-line bg-ink px-3 py-2 font-mono text-white">
-                  <span>7889079186@naviaxis</span>
+                  <span>amanjot7@fam</span>
                   <button type="button" onClick={copyUpiId} className="text-mint hover:underline text-[11px] ml-1">
                     {upiCopied ? "Copied ✓" : "Copy UPI"}
                   </button>
