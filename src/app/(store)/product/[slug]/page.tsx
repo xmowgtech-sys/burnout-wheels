@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
-import { Gallery, BuyPanel, ReviewLauncher, Stars } from "@/components/store/pdp-client";
+import { Gallery, BuyPanel, ReviewLauncher, Stars, MobileBuyBar } from "@/components/store/pdp-client";
 import { ShopPayButton } from "@/components/store/shop-pay-button";
 import { ProductCard } from "@/components/store/product-card";
 import { Reveal } from "@/components/store/reveal";
@@ -12,7 +12,8 @@ import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { getShopifyConfig } from "@/lib/shopify";
 import { getTrustpilot } from "@/lib/settings";
 import { fmtUSD } from "@/lib/money";
-import { CONDITION_LABELS } from "@/lib/types";
+import { CONDITION_LABELS, RARITY_LABELS } from "@/lib/types";
+import { dropLabel } from "@/lib/utils";
 import { COD_ADVANCE_LABEL, PAYMENT_HELP } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
@@ -85,12 +86,23 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
         <div className="page-in" style={{ animationDelay: "80ms" }}>
           <p className="u-label">
-            {product.featured ? <span className="text-red">▮ Drop 001 </span> : "▮ In catalogue "} · {product.brand}{product.scale ? ` · ${product.scale}` : ""}
+            <span className={product.featured ? "text-red" : "text-fog"}>▮ {dropLabel(product.dropNumber, product.id)}</span> · {product.brand}{product.scale ? ` · ${product.scale}` : ""}
           </p>
           <h1 className="u-h2 mt-4">{product.name}</h1>
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <span className="u-badge u-badge-cond" data-condition={product.condition}>{CONDITION_LABELS[product.condition]}</span>
+            {product.rarity !== "STANDARD" && (
+              <span
+                className={
+                  product.rarity === "UNIQUE"
+                    ? "u-badge border-violet/60 bg-violet/15 uppercase text-violet"
+                    : "u-badge border-orange/60 bg-orange/15 uppercase text-orange"
+                }
+              >
+                {RARITY_LABELS[product.rarity]}
+              </span>
+            )}
             {product.tags.slice(0, 3).map((t) => (
               <span key={t} className="u-chip">{t}</span>
             ))}
@@ -244,16 +256,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         )}
       </section>
 
-      {/* mobile sticky buy */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-ink/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
-        <div className="flex items-center gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold">{product.name}</p>
-            <p className="u-mono text-sm">{fmtUSD(product.priceSale)}{product.stock <= product.lowStockThreshold && product.stock > 0 ? ` · only ${product.stock} left` : ""}</p>
-          </div>
-          <div className="w-44"><BuyPanel product={product} /></div>
-        </div>
-      </div>
+      <MobileBuyBar product={product} />
     </div>
   );
 }

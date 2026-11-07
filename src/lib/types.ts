@@ -2,6 +2,7 @@ export type Role = "OWNER" | "ADMIN" | "STAFF";
 
 export type ProductStatus = "ACTIVE" | "DRAFT" | "ARCHIVED";
 export type ProductCondition = "NEW" | "LIKE_NEW" | "GRADED" | "PRE_OWNED";
+export type ProductRarity = "STANDARD" | "RARE" | "UNIQUE";
 export type ImageFit = "cover" | "contain";
 export type ImagePosition = "center" | "top" | "bottom" | "left" | "right";
 export const CONDITION_LABELS: Record<ProductCondition, string> = {
@@ -9,6 +10,11 @@ export const CONDITION_LABELS: Record<ProductCondition, string> = {
   LIKE_NEW: "Like New",
   GRADED: "Graded / Sealed",
   PRE_OWNED: "Pre-owned",
+};
+export const RARITY_LABELS: Record<ProductRarity, string> = {
+  STANDARD: "Standard",
+  RARE: "Rare",
+  UNIQUE: "Unique / 1 of 1",
 };
 
 export interface Product {
@@ -34,6 +40,10 @@ export interface Product {
   lowStockThreshold: number;
   status: ProductStatus;
   featured: boolean;
+  /** Sequential drop number shown on cards and the product page. */
+  dropNumber: number;
+  /** Collector tag used for the rarity badge and shop filter. */
+  rarity: ProductRarity;
   dropAt: string | null;
   source?: string; // LOCAL | SHOPIFY
   shopifyVariantId?: string | null; // numeric Shopify variant id — powers the Shop Pay express button
@@ -234,6 +244,17 @@ export interface TrustpilotSettings {
   mode: "coming_soon" | "live";
   profileUrl: string;
   note: string;
+}
+
+/**
+ * Discord order routing. Two separate webhooks are supported: the billing
+ * channel that customers are told to join, and a private admin log. Either can
+ * be left blank to fall back to the server environment variables.
+ */
+export interface DiscordSettings {
+  billingWebhookUrl: string;
+  adminWebhookUrl: string;
+  checkoutUrl: string;
 }
 
 export interface TeamUser {

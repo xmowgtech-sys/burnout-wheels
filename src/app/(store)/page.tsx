@@ -14,6 +14,7 @@ import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { getStorefront, getTrustpilot, DEFAULT_HERO_IMAGE } from "@/lib/settings";
 import { fmtUSD } from "@/lib/money";
 import { CONDITION_LABELS } from "@/lib/types";
+import { dropLabel } from "@/lib/utils";
 import { COD_ADVANCE_LABEL } from "@/lib/payments";
 export const dynamic = "force-dynamic";
 
@@ -98,7 +99,9 @@ export default async function HomePage() {
                   priority
                 />
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/65 via-transparent to-transparent" aria-hidden />
-                <span className="u-badge absolute left-4 top-4 border-red bg-red text-white">Drop 001 — live</span>
+                <span className="u-badge absolute left-4 top-4 border-red bg-red text-white">
+                  {dropLabel(featuredDrop.dropNumber, featuredDrop.id)} — live
+                </span>
                 <span className="u-badge absolute bottom-4 left-4 border-white/15 bg-ink/65 text-bone backdrop-blur-sm">
                   {home.featuredLabel}
                 </span>

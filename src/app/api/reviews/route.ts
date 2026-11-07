@@ -1,6 +1,6 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { getDb, run, nowIso } from "@/lib/db";
-import { ensureCatalogHydrated } from "@/lib/catalog-store";
+import { ensureCatalogHydrated, persistCatalogSnapshot } from "@/lib/catalog-store";
 import { requireApiUser, apiErrorResponse, rateLimit, ipOf } from "@/lib/auth";
 import { reviewSchema } from "@/lib/validation";
 import { logActivity } from "@/lib/analytics";
@@ -14,6 +14,7 @@ type ReviewRow = {
 export async function GET(req: NextRequest) {
   try {
     await requireApiUser("reviews.moderate");
+    await ensureCatalogHydrated();
     const status = req.nextUrl.searchParams.get("status") ?? "PENDING";
     const rows = status === "ALL"
       ? (getDb().prepare("SELECT * FROM reviews ORDER BY createdAt DESC").all() as ReviewRow[])
@@ -33,22 +34,35 @@ export async function POST(req: NextRequest) {
     const parsed = reviewSchema.safeParse(await req.json());
     if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid review" }, { status: 422 });
 
-    await ensureCatalogHydrated();
-    const product = getDb().prepare("SELECT id, name FROM products WHERE id = ?").get(parsed.data.productId) as
-      | { id: number; name: string }
-      | undefined;
+    const ready = await ensureCatalogHydrated();
+    if (!ready) {
+      return Response.json({ error: "Reviews are temporarily offline — please retry in a minute." }, { status: 503 });
+    }
+    const db = getDb();
+    // Resolve by slug first: a customer may have loaded the page on an instance
+    // whose row ids were later remapped by a snapshot reconcile. The slug is
+    // stable, the numeric id is not.
+    const product = parsed.data.slug
+      ? (db.prepare("SELECT id, name FROM products WHERE slug = ?").get(parsed.data.slug) as
+          | { id: number; name: string }
+          | undefined)
+      : parsed.data.productId
+        ? (db.prepare("SELECT id, name FROM products WHERE id = ?").get(parsed.data.productId) as
+            | { id: number; name: string }
+            | undefined)
+        : undefined;
     if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
 
-    const result = run(
-      getDb().prepare(
+    run(
+      db.prepare(
         "INSERT INTO reviews (productId, name, email, rating, title, body, status, createdAt) VALUES (?,?,?,?,?,?,?,?)"
       ),
-      parsed.data.productId, parsed.data.name, parsed.data.email.toLowerCase(), parsed.data.rating,
+      product.id, parsed.data.name, parsed.data.email.toLowerCase(), parsed.data.rating,
       parsed.data.title ?? "", parsed.data.body, "PENDING", nowIso()
     );
+    await persistCatalogSnapshot({ hydrated: true });
     logActivity("public:review", "review.submit", product.name, `${parsed.data.rating}★ pending`);
 
-    void result;
     return Response.json({ ok: true, message: "Received — it publishes after a human check." }, { status: 201 });
   } catch (err) {
     return apiErrorResponse(err);
@@ -64,8 +78,13 @@ export async function PATCH(req: NextRequest) {
     if (!id || (status !== "PUBLISHED" && status !== "REJECTED")) {
       return Response.json({ error: "id and status (PUBLISHED/REJECTED) required" }, { status: 400 });
     }
+    const ready = await ensureCatalogHydrated({ force: true });
+    if (!ready) {
+      return Response.json({ error: "The durable review store is unavailable — nothing was changed." }, { status: 503 });
+    }
     const info = run(getDb().prepare("UPDATE reviews SET status = ? WHERE id = ?"), status, id);
     if (info.changes === 0) return Response.json({ error: "Review not found" }, { status: 404 });
+    await persistCatalogSnapshot({ hydrated: true });
     logActivity(me.email, status === "PUBLISHED" ? "review.approve" : "review.reject", "review", `#${id}`);
     return Response.json({ ok: true });
   } catch (err) {
@@ -79,12 +98,15 @@ export async function DELETE(req: NextRequest) {
     const me = await requireApiUser("reviews.moderate");
     const id = Number(req.nextUrl.searchParams.get("id"));
     if (!id) return Response.json({ error: "id required" }, { status: 400 });
+    const ready = await ensureCatalogHydrated({ force: true });
+    if (!ready) {
+      return Response.json({ error: "The durable review store is unavailable — nothing was deleted." }, { status: 503 });
+    }
     run(getDb().prepare("DELETE FROM reviews WHERE id = ?"), id);
+    await persistCatalogSnapshot({ hydrated: true });
     logActivity(me.email, "review.delete", "review", `#${id}`);
     return Response.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);
   }
 }
-
-void NextResponse;

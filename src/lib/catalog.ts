@@ -4,14 +4,15 @@ import type { ProductInput } from "./validation";
 import { escapeLike, randomSuffix } from "./utils";
 
 const COLS =
-  "id, slug, name, brand, category, scale, condition, description, highlights, tags, images, imageFit, imagePosition, priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, source, shopifyVariantId, createdAt, updatedAt";
+  "id, slug, name, brand, category, scale, condition, description, highlights, tags, images, imageFit, imagePosition, priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropNumber, rarity, dropAt, source, shopifyVariantId, createdAt, updatedAt";
 
 type ProductRow = Record<string, unknown> & {
   id: number; slug: string; name: string; brand: string | null; category: string; scale: string | null;
   condition: string; description: string; highlights: string; tags: string; images: string;
   imageFit: string | null; imagePosition: string | null;
   priceSale: number; priceCost: number; feePercent: number; stock: number; lowStockThreshold: number;
-  status: string; featured: number; dropAt: string | null; source: string | null; shopifyVariantId: string | null; createdAt: string; updatedAt: string;
+  status: string; featured: number; dropNumber: number | null; rarity: string | null;
+  dropAt: string | null; source: string | null; shopifyVariantId: string | null; createdAt: string; updatedAt: string;
 };
 
 export function parseProduct(row: ProductRow): Product {
@@ -57,6 +58,11 @@ export function parseProduct(row: ProductRow): Product {
     lowStockThreshold: row.lowStockThreshold,
     status: row.status as ProductStatus,
     featured: row.featured === 1,
+    dropNumber: Number(row.dropNumber) || Number(row.id) || 0,
+    rarity:
+      row.rarity === "RARE" || row.rarity === "UNIQUE"
+        ? row.rarity
+        : "STANDARD",
     dropAt: row.dropAt ?? null,
     source: row.source ?? "LOCAL",
     shopifyVariantId: row.shopifyVariantId ?? null,
@@ -68,8 +74,12 @@ export function parseProduct(row: ProductRow): Product {
 export interface ProductQuery {
   q?: string;
   category?: string;
+  categories?: string[];
   condition?: string;
-  sort?: "newest" | "price-asc" | "price-desc" | "featured";
+  conditions?: string[];
+  rarity?: string;
+  rarities?: string[];
+  sort?: "newest" | "price-asc" | "price-desc" | "featured" | "rarity" | "name-asc";
   inStock?: boolean;
   featured?: boolean;
   status?: ProductStatus | "ALL";
@@ -95,9 +105,25 @@ export function listProducts(query: ProductQuery = {}): Product[] {
     where.push("LOWER(category) = ?");
     params.push(query.category.toLowerCase());
   }
+  if (query.categories && query.categories.length > 0) {
+    where.push(`LOWER(category) IN (${query.categories.map(() => "?").join(",")})`);
+    params.push(...query.categories.map((c) => c.toLowerCase()));
+  }
   if (query.condition) {
     where.push("condition = ?");
     params.push(query.condition);
+  }
+  if (query.conditions && query.conditions.length > 0) {
+    where.push(`condition IN (${query.conditions.map(() => "?").join(",")})`);
+    params.push(...query.conditions);
+  }
+  if (query.rarity) {
+    where.push("rarity = ?");
+    params.push(query.rarity);
+  }
+  if (query.rarities && query.rarities.length > 0) {
+    where.push(`rarity IN (${query.rarities.map(() => "?").join(",")})`);
+    params.push(...query.rarities);
   }
   if (query.inStock) {
     where.push("stock > 0");
@@ -113,7 +139,11 @@ export function listProducts(query: ProductQuery = {}): Product[] {
         ? "priceSale DESC"
         : query.sort === "featured"
           ? "featured DESC, createdAt DESC"
-          : "createdAt DESC";
+          : query.sort === "rarity"
+            ? "CASE rarity WHEN 'UNIQUE' THEN 0 WHEN 'RARE' THEN 1 ELSE 2 END ASC, createdAt DESC"
+            : query.sort === "name-asc"
+              ? "name COLLATE NOCASE ASC"
+              : "createdAt DESC";
 
   const limit = query.limit ?? 60;
   const offset = query.offset ?? 0;
@@ -140,9 +170,25 @@ export function productCount(query: ProductQuery): number {
     where.push("LOWER(category) = ?");
     params.push(query.category.toLowerCase());
   }
+  if (query.categories && query.categories.length > 0) {
+    where.push(`LOWER(category) IN (${query.categories.map(() => "?").join(",")})`);
+    params.push(...query.categories.map((c) => c.toLowerCase()));
+  }
   if (query.condition) {
     where.push("condition = ?");
     params.push(query.condition);
+  }
+  if (query.conditions && query.conditions.length > 0) {
+    where.push(`condition IN (${query.conditions.map(() => "?").join(",")})`);
+    params.push(...query.conditions);
+  }
+  if (query.rarity) {
+    where.push("rarity = ?");
+    params.push(query.rarity);
+  }
+  if (query.rarities && query.rarities.length > 0) {
+    where.push(`rarity IN (${query.rarities.map(() => "?").join(",")})`);
+    params.push(...query.rarities);
   }
   if (query.inStock) where.push("stock > 0");
   const row = db
@@ -206,10 +252,14 @@ export function createProduct(input: ProductInput): Product {
   const db = getDb();
   const ts = nowIso();
   const safeSlug = uniqueSlug(input.slug || input.name);
+  const nextDrop = Number(
+    (db.prepare("SELECT COALESCE(MAX(dropNumber), 0) + 1 AS n FROM products").get() as { n: number }).n
+  ) || 1;
+  const dropNumber = input.dropNumber && input.dropNumber > 0 ? input.dropNumber : nextDrop;
   const stmt = db.prepare(
     `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images, imageFit, imagePosition,
-      priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, createdAt, updatedAt)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropNumber, rarity, dropAt, createdAt, updatedAt)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   );
   const res = run(
     stmt,
@@ -232,6 +282,8 @@ export function createProduct(input: ProductInput): Product {
     input.lowStockThreshold,
     input.status,
     input.featured ? 1 : 0,
+    dropNumber,
+    input.rarity ?? "STANDARD",
     input.dropAt || null,
     ts,
     ts
@@ -251,17 +303,22 @@ export function updateProduct(id: number, input: ProductInput, actor: string): P
   try {
     // Re-check slug for collisions created between form load and save.
     const slug = uniqueSlug(input.slug, id);
-    const previous = db.prepare("SELECT slug FROM products WHERE id = ?").get(id) as { slug: string } | undefined;
+    const previous = db.prepare("SELECT slug, dropNumber FROM products WHERE id = ?").get(id) as
+      | { slug: string; dropNumber: number | null }
+      | undefined;
+    const dropNumber =
+      input.dropNumber && input.dropNumber > 0 ? input.dropNumber : Number(previous?.dropNumber) || id;
     db.prepare(
       `UPDATE products SET slug=?, name=?, brand=?, category=?, scale=?, condition=?, description=?, highlights=?,
         tags=?, images=?, imageFit=?, imagePosition=?, priceSale=?, priceCost=?, feePercent=?, stock=?, lowStockThreshold=?, status=?, featured=?,
-        dropAt=?, updatedAt=? WHERE id=?`
+        dropNumber=?, rarity=?, dropAt=?, updatedAt=? WHERE id=?`
     ).run(
       slug, input.name, input.brand || null, input.category, input.scale || null, input.condition, input.description,
       JSON.stringify(input.highlights), input.tags.join(","), JSON.stringify(input.images),
       input.imageFit, input.imagePosition,
       input.priceSale, input.priceCost, input.feePercent, input.stock, input.lowStockThreshold,
-      input.status, input.featured ? 1 : 0, input.dropAt || null, nowIso(), id
+      input.status, input.featured ? 1 : 0, dropNumber, input.rarity ?? "STANDARD",
+      input.dropAt || null, nowIso(), id
     );
     // Changing a slug leaves the old seed slug behind on the next cold start,
     // which would resurrect the product under its old name. Remember the old

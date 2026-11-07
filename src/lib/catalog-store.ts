@@ -52,12 +52,52 @@ interface CatalogSnapshot {
   products: Product[];
   /** Slugs the owner deleted. They must stay deleted after a cold start. */
   deletedSlugs: string[];
+  /** Admin-created discount codes. */
+  discounts?: SnapshotDiscount[];
+  /** Customer reviews, including the product slug so ids can be remapped. */
+  reviews?: SnapshotReview[];
+  /** Operational settings (storefront, payments, Discord webhooks). */
+  settings?: SnapshotSetting[];
+}
+
+interface SnapshotDiscount {
+  id: number;
+  code: string;
+  type: string;
+  value: number;
+  minSubtotal: number;
+  maxUses: number;
+  usedCount: number;
+  startsAt: string | null;
+  endsAt: string | null;
+  active: number;
+  createdAt: string;
+}
+
+interface SnapshotReview {
+  id: number;
+  productSlug: string;
+  name: string;
+  email: string;
+  rating: number;
+  title: string;
+  body: string;
+  status: string;
+  createdAt: string;
+}
+
+interface SnapshotSetting {
+  key: string;
+  value: string;
+  updatedAt: string;
 }
 
 let lastAttemptAt = 0;
 let lastAttemptOk = false;
 let hydrationPromise: Promise<boolean> | null = null;
 let localRootCache: string | null = null;
+/** Skip a redundant SQLite reconcile when Blob returned the exact snapshot we already applied. */
+let lastSnapshotText: string | null = null;
 
 /* ------------------------------------------------------------------ */
 /* Store selection                                                     */
@@ -147,14 +187,42 @@ function parseSnapshot(text: string): CatalogSnapshot | null {
       (product): product is Product =>
         Boolean(product && typeof product === "object" && typeof (product as Product).slug === "string")
     );
+    // Older snapshots predate drop numbers. Assign the sequence in catalog
+    // order (id ascending) so the first listing becomes Drop 001 instead of
+    // inheriting an arbitrary row id. Rarity defaults to Standard.
+    let nextDrop = products.reduce((max, product) => {
+      const value = Number(product.dropNumber);
+      return Number.isFinite(value) && value > max ? value : max;
+    }, 0);
+    for (let index = 0; index < products.length; index += 1) {
+      const product = products[index];
+      const drop = Number(product.dropNumber);
+      products[index] = {
+        ...product,
+        dropNumber: Number.isFinite(drop) && drop > 0 ? drop : ++nextDrop,
+        rarity: product.rarity === "RARE" || product.rarity === "UNIQUE" ? product.rarity : "STANDARD",
+      };
+    }
     const deletedSlugs = Array.isArray(data.deletedSlugs)
       ? data.deletedSlugs.filter((slug): slug is string => typeof slug === "string")
+      : [];
+    const discounts = Array.isArray(data.discounts)
+      ? (data.discounts as SnapshotDiscount[]).filter((d) => d && typeof d.code === "string")
+      : [];
+    const reviews = Array.isArray(data.reviews)
+      ? (data.reviews as SnapshotReview[]).filter((r) => r && typeof r.productSlug === "string")
+      : [];
+    const settings = Array.isArray(data.settings)
+      ? (data.settings as SnapshotSetting[]).filter((s) => s && typeof s.key === "string")
       : [];
     return {
       version: 1,
       updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : nowIso(),
       products,
       deletedSlugs,
+      discounts,
+      reviews,
+      settings,
     };
   } catch {
     return null;
@@ -168,7 +236,7 @@ function parseSnapshot(text: string): CatalogSnapshot | null {
 const PRODUCT_COLUMNS = [
   "slug", "name", "brand", "category", "scale", "condition", "description", "highlights",
   "tags", "images", "imageFit", "imagePosition", "priceSale", "priceCost", "feePercent",
-  "stock", "lowStockThreshold", "status", "featured", "dropAt", "source",
+  "stock", "lowStockThreshold", "status", "featured", "dropNumber", "rarity", "dropAt", "source",
   "shopifyVariantId", "createdAt", "updatedAt",
 ] as const;
 
@@ -199,6 +267,8 @@ function productValues(product: Product): (string | number | null)[] {
     product.lowStockThreshold,
     product.status,
     product.featured ? 1 : 0,
+    product.dropNumber ?? product.id ?? 0,
+    product.rarity ?? "STANDARD",
     product.dropAt ?? null,
     product.source ?? "LOCAL",
     product.shopifyVariantId ?? null,
@@ -252,6 +322,58 @@ function applySnapshot(snapshot: CatalogSnapshot): void {
       }
       tombstone.run(slug, snapshot.updatedAt || nowIso());
     }
+
+    /* ---- discounts: the Blob snapshot is authoritative ---- */
+    db.prepare("DELETE FROM discounts").run();
+    const insertDiscount = db.prepare(
+      `INSERT INTO discounts (id, code, type, value, minSubtotal, maxUses, usedCount, startsAt, endsAt, active, createdAt)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+    );
+    for (const discount of snapshot.discounts ?? []) {
+      insertDiscount.run(
+        discount.id ?? null,
+        discount.code,
+        discount.type === "FLAT" ? "FLAT" : "PERCENT",
+        Number(discount.value) || 0,
+        Number(discount.minSubtotal) || 0,
+        Number(discount.maxUses) || 0,
+        Number(discount.usedCount) || 0,
+        discount.startsAt || null,
+        discount.endsAt || null,
+        discount.active ? 1 : 0,
+        discount.createdAt || nowIso()
+      );
+    }
+
+    /* ---- reviews: remap product ids through the stable slug ---- */
+    db.prepare("DELETE FROM reviews").run();
+    const insertReview = db.prepare(
+      `INSERT INTO reviews (id, productId, name, email, rating, title, body, status, createdAt)
+       VALUES (?,?,?,?,?,?,?,?,?)`
+    );
+    for (const review of snapshot.reviews ?? []) {
+      const product = bySlug.get(review.productSlug) as { id: number } | undefined;
+      if (!product) continue;
+      insertReview.run(
+        review.id ?? null,
+        product.id,
+        review.name,
+        String(review.email ?? "").toLowerCase(),
+        Number(review.rating) || 5,
+        review.title ?? "",
+        review.body ?? "",
+        ["PENDING", "PUBLISHED", "REJECTED"].includes(review.status) ? review.status : "PENDING",
+        review.createdAt || nowIso()
+      );
+    }
+
+    /* ---- settings: upsert, never delete (defaults live in bootstrap) ---- */
+    const upsertSetting = db.prepare(
+      "INSERT INTO settings (key, value, updatedAt) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt"
+    );
+    for (const setting of snapshot.settings ?? []) {
+      upsertSetting.run(setting.key, setting.value, setting.updatedAt || nowIso());
+    }
   });
 }
 
@@ -268,6 +390,14 @@ async function hydrate(): Promise<boolean> {
       return true;
     }
 
+    // The same snapshot was already reconciled on this warm instance. Avoid
+    // rewriting every row on each request; local mutations persist on their own.
+    if (lastSnapshotText === stored) {
+      lastAttemptOk = true;
+      lastAttemptAt = Date.now();
+      return true;
+    }
+
     const snapshot = parseSnapshot(stored);
     if (!snapshot) {
       console.error("[catalog] The durable catalog snapshot is corrupt; refusing to overwrite it.");
@@ -277,6 +407,7 @@ async function hydrate(): Promise<boolean> {
     }
 
     applySnapshot(snapshot);
+    lastSnapshotText = stored;
     lastAttemptOk = true;
     lastAttemptAt = Date.now();
     return true;
@@ -338,9 +469,23 @@ export async function persistCatalogSnapshot(options: { hydrated?: boolean } = {
       updatedAt: nowIso(),
       products,
       deletedSlugs: [...deleted].sort(),
+      discounts: db
+        .prepare("SELECT * FROM discounts ORDER BY createdAt ASC, id ASC")
+        .all() as unknown as SnapshotDiscount[],
+      reviews: db
+        .prepare(
+          `SELECT r.id, p.slug AS productSlug, r.name, r.email, r.rating, r.title, r.body, r.status, r.createdAt
+           FROM reviews r JOIN products p ON p.id = r.productId ORDER BY r.id ASC`
+        )
+        .all() as unknown as SnapshotReview[],
+      settings: db
+        .prepare("SELECT key, value, updatedAt FROM settings ORDER BY key ASC")
+        .all() as unknown as SnapshotSetting[],
     };
 
-    await writeText(SNAPSHOT_PATH, JSON.stringify(snapshot));
+    const text = JSON.stringify(snapshot);
+    await writeText(SNAPSHOT_PATH, text);
+    lastSnapshotText = text;
     lastAttemptAt = Date.now();
     lastAttemptOk = true;
     return true;

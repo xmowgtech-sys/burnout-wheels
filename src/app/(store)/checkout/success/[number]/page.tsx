@@ -8,6 +8,7 @@ import { ORDER_STATUS_LABELS } from "@/lib/types";
 import { fmtUSD, fmtDate } from "@/lib/money";
 import { COD_ADVANCE_LABEL, codBalance } from "@/lib/payments";
 import { PaymentRedirectCard } from "@/components/store/payment-redirect-card";
+import { ClearCartOnSuccess } from "@/components/store/clear-cart-on-success";
 import { CONTACT } from "@/lib/contact";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +66,7 @@ export default async function SuccessPage({
 
   return (
     <div className="relative overflow-hidden">
+      <ClearCartOnSuccess orderNumber={order.number} />
       <div className="u-gridlines" aria-hidden />
       <div className="mx-auto max-w-3xl px-4 pb-24 pt-28 md:px-8 md:pt-40">
         <div className="u-card page-in p-8 md:p-10">

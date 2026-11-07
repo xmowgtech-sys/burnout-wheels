@@ -238,6 +238,7 @@ export function ReviewLauncher({ product }: { product: Product }) {
                     headers: { "content-type": "application/json" },
                     body: JSON.stringify({
                       productId: product.id,
+                      slug: product.slug,
                       name: form.get("name"),
                       email: form.get("email"),
                       rating: Number(form.get("rating")),
@@ -307,5 +308,61 @@ export function Stars({ rating }: { rating: number }) {
         <Star key={i} className={cn("inline size-3.5", i < rating ? "fill-yellow" : "opacity-30")} aria-hidden />
       ))}
     </span>
+  );
+}
+
+/* ---------------- mobile sticky buy bar ---------------- */
+
+export function MobileBuyBar({ product }: { product: Product }) {
+  const store = useStore();
+  const router = useRouter();
+  const { toast } = useToast();
+  const soldOut = product.stock <= 0;
+
+  const line = {
+    productId: product.id,
+    slug: product.slug,
+    name: product.name,
+    price: product.priceSale,
+    image: product.images[0] ?? null,
+    condition: CONDITION_LABELS[product.condition],
+    stock: product.stock,
+  };
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-ink/95 p-3 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12px] font-semibold">{product.name}</p>
+          <p className="u-mono text-[11px] text-fog">
+            {fmtUSD(product.priceSale)}
+            {product.stock <= product.lowStockThreshold && product.stock > 0 ? ` · only ${product.stock} left` : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => {
+              store.add(line, 1);
+              router.push("/checkout");
+            }}
+            disabled={soldOut}
+            className="u-btn u-btn-primary py-2.5 px-4 text-[11px] font-bold flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <Zap className="size-3 text-yellow" />
+            <span className="truncate max-w-[140px]">Place Order — {fmtUSD(product.priceSale)}</span>
+          </button>
+          <button
+            onClick={() => {
+              store.add(line, 1);
+              toast(`${product.name} added to cart`);
+            }}
+            disabled={soldOut}
+            className="u-btn u-btn-ghost py-2.5 px-3 text-[11px] font-semibold flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <ShoppingCart className="size-3.5" aria-hidden />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

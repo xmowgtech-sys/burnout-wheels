@@ -32,6 +32,12 @@ export function orderNumber(): string {
   return `BW-${t}-${r}`;
 }
 
+/** Collector-facing drop label. `0` (legacy rows) falls back to the product id. */
+export function dropLabel(dropNumber: number, fallbackId = 1): string {
+  const n = Number(dropNumber) > 0 ? Number(dropNumber) : Number(fallbackId) || 1;
+  return `Drop ${String(n).padStart(3, "0")}`;
+}
+
 export function randomSuffix(len = 6): string {
   let out = "";
   for (let i = 0; i < len; i++) out += B36[Math.floor(Math.random() * B36.length)];

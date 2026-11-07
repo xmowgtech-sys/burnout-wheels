@@ -6,11 +6,12 @@ import { Field, ConfirmDialog } from "@/components/admin/admin-ui";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { fmtUSD } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import type { ImageFit, ImagePosition, Product, ProductStatus, ProductCondition } from "@/lib/types";
+import type { ImageFit, ImagePosition, Product, ProductRarity, ProductStatus, ProductCondition } from "@/lib/types";
 
 interface FormState {
   name: string; slug: string; brand: string; scale: string; category: string;
   condition: ProductCondition; status: ProductStatus; featured: boolean;
+  rarity: ProductRarity; dropNumber: string;
   priceSale: string; priceCost: string; feePercent: string;
   stock: string; lowStockThreshold: string; dropAt: string;
   description: string; highlights: string; tags: string;
@@ -22,6 +23,7 @@ function toState(p: Product | null): FormState {
     return {
       name: "", slug: "", brand: "", scale: "1:64", category: "",
       condition: "NEW", status: "ACTIVE", featured: false,
+      rarity: "STANDARD", dropNumber: "",
       priceSale: "", priceCost: "", feePercent: "2",
       stock: "5", lowStockThreshold: "3", dropAt: "",
       description: "", highlights: "", tags: "",
@@ -31,6 +33,7 @@ function toState(p: Product | null): FormState {
   return {
     name: p.name, slug: p.slug, brand: p.brand ?? "", scale: p.scale ?? "",
     category: p.category, condition: p.condition, status: p.status, featured: p.featured,
+    rarity: p.rarity ?? "STANDARD", dropNumber: p.dropNumber > 0 ? String(p.dropNumber) : "",
     priceSale: (p.priceSale / 100).toString(),
     priceCost: (p.priceCost / 100).toString(),
     feePercent: p.feePercent.toString(),
@@ -100,6 +103,8 @@ export function ProductForm({ initial }: { initial: Product | null }) {
         condition: f.condition,
         status: f.status,
         featured: f.featured,
+        rarity: f.rarity,
+        dropNumber: f.dropNumber.trim() ? Math.max(1, whole(f.dropNumber, 1)) : 0,
         priceSale: sale || 199900,
         priceCost: cost || 0,
         feePercent: decimal(f.feePercent, 2),
@@ -163,6 +168,24 @@ export function ProductForm({ initial }: { initial: Product | null }) {
             <option value="DRAFT">Draft — hidden</option>
             <option value="ARCHIVED">Archived — delisted</option>
           </select>
+        </Field>
+        <Field label="Rarity / special tag" hint="Rare and Unique get a collector badge and their own shop filter.">
+          <select value={f.rarity} onChange={(e) => set("rarity", e.target.value as ProductRarity)} className="u-select">
+            <option value="STANDARD">Standard — regular drop</option>
+            <option value="RARE">Rare — limited allocation</option>
+            <option value="UNIQUE">Unique / 1 of 1 — special piece</option>
+          </select>
+        </Field>
+        <Field label="Drop number" hint="Leave blank on a new product — the next sequential number is assigned automatically.">
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={f.dropNumber}
+            onChange={(e) => set("dropNumber", e.target.value)}
+            placeholder={editing ? String(initial?.dropNumber ?? "") : "Auto — next drop"}
+            className="u-input"
+          />
         </Field>
         <div className="flex items-end">
           <label className="u-card flex cursor-pointer items-center gap-3 self-stretch p-3.5">

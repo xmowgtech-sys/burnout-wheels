@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { getDb, nowIso, run } from "./db";
-import type { StorefrontSettings, TrustpilotSettings } from "./types";
+import type { DiscordSettings, StorefrontSettings, TrustpilotSettings } from "./types";
 
 export const DEFAULT_HERO_IMAGE =
   "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b3/2024-08-25_Motorsport%2C_Formel_1%2C_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3937_by_Stepro.jpg/1920px-2024-08-25_Motorsport%2C_Formel_1%2C_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3937_by_Stepro.jpg";
@@ -51,6 +51,14 @@ export const DEFAULT_TRUSTPILOT: TrustpilotSettings = {
   note: "Trustpilot profile is pending. Until a real profile is connected we show no customer scores anywhere on the site.",
 };
 
+export const DISCORD_CHECKOUT_URL = "https://discord.gg/6QVmX4kbez";
+
+export const DEFAULT_DISCORD: DiscordSettings = {
+  billingWebhookUrl: "",
+  adminWebhookUrl: "",
+  checkoutUrl: DISCORD_CHECKOUT_URL,
+};
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -80,6 +88,29 @@ function readSetting<T>(key: string, fallback: T): T {
 /** Per-request deduped settings reads (React.cache). */
 export const getStorefront = cache((): StorefrontSettings => readSetting("storefront", DEFAULT_STOREFRONT));
 export const getTrustpilot = cache((): TrustpilotSettings => readSetting("trustpilot", DEFAULT_TRUSTPILOT));
+export const getDiscord = cache((): DiscordSettings => readSetting("discord", DEFAULT_DISCORD));
+
+function envWebhook(...names: string[]): string {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+/**
+ * Effective Discord routes. Admin-saved settings win over environment
+ * variables so the owner can fix a wrong URL without a redeploy; the old
+ * `DISCORD_ORDERS_WEBHOOK_URL` / `DISCORD_WEBHOOK_URL` names keep working.
+ */
+export function resolveDiscordWebhooks(): { billing: string; admin: string; checkoutUrl: string } {
+  const saved = getDiscord();
+  const envBilling = envWebhook("DISCORD_BILLING_WEBHOOK_URL", "DISCORD_ORDERS_WEBHOOK_URL", "DISCORD_WEBHOOK_URL");
+  const envAdmin = envWebhook("DISCORD_ADMIN_WEBHOOK_URL", "DISCORD_ORDERS_WEBHOOK_URL", "DISCORD_WEBHOOK_URL");
+  const billing = saved.billingWebhookUrl.trim() || envBilling;
+  const admin = saved.adminWebhookUrl.trim() || envAdmin || billing;
+  return { billing, admin, checkoutUrl: saved.checkoutUrl.trim() || DISCORD_CHECKOUT_URL };
+}
 
 /** Merge a patch into a JSON settings blob. */
 export function saveSettings(key: string, patch: Record<string, unknown>): void {

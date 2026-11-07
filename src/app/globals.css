@@ -337,6 +337,19 @@ body {
   font-size: 13px;
   letter-spacing: 0.02em;
   transition: border-color 0.15s ease, background-color 0.15s ease;
+  color-scheme: dark;
+}
+/* Native dropdowns render their own OS panel. Without this every <option>
+   was white-on-white in Chrome/Edge on Windows. */
+select option,
+select optgroup {
+  background-color: var(--color-panel);
+  color: var(--color-bone);
+}
+select option:checked,
+select option:hover {
+  background-color: #2a2d35;
+  color: #ffffff;
 }
 .u-textarea { min-height: 7rem; resize: vertical; font-family: var(--font-display); font-size: 14px; }
 .u-input::placeholder, .u-textarea::placeholder { color: var(--color-dim); }

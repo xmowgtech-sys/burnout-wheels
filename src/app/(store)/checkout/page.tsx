@@ -425,6 +425,9 @@ export default function CheckoutPage() {
       trackFlow("order_placed", { orderNumber });
 
       // 3. Clear cart immediately
+      try {
+        window.sessionStorage.setItem("bw:cart:clear-pending", "1");
+      } catch {}
       store.clear();
       setFallbackLines([]);
       try {

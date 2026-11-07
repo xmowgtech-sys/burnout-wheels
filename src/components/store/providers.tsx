@@ -88,6 +88,7 @@ export function useStore(): StoreState {
 }
 
 const CART_KEY = "bw:cart:v1";
+const CLEAR_FLAG = "bw:cart:clear-pending";
 const LIST_KEY = "bw:wishlist:v1";
 
 function readJson<T>(key: string, fallback: T): T {
@@ -117,10 +118,20 @@ function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let localLines: CartLine[] = [];
     try {
-      const raw = window.localStorage.getItem(CART_KEY) || window.sessionStorage.getItem(CART_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) localLines = parsed;
+      // A completed checkout sets this flag before navigating. Clear both
+      // storage buckets here as well so a slow provider mount cannot rehydrate
+      // the cart that was just paid for.
+      const mustClear = window.sessionStorage.getItem(CLEAR_FLAG) === "1";
+      if (mustClear) {
+        window.localStorage.removeItem(CART_KEY);
+        window.sessionStorage.removeItem(CART_KEY);
+        window.sessionStorage.removeItem(CLEAR_FLAG);
+      } else {
+        const raw = window.localStorage.getItem(CART_KEY) || window.sessionStorage.getItem(CART_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) localLines = parsed;
+        }
       }
     } catch {
       /* ignore */
@@ -199,7 +210,17 @@ function StoreProvider({ children }: { children: ReactNode }) {
     setLines((prev) => prev.filter((l) => l.productId !== productId));
   }, []);
 
-  const clear = useCallback(() => setLines([]), []);
+  const clear = useCallback(() => {
+    // Remove the persisted copies first so a provider remount elsewhere in the
+    // app cannot resurrect a cart that was just cleared.
+    try {
+      window.localStorage.removeItem(CART_KEY);
+      window.sessionStorage.removeItem(CART_KEY);
+    } catch {
+      /* private mode */
+    }
+    setLines([]);
+  }, []);
 
   const openCart = useCallback(() => setCartOpen(true), []);
   const closeCart = useCallback(() => setCartOpen(false), []);

@@ -1,7 +1,7 @@
 import { getDb, run, nowIso, tx } from "./db";
 import { checkoutSchema, type CheckoutInput } from "./validation";
 import type { Customer, CustomerWithOrders, Order, OrderEvent, OrderItem, OrderStatus, OrderWithRelations, Product, StorefrontSettings } from "./types";
-import { DEFAULT_STOREFRONT } from "./settings";
+import { DEFAULT_STOREFRONT, resolveDiscordWebhooks } from "./settings";
 import { logActivity } from "./analytics";
 import { ApiError } from "./auth";
 import { orderNumber } from "./utils";
@@ -302,151 +302,188 @@ export function createOrderFromCheckout(raw: unknown): CheckoutResult {
 }
 
 /**
- * Optional order alert for the staff Discord channel. Awaited by the checkout
- * route so Vercel does not terminate the request before Discord receives it.
- * This is the safety net when the deployment has no persistent database.
- * Never throws — a notification failure must not fail the customer's order.
+ * Optional order alerts for Discord. Awaited by the checkout route so Vercel
+ * does not terminate the request before Discord receives it.
  *
- * Set `DISCORD_ORDERS_WEBHOOK_URL` to send new orders to their own channel.
- * It falls back to `DISCORD_WEBHOOK_URL` for existing deployments.
+ * Two routes are supported:
+ *  - billing (#💳・billing): compact customer + cart message with a
+ *    “Checkout this order” button that opens #✅・checkout.
+ *  - admin: the full private order log, including the delivery address.
+ *
+ * URLs come from the admin Settings → Discord panel (durable snapshot) and
+ * fall back to DISCORD_BILLING_WEBHOOK_URL / DISCORD_ADMIN_WEBHOOK_URL, then
+ * the legacy DISCORD_ORDERS_WEBHOOK_URL / DISCORD_WEBHOOK_URL names.
+ * Never throws — a notification failure must not fail the customer's order.
  */
 export async function notifyDiscordOrder(
   result: CheckoutResult,
   input: Record<string, unknown>,
   order?: OrderWithRelations | null
 ): Promise<void> {
-  const webhookUrl =
-    process.env.DISCORD_ORDERS_WEBHOOK_URL?.trim() || process.env.DISCORD_WEBHOOK_URL?.trim();
-  if (!webhookUrl) return;
+  const { billing, admin, checkoutUrl } = resolveDiscordWebhooks();
+  if (!billing && !admin) {
+    console.warn("[burnout] Discord order notification skipped — no billing or admin webhook configured.");
+    return;
+  }
 
   const text = (value: unknown, fallback = "") => (typeof value === "string" ? value : fallback);
   const clamp = (value: string, max = 1024) =>
     value.length > max ? `${value.slice(0, max - 1)}…` : value;
 
-  try {
-    type DiscordField = { name: string; value: string; inline?: boolean };
-    const fields: DiscordField[] = [];
-    const total = order?.total ?? result.total;
-    const units = order?.items.reduce((sum, item) => sum + item.qty, 0) ?? 0;
+  type DiscordField = { name: string; value: string; inline?: boolean };
+  type DiscordPayload = Record<string, unknown>;
 
-    if (order) {
-      fields.push({
-        name: "Customer",
-        value: clamp(`${order.name}\n${order.email}`),
-        inline: true,
-      });
-      fields.push({
-        name: "Phone",
-        value: clamp(order.phone || "Not provided"),
-        inline: true,
-      });
-      fields.push({
-        name: "Payment",
-        value: clamp(
-          `${order.paymentMethod}${order.paymentChannel ? ` · via ${order.paymentChannel}` : ""}\nStatus: ${orderPaymentStatus(order)}`
-        ),
-        inline: true,
-      });
-      fields.push({
-        name: "Delivery Address",
-        value: clamp(orderAddress(order) || "Not provided"),
-      });
+  const total = order?.total ?? result.total;
+  const units = order?.items.reduce((sum, item) => sum + item.qty, 0) ?? 0;
+  const customerName = order?.name || text(input.name, "Customer");
+  const customerEmail = order?.email || text(input.email);
+  const phone = order?.phone || text(input.phone, "Not provided");
+  const address = order
+    ? orderAddress(order) || "Not provided"
+    : [text(input.addressLine), text(input.city), text(input.state), text(input.pincode), text(input.country)]
+        .filter(Boolean)
+        .join(", ") || "Not provided";
 
-      const itemLines = order.items.map((item) => {
+  const itemLines = order
+    ? order.items.map((item) => {
         const meta = [item.condition, item.scale].filter(Boolean).join(" · ");
         return `• **${item.qty}×** ${item.name}${meta ? ` (${meta})` : ""} — ${fmtUSD(item.price * item.qty)}`;
-      });
-      fields.push({
-        name: `Items (${units} unit${units === 1 ? "" : "s"})`,
-        value: clamp(itemLines.length > 0 ? itemLines.join("\n") : `Order total ${fmtUSD(order.total)}`),
-      });
+      })
+    : [];
 
-      fields.push({ name: "Subtotal", value: fmtUSD(order.subtotal), inline: true });
-      fields.push({
+  const checkoutButton = {
+    type: 1,
+    components: [
+      {
+        type: 2,
+        style: 5,
+        label: "Checkout this order",
+        url: checkoutUrl || "https://discord.gg/6QVmX4kbez",
+      },
+    ],
+  };
+
+  const timestamp = new Date().toISOString();
+  const footer = { text: `Burnout Wheels · ${siteUrl()}` };
+  const color = result.paymentChannel === "WHATSAPP" ? 3066993 : 15548997;
+
+  /* ---------------- billing message: name + cart + checkout button ---------------- */
+  const billingPayload: DiscordPayload = {
+    content: `🏎️ **New Burnout Wheels order #${result.number}** — ${customerName}`,
+    allowed_mentions: { parse: [] },
+    embeds: [
+      {
+        title: `Order #${result.number}`,
+        description: `${units > 0 ? `${units} item unit${units === 1 ? "" : "s"}` : "Cart"} · ${fmtUSD(total)} · ${
+          order?.shippingMethod ?? text(input.shippingMethod, "standard")
+        } shipping`,
+        color,
+        fields: [
+          { name: "Customer", value: clamp(`${customerName}\n${customerEmail}`), inline: true },
+          { name: "Phone", value: clamp(phone), inline: true },
+          { name: "Deliver to", value: clamp(address), inline: false },
+          {
+            name: `Cart${units > 0 ? ` (${units} unit${units === 1 ? "" : "s"})` : ""}`,
+            value: clamp(itemLines.length > 0 ? itemLines.join("\n") : `Order total ${fmtUSD(total)}`),
+            inline: false,
+          },
+          { name: "TOTAL", value: `**${fmtUSD(total)}**`, inline: true },
+          { name: "Payment", value: clamp(`${result.paymentMethod}${result.paymentChannel ? ` · via ${result.paymentChannel}` : ""}`), inline: true },
+        ],
+        footer,
+        timestamp,
+      },
+    ],
+    components: [checkoutButton],
+  };
+
+  /* ---------------- admin message: full private order log ---------------- */
+  const adminFields: DiscordField[] = [
+    { name: "Customer", value: clamp(`${customerName}\n${customerEmail}`), inline: true },
+    { name: "Phone", value: clamp(phone), inline: true },
+    {
+      name: "Payment",
+      value: clamp(
+        order
+          ? `${order.paymentMethod}${order.paymentChannel ? ` · via ${order.paymentChannel}` : ""}\nStatus: ${orderPaymentStatus(order)}`
+          : `${result.paymentMethod}${result.paymentChannel ? ` · via ${result.paymentChannel}` : ""}\nStatus: ${result.status}`
+      ),
+      inline: true,
+    },
+    { name: "Delivery Address", value: clamp(address), inline: false },
+    {
+      name: `Items${units > 0 ? ` (${units} unit${units === 1 ? "" : "s"})` : ""}`,
+      value: clamp(itemLines.length > 0 ? itemLines.join("\n") : `Order total ${fmtUSD(total)}`),
+      inline: false,
+    },
+  ];
+
+  if (order) {
+    adminFields.push(
+      { name: "Subtotal", value: fmtUSD(order.subtotal), inline: true },
+      {
         name: order.discountCode ? `Coupon / discount (${order.discountCode})` : "Coupon / discount",
         value: order.discountTotal > 0 ? `−${fmtUSD(order.discountTotal)}` : "None",
         inline: true,
-      });
-      fields.push({
-        name: "Shipping",
-        value: order.shippingFee === 0 ? "FREE" : fmtUSD(order.shippingFee),
-        inline: true,
-      });
-      fields.push({
-        name: "GST (18%, included)",
-        value: fmtUSD(orderTaxesTotal(order)),
-        inline: true,
-      });
-      fields.push({ name: "TOTAL", value: `**${fmtUSD(order.total)}**`, inline: true });
-      fields.push({
-        name: "Order status",
-        value: order.status.replace(/_/g, " "),
-        inline: true,
-      });
+      },
+      { name: "Shipping", value: order.shippingFee === 0 ? "FREE" : fmtUSD(order.shippingFee), inline: true },
+      { name: "GST (18%, included)", value: fmtUSD(orderTaxesTotal(order)), inline: true },
+      { name: "TOTAL", value: `**${fmtUSD(order.total)}**`, inline: true },
+      { name: "Order status", value: order.status.replace(/_/g, " "), inline: true }
+    );
+    if (order.notes) adminFields.push({ name: "Customer note", value: clamp(order.notes) });
+    adminFields.push({
+      name: "Admin",
+      value: `[Open order in admin](${siteUrl()}/admin/orders/${encodeURIComponent(order.number)})`,
+    });
+  } else {
+    adminFields.push({ name: "TOTAL", value: `**${fmtUSD(total)}**`, inline: true });
+    if (text(input.notes)) adminFields.push({ name: "Customer note", value: clamp(text(input.notes)) });
+  }
 
-      if (order.notes) fields.push({ name: "Customer note", value: clamp(order.notes) });
+  const adminPayload: DiscordPayload = {
+    content: `🧾 **Admin order log #${result.number}** — ${fmtUSD(total)}`,
+    allowed_mentions: { parse: [] },
+    embeds: [
+      {
+        title: `Order #${result.number}`,
+        description: order
+          ? `${units} item unit${units === 1 ? "" : "s"} · ${order.shippingMethod} shipping · placed ${new Date(order.placedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+          : "New checkout — full details could not be read back on this instance.",
+        color,
+        fields: adminFields,
+        footer,
+        timestamp,
+      },
+    ],
+    components: [checkoutButton],
+  };
 
-      const adminUrl = `${siteUrl()}/admin/orders/${encodeURIComponent(order.number)}`;
-      fields.push({ name: "Admin", value: `[Open order in admin](${adminUrl})` });
-    } else {
-      // Defensive fallback: the order row could not be read back after insert.
-      fields.push({
-        name: "Customer",
-        value: clamp(`${text(input.name, "Customer")}\n${text(input.email)}`),
-        inline: true,
-      });
-      fields.push({ name: "Phone", value: clamp(text(input.phone, "Not provided")), inline: true });
-      fields.push({
-        name: "Payment",
-        value: clamp(`${text(input.paymentMethod)}${result.paymentChannel ? ` · via ${result.paymentChannel}` : ""}\nStatus: ${result.status}`),
-        inline: true,
-      });
-      fields.push({
-        name: "Delivery Address",
-        value: clamp(
-          [text(input.addressLine), text(input.city), text(input.state), text(input.pincode), text(input.country)]
-            .filter(Boolean)
-            .join(", ") || "Not provided"
-        ),
-      });
-      fields.push({ name: "TOTAL", value: `**${fmtUSD(total)}**`, inline: true });
-      if (text(input.notes)) fields.push({ name: "Customer note", value: clamp(text(input.notes)) });
-    }
+  const targets: { label: string; url: string; payload: DiscordPayload }[] = [];
+  if (billing) targets.push({ label: "billing", url: billing, payload: billingPayload });
+  if (admin && admin !== billing) targets.push({ label: "admin", url: admin, payload: adminPayload });
+  // Same webhook for both channels: send one combined message rather than duplicates.
+  if (billing && admin && admin === billing) {
+    targets[0] = { label: "billing+admin", url: billing, payload: adminPayload };
+  }
 
-    await fetch(webhookUrl, {
+  const post = async (target: { label: string; url: string; payload: DiscordPayload }) => {
+    const res = await fetch(target.url, {
       method: "POST",
       headers: { "content-type": "application/json" },
       signal: AbortSignal.timeout(5000),
-       body: JSON.stringify({
-         content: `🏎️ **New Burnout Wheels Order #${result.number}** — ${fmtUSD(total)}`,
-         allowed_mentions: { parse: [] },
-         embeds: [
-           {
-             title: `Order #${result.number}`,
-             description: order
-               ? `${units} item unit${units === 1 ? "" : "s"} · ${order.shippingMethod} shipping · placed ${new Date(order.placedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
-               : "New checkout — full details could not be read back on this instance.",
-             color: result.paymentChannel === "WHATSAPP" ? 3066993 : 15548997,
-             fields,
-             footer: { text: `Burnout Wheels · ${siteUrl()}` },
-             timestamp: new Date().toISOString(),
-           },
-         ],
-         components: [
-           {
-             type: 1,
-             components: [
-               {
-                 type: 2,
-                 style: 5,
-                 label: "Checkout",
-                 url: "https://discord.gg/6QVmX4kbez",
-               },
-             ],
-           },
-         ],
-       }),
+      body: JSON.stringify(target.payload),
     });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(
+        `[burnout] Discord ${target.label} notification failed (${res.status}): ${body.slice(0, 300)}`
+      );
+    }
+  };
+
+  try {
+    await Promise.all(targets.map(post));
   } catch (err) {
     console.error("[burnout] Discord order notification failed:", err);
   }

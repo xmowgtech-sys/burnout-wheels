@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { DiscountsPanel } from "@/components/admin/discounts-panel";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,8 @@ type Row = {
   maxUses: number; usedCount: number; startsAt: string | null; endsAt: string | null; active: number; createdAt: string;
 };
 
-export default function DiscountsPage() {
+export default async function DiscountsPage() {
+  await ensureCatalogHydrated();
   const rows = (getDb().prepare("SELECT * FROM discounts ORDER BY createdAt DESC").all() as Row[]).map((r) => ({ ...r, active: r.active === 1 }));
   return (
     <div className="flex flex-col gap-8">

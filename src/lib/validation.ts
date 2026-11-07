@@ -55,11 +55,15 @@ export const productInputSchema = z.object({
   lowStockThreshold: z.coerce.number().int().min(0).max(999).default(3),
   status: z.enum(["ACTIVE", "DRAFT", "ARCHIVED"]).default("ACTIVE"),
   featured: z.boolean().default(false),
+  /** Sequential drop number — assigned automatically when omitted. */
+  dropNumber: z.coerce.number().int().min(0).max(99999).optional(),
+  rarity: z.enum(["STANDARD", "RARE", "UNIQUE"]).default("STANDARD"),
   dropAt: z.string().trim().optional().or(z.literal("")),
 });
 
 export const reviewSchema = z.object({
-  productId: z.coerce.number().int().positive(),
+  productId: z.coerce.number().int().positive().optional(),
+  slug: z.string().trim().max(180).optional().or(z.literal("")),
   name: z.string().trim().min(2, "Add your name").max(80),
   email: z.string().trim().email("Enter a valid email").max(190),
   rating: z.coerce.number().int().min(1, "Rate 1–5").max(5),
@@ -131,6 +135,23 @@ export const trustpilotSettingsSchema = z.object({
   note: z.string().trim().max(400),
 });
 
+const optionalHttps = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(500)
+    .refine((value) => value === "" || /^https:\/\//i.test(value), `${label} must start with https://`);
+
+export const discordSettingsSchema = z.object({
+  billingWebhookUrl: optionalHttps("Billing webhook"),
+  adminWebhookUrl: optionalHttps("Admin webhook"),
+  checkoutUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((value) => value === "" || /^https?:\/\//i.test(value), "Checkout link must be a URL"),
+});
+
 export const contactOrderLookup = z.object({
   number: z.string().trim().min(4).max(40),
   email: z.string().trim().email().max(190).toLowerCase(),
@@ -192,6 +213,8 @@ export function normalizeProductInput(raw: Record<string, unknown>) {
     images: rawImages,
     brand: raw.brand != null ? String(raw.brand).trim() : "",
     scale: raw.scale != null ? String(raw.scale).trim() : "1:64",
+    rarity: ["STANDARD", "RARE", "UNIQUE"].includes(String(raw.rarity)) ? raw.rarity : "STANDARD",
+    dropNumber: Math.max(0, Math.round(numericOr(raw.dropNumber, 0))),
     priceSale: Math.max(100, Math.round(numericOr(raw.priceSale, 199900))),
     priceCost: Math.max(0, Math.round(numericOr(raw.priceCost, 0))),
     feePercent: Math.max(0, Math.min(40, numericOr(raw.feePercent, 2))),

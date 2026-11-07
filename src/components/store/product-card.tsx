@@ -6,8 +6,8 @@ import Image from "next/image";
 import { useStore, useToast } from "./providers";
 import { fmtUSD } from "@/lib/money";
 import { imageFitClass } from "@/lib/images";
-import { CONDITION_LABELS, type Product } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { CONDITION_LABELS, RARITY_LABELS, type Product } from "@/lib/types";
+import { cn, dropLabel } from "@/lib/utils";
 
 export function WishlistHeart({ product, floating = false }: { product: Product; floating?: boolean }) {
   const store = useStore();
@@ -86,6 +86,18 @@ export function ProductCard({ product, priority = false }: { product: Product; p
             <span className="u-badge u-badge-cond bg-ink/60 backdrop-blur-sm" data-condition={product.condition}>
               {CONDITION_LABELS[product.condition]}
             </span>
+            {product.rarity !== "STANDARD" && (
+              <span
+                className={cn(
+                  "u-badge uppercase backdrop-blur-sm",
+                  product.rarity === "UNIQUE"
+                    ? "border-violet/60 bg-violet/20 text-violet"
+                    : "border-orange/60 bg-orange/15 text-orange"
+                )}
+              >
+                {RARITY_LABELS[product.rarity]}
+              </span>
+            )}
             {low && (
               <span className="u-badge border-red/60 bg-red/90 uppercase text-white">Only {product.stock} left</span>
             )}
@@ -96,11 +108,14 @@ export function ProductCard({ product, priority = false }: { product: Product; p
             <WishlistHeart product={product} floating />
           </div>
 
-          {product.featured && (
-            <span className="u-badge absolute bottom-2.5 left-2.5 border-yellow/70 bg-yellow/95 uppercase text-ink sm:bottom-3 sm:left-3">
-              Drop 001
-            </span>
-          )}
+          <span
+            className={cn(
+              "u-badge absolute bottom-2.5 left-2.5 uppercase sm:bottom-3 sm:left-3",
+              product.featured ? "border-yellow/70 bg-yellow/95 text-ink" : "border-white/15 bg-ink/75 text-bone backdrop-blur-sm"
+            )}
+          >
+            {dropLabel(product.dropNumber, product.id)}
+          </span>
 
           {/* inspect cue — desktop hover only */}
           <span className="pointer-events-none absolute bottom-3 right-3 hidden items-center gap-2 border border-white/20 bg-ink/70 px-3 py-2 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100 md:flex">

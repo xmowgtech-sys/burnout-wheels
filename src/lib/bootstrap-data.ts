@@ -40,11 +40,12 @@ export function bootstrapStore(db: DatabaseSync): void {
   // 3. catalog — the operator's real listings; image files ship from public/uploads
   const insert = db.prepare(
     `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images,
-       priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, imageFit, imagePosition, createdAt, updatedAt)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropNumber, rarity, dropAt, imageFit, imagePosition, createdAt, updatedAt)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(slug) DO NOTHING`
   );
-  for (const p of SEED_PRODUCTS) {
+  SEED_PRODUCTS.forEach((p, index) => {
+    const rarity = /\brare\b|\bunique\b/i.test(p.tags) ? "RARE" : "STANDARD";
     insert.run(
       p.slug,
       p.name,
@@ -63,13 +64,15 @@ export function bootstrapStore(db: DatabaseSync): void {
       p.lowStockThreshold,
       p.status,
       p.featured,
+      index + 1,
+      rarity,
       p.dropAt,
       p.imageFit,
       p.imagePosition,
       ts,
       ts
     );
-  }
+  });
 
   // 4. No demo orders. Every order in the Pit Wall must be a real checkout.
 }

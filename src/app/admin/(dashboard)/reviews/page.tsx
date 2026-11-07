@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { ReviewCards } from "@/components/admin/review-actions";
 import { pendingReviews, moderatedReviews } from "@/lib/catalog";
+import { ensureCatalogHydrated } from "@/lib/catalog-store";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Reviews · Pit wall", robots: { index: false } };
 
 export default async function ReviewsPage() {
+  await ensureCatalogHydrated();
   const [pending, moderated] = [pendingReviews(), moderatedReviews(50)];
 
   return (

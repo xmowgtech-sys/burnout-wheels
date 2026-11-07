@@ -3,26 +3,41 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImageField } from "./image-field";
-import type { HomeSettings, Product, StorefrontSettings, TrustpilotSettings } from "@/lib/types";
+import type { DiscordSettings, HomeSettings, Product, StorefrontSettings, TrustpilotSettings } from "@/lib/types";
+
+type DiscordPanelValues = DiscordSettings & {
+  effectiveBilling: string;
+  effectiveAdmin: string;
+  envBilling: boolean;
+  envAdmin: boolean;
+};
 
 export function SettingsPanel({
   storefront,
   trustpilot,
   payments,
+  discord,
   products,
 }: {
   storefront: StorefrontSettings;
   trustpilot: TrustpilotSettings;
   payments: { keyId: string; upiVpa: string; secretSet: boolean };
+  discord: DiscordPanelValues;
   products: Product[];
 }) {
   const router = useRouter();
   const [store, setStore] = useState(storefront);
   const [tp, setTp] = useState(trustpilot);
   const [pay, setPay] = useState<{ keyId: string; upiVpa: string; secretSet: boolean; secretRaw?: string }>(payments);
+  const [disc, setDisc] = useState<DiscordSettings>({
+    billingWebhookUrl: discord.billingWebhookUrl,
+    adminWebhookUrl: discord.adminWebhookUrl,
+    checkoutUrl: discord.checkoutUrl,
+  });
   const [secretRaw, setSecretRaw] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [testMsg, setTestMsg] = useState("");
 
   const rupees = (v: string) => Math.max(0, Math.round(Number(v || 0) * 100));
   const setHome = (patch: Partial<HomeSettings>) => setStore((s) => ({ ...s, home: { ...s.home, ...patch } }));
@@ -90,6 +105,40 @@ export function SettingsPanel({
       setMsg("Payments saved.");
       router.refresh();
     } catch (e) { setMsg(e instanceof Error ? e.message : "Save failed"); }
+    finally { setBusy(false); }
+  };
+
+  const saveDiscord = async () => {
+    setBusy(true); setMsg(""); setTestMsg("");
+    try {
+      const res = await fetch("/api/settings?key=discord", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(disc),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Save failed");
+      setMsg("Discord routing saved.");
+      router.refresh();
+    } catch (e) { setMsg(e instanceof Error ? e.message : "Save failed"); }
+    finally { setBusy(false); }
+  };
+
+  const testDiscord = async (target: "billing" | "admin") => {
+    setBusy(true); setTestMsg("");
+    try {
+      const res = await fetch("/api/settings/discord-test", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          target,
+          url: target === "billing" ? disc.billingWebhookUrl.trim() : disc.adminWebhookUrl.trim(),
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string; status?: number };
+      if (!res.ok || !data.ok) throw new Error(data.error || `Discord rejected the test (${data.status ?? res.status})`);
+      setTestMsg(`Test message delivered to the ${target} webhook.`);
+    } catch (e) { setTestMsg(e instanceof Error ? e.message : "Test failed"); }
     finally { setBusy(false); }
   };
 
@@ -356,6 +405,61 @@ export function SettingsPanel({
           </label>
         </div>
         <button onClick={savePay} disabled={busy} className="u-btn u-btn-primary mt-6">Save payment keys</button>
+      </section>
+
+      {/* discord */}
+      <section className="u-card p-5" aria-labelledby="dc-h">
+        <p id="dc-h" className="u-label">Discord order routing</p>
+        <p className="u-label-txt mt-2">
+          Paste a channel webhook URL, not a server invite. Invites cannot receive webhook posts. Billing gets a compact
+          customer + cart message with a “Checkout this order” button; the admin webhook is the full private order log.
+        </p>
+        <div className="mt-4 grid gap-4">
+          <label className="block">
+            <span className="u-label-txt">
+              Billing channel webhook — #💳・billing{" "}
+              {discord.effectiveBilling ? <span className="u-badge ml-2 border-mint text-mint">connected</span> : <span className="u-badge ml-2 border-yellow text-yellow">not set</span>}
+            </span>
+            <input
+              value={disc.billingWebhookUrl}
+              onChange={(e) => setDisc({ ...disc, billingWebhookUrl: e.target.value })}
+              placeholder="https://discord.com/api/webhooks/…"
+              className="u-input mt-1.5 font-mono! text-[13px]!"
+            />
+          </label>
+          <label className="block">
+            <span className="u-label-txt">
+              Admin order log webhook — private staff channel{" "}
+              {discord.effectiveAdmin ? <span className="u-badge ml-2 border-mint text-mint">connected</span> : <span className="u-badge ml-2 border-yellow text-yellow">not set</span>}
+            </span>
+            <input
+              value={disc.adminWebhookUrl}
+              onChange={(e) => setDisc({ ...disc, adminWebhookUrl: e.target.value })}
+              placeholder="https://discord.com/api/webhooks/…"
+              className="u-input mt-1.5 font-mono! text-[13px]!"
+            />
+          </label>
+          <label className="block">
+            <span className="u-label-txt">“Checkout this order” link — #✅・checkout</span>
+            <input
+              value={disc.checkoutUrl}
+              onChange={(e) => setDisc({ ...disc, checkoutUrl: e.target.value })}
+              placeholder="https://discord.gg/…"
+              className="u-input mt-1.5 font-mono! text-[13px]!"
+            />
+          </label>
+          <p className="u-label-txt">
+            Effective: billing {discord.effectiveBilling ? (disc.billingWebhookUrl.trim() ? "saved webhook" : "server environment") : "—"} · admin{" "}
+            {discord.effectiveAdmin ? (disc.adminWebhookUrl.trim() ? "saved webhook" : "server environment") : "—"} · env billing{" "}
+            {discord.envBilling ? "present" : "missing"} · env admin {discord.envAdmin ? "present" : "missing"}
+          </p>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button onClick={saveDiscord} disabled={busy} className="u-btn u-btn-primary">Save Discord routing</button>
+          <button onClick={() => testDiscord("billing")} disabled={busy} className="u-btn u-btn-ghost">Test billing webhook</button>
+          <button onClick={() => testDiscord("admin")} disabled={busy} className="u-btn u-btn-ghost">Test admin webhook</button>
+        </div>
+        {testMsg && <p className="u-label-txt mt-3" role="status">{testMsg}</p>}
       </section>
     </div>
   );

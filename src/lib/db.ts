@@ -131,6 +131,8 @@ export function migrate(db: DatabaseSync): void {
       lowStockThreshold INTEGER NOT NULL DEFAULT 3,
       status TEXT NOT NULL DEFAULT 'ACTIVE',
       featured INTEGER NOT NULL DEFAULT 0,
+      dropNumber INTEGER NOT NULL DEFAULT 0,
+      rarity TEXT NOT NULL DEFAULT 'STANDARD',
       dropAt TEXT,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL
@@ -404,6 +406,12 @@ export function migrate(db: DatabaseSync): void {
   // Storefront framing controls — some photos are wide banners, some are tall box shots.
   ensureColumn(db, "products", "imageFit", "imageFit TEXT NOT NULL DEFAULT 'cover'");
   ensureColumn(db, "products", "imagePosition", "imagePosition TEXT NOT NULL DEFAULT 'center'");
+  // Collector-facing sequence + rarity tag.
+  ensureColumn(db, "products", "dropNumber", "dropNumber INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "products", "rarity", "rarity TEXT NOT NULL DEFAULT 'STANDARD'");
+  // Older rows predate the drop sequence. Their id is unique, stable within the
+  // snapshot, and good enough for a first backfill; new products take max+1.
+  db.exec("UPDATE products SET dropNumber = id WHERE dropNumber = 0;");
   ensureColumn(db, "accounts", "phone", "phone TEXT");
   ensureColumn(db, "accounts", "picture", "picture TEXT");
   ensureColumn(db, "accounts", "status", "status TEXT DEFAULT 'ACTIVE'");
