@@ -417,22 +417,35 @@ export async function notifyDiscordOrder(
       method: "POST",
       headers: { "content-type": "application/json" },
       signal: AbortSignal.timeout(5000),
-      body: JSON.stringify({
-        content: `🏎️ **New Burnout Wheels Order #${result.number}** — ${fmtUSD(total)}`,
-        allowed_mentions: { parse: [] },
-        embeds: [
-          {
-            title: `Order #${result.number}`,
-            description: order
-              ? `${units} item unit${units === 1 ? "" : "s"} · ${order.shippingMethod} shipping · placed ${new Date(order.placedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
-              : "New checkout — full details could not be read back on this instance.",
-            color: result.paymentChannel === "WHATSAPP" ? 3066993 : 15548997,
-            fields,
-            footer: { text: `Burnout Wheels · ${siteUrl()}` },
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      }),
+       body: JSON.stringify({
+         content: `🏎️ **New Burnout Wheels Order #${result.number}** — ${fmtUSD(total)}`,
+         allowed_mentions: { parse: [] },
+         embeds: [
+           {
+             title: `Order #${result.number}`,
+             description: order
+               ? `${units} item unit${units === 1 ? "" : "s"} · ${order.shippingMethod} shipping · placed ${new Date(order.placedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+               : "New checkout — full details could not be read back on this instance.",
+             color: result.paymentChannel === "WHATSAPP" ? 3066993 : 15548997,
+             fields,
+             footer: { text: `Burnout Wheels · ${siteUrl()}` },
+             timestamp: new Date().toISOString(),
+           },
+         ],
+         components: [
+           {
+             type: 1,
+             components: [
+               {
+                 type: 2,
+                 style: 5,
+                 label: "Checkout",
+                 url: "https://discord.gg/6QVmX4kbez",
+               },
+             ],
+           },
+         ],
+       }),
     });
   } catch (err) {
     console.error("[burnout] Discord order notification failed:", err);
