@@ -47,8 +47,8 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
   const whatsappMessage = encodeURIComponent(
     `Hi Burnout Wheels! I placed Order #${order.number} for ₹${totalInRupees.toLocaleString("en-IN")}. My name is ${order.name}. Please send me the payment QR code so I can complete payment.`
   );
-  const whatsappUrl = `https://wa.me/917837147831?text=${whatsappMessage}`;
-  const discordUrl = "https://discord.gg/nzHTBVbxZW";
+  const whatsappUrl = `${CONTACT.whatsapp.split("?")[0]}?text=${whatsappMessage}`;
+  const discordUrl = CONTACT.discord;
 
   const qrUrl = `/images/upi-qr.png`;
 
@@ -226,7 +226,7 @@ export function PaymentRedirectCard({ order, initialChannel }: Props) {
               className="u-btn u-btn-primary bg-mint! text-ink! flex items-center gap-2 px-6! py-4! text-sm font-extrabold tracking-wide shadow-lg shadow-mint/20"
             >
               <MessageSquare className="size-4" />
-              <span>Send Message on WhatsApp (+91 78890 79186)</span>
+              <span>Send Message on WhatsApp ({CONTACT.phoneDisplay})</span>
             </a>
             <button
               type="button"

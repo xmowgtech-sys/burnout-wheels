@@ -141,7 +141,7 @@ export function Footer() {
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 md:flex-row md:items-center md:justify-between md:px-8">
           <p className="u-label text-dim!">© {new Date().getFullYear()} Burnout Wheels · Mohali, Punjab, India</p>
           <p className="u-label text-dim! normal-case! tracking-normal!">
-            Reference photography via Wikimedia Commons (CC BY-SA) — replace with your own product shots as stock grows.
+            Studio telemetry &amp; real die-cast catalog photography — Burnout Wheels Pit Lane.
           </p>
         </div>
       </div>

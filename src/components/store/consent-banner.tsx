@@ -62,39 +62,64 @@ export function ConsentBanner() {
       role="dialog"
       aria-modal="false"
       aria-label="Cookie preferences"
-      className="fixed bottom-4 left-4 z-[80] w-[min(92vw,430px)] border border-line-strong bg-coal/97 p-5 shadow-2xl backdrop-blur-md anim-rise"
+      data-lenis-prevent
+      className="fixed inset-x-0 bottom-0 z-[80] border-t border-line-strong bg-coal/97 px-4 py-2.5 shadow-2xl md:px-6"
     >
-      <div className="flex items-start gap-3">
-        <Cookie className="mt-0.5 size-5 shrink-0 text-yellow" aria-hidden />
-        <div>
-          <p className="text-sm font-extrabold uppercase tracking-wide">Cookies, straight up</p>
-          <p className="mt-2 text-[12.5px] leading-relaxed text-fog">
-            Essential cookies keep the pits running. Everything else — visit counts, funnel analytics, marketing — stays off until you say yes.
-            No third-party ad trackers. Change your mind any time from the footer.
-          </p>
+      <div className="mx-auto max-w-[1500px]">
+        {showPrefs ? (
+          <div className="mb-3 border border-line bg-ink/80 px-4 py-2">
+            <Row id="ck-essential" label="Essential" note="Cart, checkout, security sessions. The site cannot run without these." on locked />
+            <Row id="ck-functional" label="Functional" note="Remembers your consent choice and UI preferences." on={!state && prefs.functional} onChange={(v) => setPrefs((p) => ({ ...p, functional: v }))} />
+            <Row id="ck-analytics" label="Analytics" note="Anonymous visit + funnel counts only. No profiling, no cross-site tracking." on={!state && prefs.analytics} onChange={(v) => setPrefs((p) => ({ ...p, analytics: v }))} />
+            <Row id="ck-marketing" label="Marketing" note="Coming soon — reserved for future campaign pixels. Currently consent never fires them." on={!state && prefs.marketing} onChange={(v) => setPrefs((p) => ({ ...p, marketing: v }))} />
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Cookie className="size-4 shrink-0 text-yellow" aria-hidden />
+            <p className="text-[12px] leading-snug text-fog">
+              <strong className="font-bold uppercase tracking-wider text-bone">Cookies, straight up:</strong>{" "}
+              Essential keeps pits running. Optional analytics stay off until you say yes.{" "}
+              <a href="/privacy" className="underline hover:text-bone">Privacy Policy</a>.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => decide("accepted")}
+              className="u-btn u-btn-primary min-h-9! px-3.5! py-1.5! text-[11px]!"
+            >
+              Accept all
+            </button>
+            <button
+              type="button"
+              onClick={() => decide("rejected")}
+              className="u-btn u-btn-ghost min-h-9! px-3.5! py-1.5! text-[11px]!"
+            >
+              Reject optional
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPrefs((s) => !s)}
+              className="u-label min-h-9 px-2.5 py-1.5 hover:text-bone!"
+              aria-expanded={showPrefs}
+            >
+              {showPrefs ? "Hide prefs" : "Preferences"}
+            </button>
+            {showPrefs && (
+              <button
+                type="button"
+                onClick={() => decide("accepted")}
+                className="u-btn u-btn-primary min-h-9! px-3! py-1.5! text-[11px]!"
+              >
+                Save choices
+              </button>
+            )}
+          </div>
         </div>
       </div>
-
-      {showPrefs ? (
-        <div className="mt-4 border border-line bg-white/[0.02] px-4 py-2">
-          <Row id="ck-essential" label="Essential" note="Cart, checkout, security sessions. The site cannot run without these." on locked />
-          <Row id="ck-functional" label="Functional" note="Remembers your consent choice and UI preferences." on={!state && prefs.functional} onChange={(v) => setPrefs((p) => ({ ...p, functional: v }))} />
-          <Row id="ck-analytics" label="Analytics" note="Anonymous visit + funnel counts only. No profiling, no cross-site tracking." on={!state && prefs.analytics} onChange={(v) => setPrefs((p) => ({ ...p, analytics: v }))} />
-          <Row id="ck-marketing" label="Marketing" note="Coming soon — reserved for future campaign pixels. Currently consent never fires them." on={!state && prefs.marketing} onChange={(v) => setPrefs((p) => ({ ...p, marketing: v }))} />
-        </div>
-      ) : null}
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button onClick={() => decide("accepted")} className="u-btn u-btn-primary py-2.5! text-[13px]!">Accept all</button>
-        <button onClick={() => decide("rejected")} className="u-btn u-btn-ghost py-2.5! text-[13px]!">Reject optional</button>
-        <button onClick={() => setShowPrefs((s) => !s)} className="u-label px-3 py-2 hover:text-bone!" aria-expanded={showPrefs}>
-          {showPrefs ? "Hide preferences" : "Preferences"}
-        </button>
-        {showPrefs && (
-          <button onClick={() => decide("accepted")} className="u-btn u-btn-primary py-2! text-[12px]!">Save choices</button>
-        )}
-      </div>
-      <p className="u-label-txt mt-3 text-dim!">Full details in the <a href="/privacy" className="underline">Privacy Policy</a>.</p>
     </div>
   );
 }

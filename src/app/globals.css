@@ -4,6 +4,7 @@
   --color-ink: #0a0a0c;
   --color-coal: #0f1013;
   --color-panel: #14161b;
+  --color-surface: #16181f;
   --color-line: rgba(244, 244, 240, 0.09);
   --color-line-strong: rgba(244, 244, 240, 0.24);
   --color-bone: #f4f4f2;
@@ -58,7 +59,6 @@
 }
 
 html {
-  scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -303,6 +303,8 @@ body {
 .u-btn-primary:hover:not(:disabled) { background: var(--color-ember); }
 .u-btn-ghost { border-color: var(--color-line-strong); color: var(--color-bone); background: transparent; }
 .u-btn-ghost:hover:not(:disabled) { border-color: var(--color-bone); background: rgba(255, 255, 255, 0.05); }
+.u-btn-secondary { border-color: var(--color-line-strong); color: var(--color-bone); background: rgba(255, 255, 255, 0.03); }
+.u-btn-secondary:hover:not(:disabled) { border-color: var(--color-bone); background: rgba(255, 255, 255, 0.08); }
 .u-btn-redline { border-color: var(--color-red); color: #ff5c4d; background: rgba(225, 6, 0, 0.08); }
 .u-btn-redline:hover:not(:disabled) { background: rgba(225, 6, 0, 0.18); color: #fff; }
 .u-btn-danger { border-color: rgba(225, 6, 0, 0.55); color: #ff5c4d; background: rgba(225, 6, 0, 0.08); }

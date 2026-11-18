@@ -41,7 +41,7 @@ export function bootstrapStore(db: DatabaseSync): void {
   const insert = db.prepare(
     `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images,
        priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropNumber, rarity, dropAt, imageFit, imagePosition, createdAt, updatedAt)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(slug) DO NOTHING`
   );
   SEED_PRODUCTS.forEach((p, index) => {

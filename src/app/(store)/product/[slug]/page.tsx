@@ -71,7 +71,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     <div className="mx-auto max-w-7xl px-4 pb-32 pt-28 md:px-8 md:pb-24 md:pt-36">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
 
-      <nav className="u-label mb-8 flex items-center gap-2" aria-label="Breadcrumb">
+      <nav className="u-label mb-8 flex flex-wrap items-center gap-2" aria-label="Breadcrumb">
         <Link href="/shop" className="hover:text-bone">Shop</Link>
         <span aria-hidden>/</span>
         <Link href={`/shop?cat=${encodeURIComponent(product.category)}`} className="hover:text-bone">{product.category}</Link>
@@ -80,11 +80,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       </nav>
 
       <div className="grid gap-12 lg:grid-cols-[1.15fr_1fr] lg:gap-16">
-        <div className="page-in">
+        <div className="page-in min-w-0">
           <Gallery product={product} />
         </div>
 
-        <div className="page-in" style={{ animationDelay: "80ms" }}>
+        <div className="page-in min-w-0" style={{ animationDelay: "80ms" }}>
           <p className="u-label">
             <span className={product.featured ? "text-red" : "text-fog"}>▮ {dropLabel(product.dropNumber, product.id)}</span> · {product.brand}{product.scale ? ` · ${product.scale}` : ""}
           </p>

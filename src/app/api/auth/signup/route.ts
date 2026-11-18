@@ -41,8 +41,9 @@ export async function POST(req: NextRequest) {
 
       if (!existing.verified) {
         const link = `${nameOrigin(req)}/api/auth/verify?token=${issueToken(existing.email, "VERIFY", 24 * 60 * 60_000)}`;
-        if (rateLimit(`vresend:${existing.id}`, 2, 60 * 60_000)) await sendMail(verificationMail(email, name, link));
-        return Response.json({ error: "This address is registered but unverified — a fresh verification link is on its way." }, { status: 409 });
+        const code = issueOtp(existing.email);
+        if (rateLimit(`vresend:${existing.id}`, 2, 60 * 60_000)) await sendMail(verificationMail(email, name, link, code));
+        return Response.json({ error: "This address is registered but unverified — a fresh verification link and 6-digit code are on their way." }, { status: 409 });
       }
       return Response.json({ error: "That email already has an account — sign in instead (or use Google)." }, { status: 409 });
     }

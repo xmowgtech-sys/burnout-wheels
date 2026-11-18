@@ -72,7 +72,7 @@ export function Hero({
       </motion.div>
 
       <motion.div style={{ y: fgY, opacity: fade }} className="relative z-10 flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-[1500px] flex-1 flex-col px-4 pb-5 pt-32 sm:px-6 md:px-8 md:pb-9 md:pt-36">
+        <div className="mx-auto flex w-full max-w-[1500px] flex-1 flex-col px-4 pb-4 pt-24 sm:px-6 md:px-8 md:pb-6 md:pt-28">
           {/* top telemetry row */}
           <div className="flex items-start justify-between gap-6">
             <motion.p
@@ -81,7 +81,7 @@ export function Hero({
               transition={{ duration: 0.6, ease: EASE, delay: reduced ? 0 : 0.12 }}
               className="u-label flex items-center gap-2.5"
             >
-              <span className="u-live-dot" aria-hidden />
+              <span className="h-2 w-2 bg-red" aria-hidden />
               {kicker}
             </motion.p>
             <motion.p
@@ -96,7 +96,7 @@ export function Hero({
             </motion.p>
           </div>
 
-          <div className="mt-auto pt-10 md:pt-24">
+          <div className="mt-auto pt-6 md:pt-10">
             {/* editorial headline */}
             <h1 className="u-display max-w-[15ch] text-bone">
               {headlineParts.filter(Boolean).map((part, i) => (
@@ -149,11 +149,11 @@ export function Hero({
                 initial={{ opacity: 0, y: 22 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.75, ease: EASE, delay: reduced ? 0 : 0.7 }}
-                className="hidden w-[280px] shrink-0 border border-line bg-ink/55 backdrop-blur-md md:block"
+                className="hidden w-[280px] shrink-0 border border-line bg-ink/85 md:block"
               >
                 <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
                   <span className="u-label flex items-center gap-2 text-bone">
-                    <span className="u-live-dot" aria-hidden /> Timing tower
+                    <span className="h-1.5 w-1.5 bg-red" aria-hidden /> Timing tower
                   </span>
                   <span className="u-mono text-[10px] text-dim">001</span>
                 </div>
@@ -192,13 +192,13 @@ export function Hero({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: reduced ? 0 : 0.9 }}
-            className="mt-6 flex items-center justify-between gap-4 md:mt-11"
+            className="mt-5 flex items-center justify-between gap-4 md:mt-7"
           >
-            <a href="#next" className="u-label group flex items-center gap-3 transition-colors hover:text-bone">
-              <span className="grid size-8 place-items-center border border-line transition-colors group-hover:border-line-strong">
+            <a href="#drops-stage" className="u-label group flex items-center gap-3 transition-colors hover:text-bone">
+              <span className="grid size-8 place-items-center border border-line transition-colors group-hover:border-red">
                 <ArrowDown className="size-3.5 animate-[cue_1.8s_ease-in-out_infinite] text-red" aria-hidden />
               </span>
-              Scroll the paddock
+              Enter Drop 001 — 3D Studio
             </a>
             <div className="hidden items-center gap-4 md:flex" aria-hidden>
               {[
@@ -216,7 +216,7 @@ export function Hero({
         </div>
 
         {/* telemetry strip */}
-        <div className="relative border-t border-line bg-ink/60 backdrop-blur-sm">
+        <div className="relative border-t border-line bg-ink/85 pb-10 md:pb-12">
           <div className="mx-auto grid max-w-[1500px] grid-cols-2 divide-x divide-line md:grid-cols-4">
             {[
               ["Catalogue", "Sealed & inspected"],
@@ -224,7 +224,7 @@ export function Hero({
               ["Payment", "UPI · COD · PayPal live"],
               ["Paddock", "Mohali → pan-India"],
             ].map(([k, v]) => (
-              <div key={k} className="flex flex-col gap-1 px-4 py-3.5 md:px-6">
+              <div key={k} className="flex flex-col gap-1 px-4 py-3 md:px-6">
                 <span className="u-label text-dim!">{k}</span>
                 <span className="u-mono text-[11.5px] text-bone/85 md:text-[12.5px]">{v}</span>
               </div>

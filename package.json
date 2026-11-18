@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "seed": "node scripts/seed.mjs",
     "seed:fresh": "node scripts/seed.mjs --fresh",
@@ -21,6 +22,7 @@
     "@fontsource/ibm-plex-mono": "^5.2.5",
     "@netlify/plugin-nextjs": "^5.16.5",
     "@shopify/hydrogen-react": "^2026.4.4",
+    "@types/three": "^0.187.0",
     "@vercel/blob": "^2.8.2",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
@@ -32,6 +34,7 @@
     "nodemailer": "^10.3.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "three": "^0.187.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

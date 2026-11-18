@@ -80,28 +80,27 @@ export function ProductCard({ product, priority = false }: { product: Product; p
           ) : (
             <div className="u-skeleton absolute inset-0" aria-hidden />
           )}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-ink/70 to-transparent" aria-hidden />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-ink/75 to-transparent" aria-hidden />
 
-          <div className="absolute left-2.5 top-2.5 flex max-w-[calc(100%-4rem)] flex-col items-start gap-1.5 sm:left-3 sm:top-3">
-            <span className="u-badge u-badge-cond bg-ink/60 backdrop-blur-sm" data-condition={product.condition}>
-              {CONDITION_LABELS[product.condition]}
-            </span>
-            {product.rarity !== "STANDARD" && (
+          <div className="absolute left-2.5 top-2.5 sm:left-3 sm:top-3">
+            {soldOut ? (
+              <span className="u-badge border-white/20 bg-ink/90 uppercase text-fog">Sold out</span>
+            ) : low ? (
+              <span className="u-badge border-red/60 bg-red text-white uppercase">Only {product.stock} left</span>
+            ) : product.rarity !== "STANDARD" ? (
               <span
                 className={cn(
-                  "u-badge uppercase backdrop-blur-sm",
-                  product.rarity === "UNIQUE"
-                    ? "border-violet/60 bg-violet/20 text-violet"
-                    : "border-orange/60 bg-orange/15 text-orange"
+                  "u-badge uppercase bg-ink/85",
+                  product.rarity === "UNIQUE" ? "border-violet/60 text-violet" : "border-orange/60 text-orange"
                 )}
               >
                 {RARITY_LABELS[product.rarity]}
               </span>
+            ) : (
+              <span className="u-badge u-badge-cond bg-ink/85" data-condition={product.condition}>
+                {CONDITION_LABELS[product.condition]}
+              </span>
             )}
-            {low && (
-              <span className="u-badge border-red/60 bg-red/90 uppercase text-white">Only {product.stock} left</span>
-            )}
-            {soldOut && <span className="u-badge border-white/15 bg-ink/80 uppercase backdrop-blur-sm">Sold out</span>}
           </div>
 
           <div className="absolute right-2.5 top-2.5 sm:right-3 sm:top-3">
@@ -111,14 +110,14 @@ export function ProductCard({ product, priority = false }: { product: Product; p
           <span
             className={cn(
               "u-badge absolute bottom-2.5 left-2.5 uppercase sm:bottom-3 sm:left-3",
-              product.featured ? "border-yellow/70 bg-yellow/95 text-ink" : "border-white/15 bg-ink/75 text-bone backdrop-blur-sm"
+              product.featured ? "border-yellow/70 bg-yellow text-ink" : "border-white/15 bg-ink/85 text-bone"
             )}
           >
             {dropLabel(product.dropNumber, product.id)}
           </span>
 
           {/* inspect cue — desktop hover only */}
-          <span className="pointer-events-none absolute bottom-3 right-3 hidden items-center gap-2 border border-white/20 bg-ink/70 px-3 py-2 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100 md:flex">
+          <span className="pointer-events-none absolute bottom-3 right-3 hidden items-center gap-2 border border-white/20 bg-ink/90 px-3 py-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100 md:flex">
             <span className="u-label text-bone">Inspect</span>
             <ArrowUpRight className="size-3.5 text-red" aria-hidden />
           </span>

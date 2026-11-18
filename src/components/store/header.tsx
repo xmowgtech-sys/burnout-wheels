@@ -75,7 +75,7 @@ export function Header() {
     <>
       <header
         className={`relative z-50 w-full transition-colors duration-300 ${
-          scrolled ? "border-b border-line bg-ink/85 backdrop-blur-md" : "border-b border-transparent"
+          scrolled ? "border-b border-line bg-ink/95" : "border-b border-transparent"
         }`}
       >
         <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-1 px-3 sm:px-4 md:h-[72px] md:gap-3 md:px-8">
@@ -163,25 +163,25 @@ export function Header() {
               <span className="u-label transition-colors group-hover:text-bone">Search</span>
               <kbd className="u-mono border border-line px-1 py-0.5 text-[9px] leading-none text-dim">⌘K</kbd>
             </button>
-            <button onClick={() => setSearchOpen(true)} className="grid size-10 place-items-center text-fog transition-colors hover:text-bone md:hidden" aria-label="Search">
+            <button onClick={() => setSearchOpen(true)} className="grid size-11 place-items-center text-fog transition-colors hover:text-bone md:hidden" aria-label="Search">
               <Search className="size-4" aria-hidden />
             </button>
-            <Link href="/wishlist" className="relative hidden size-10 place-items-center text-fog transition-colors hover:text-bone min-[360px]:grid" aria-label="Wishlist">
+            <Link href="/wishlist" className="relative hidden size-11 place-items-center text-fog transition-colors hover:text-bone min-[360px]:grid" aria-label="Wishlist">
               <Heart className="size-4 md:size-[17px]" aria-hidden />
               {store.wishlist.length > 0 && (
-                <span className="absolute right-0 top-0 grid size-4 place-items-center rounded-full bg-yellow text-[9px] font-bold text-ink">
+                <span className="absolute right-0.5 top-0.5 grid size-4 place-items-center bg-yellow text-[9px] font-bold text-ink">
                   {store.wishlist.length}
                 </span>
               )}
             </Link>
             <button
               onClick={store.openCart}
-              className="relative grid size-10 place-items-center text-fog transition-colors hover:text-bone"
+              className="relative grid size-11 place-items-center text-fog transition-colors hover:text-bone"
               aria-label={`Cart, ${store.count()} items`}
             >
               <ShoppingBag className="size-4 md:size-[17px]" aria-hidden />
               {store.count() > 0 && (
-                <span className="absolute right-0 top-0 grid size-4 place-items-center rounded-full bg-red text-[9px] font-bold text-white">
+                <span className="absolute right-0.5 top-0.5 grid size-4 place-items-center bg-red text-[9px] font-bold text-white">
                   {store.count()}
                 </span>
               )}
@@ -193,13 +193,13 @@ export function Header() {
 
       {/* mobile menu */}
       {menuOpen && (
-        <div className="fixed inset-0 z-[60] anim-fade md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
-          <div className="flex h-full flex-col bg-ink">
+        <div data-lenis-prevent className="fixed inset-0 z-[60] anim-fade md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+          <div className="flex h-full flex-col overflow-y-auto bg-ink">
             <div className="flex items-center justify-between border-b border-line px-4 py-4">
               <span className="u-label flex items-center gap-2">
-                <span className="u-live-dot" aria-hidden /> Pit lane index
+                <span className="size-1.5 bg-red" aria-hidden /> Pit lane index
               </span>
-              <button onClick={() => setMenuOpen(false)} className="u-btn u-btn-ghost px-2.5! py-2!" aria-label="Close menu">
+              <button onClick={() => setMenuOpen(false)} className="u-btn u-btn-ghost min-h-11 min-w-11 px-2.5! py-2!" aria-label="Close menu">
                 <X className="size-4" aria-hidden />
               </button>
             </div>
@@ -315,8 +315,8 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <div className="fixed inset-0 z-[65] anim-fade" role="dialog" aria-modal="true" aria-label="Search">
-      <button aria-label="Close search" onClick={onClose} className="absolute inset-0 bg-ink/85 backdrop-blur-md" />
+    <div data-lenis-prevent className="fixed inset-0 z-[65] anim-fade" role="dialog" aria-modal="true" aria-label="Search">
+      <button aria-label="Close search" onClick={onClose} className="absolute inset-0 bg-ink/90" />
       <div className="relative mx-auto flex h-full w-full max-w-3xl flex-col px-4 pt-20">
         <form onSubmit={go} className="flex items-center gap-3 border-b border-line-strong pb-4">
           <Search className="size-5 shrink-0 text-fog" aria-hidden />
@@ -330,12 +330,12 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
             type="search"
             enterKeyHint="search"
           />
-          <button type="button" onClick={onClose} className="u-btn u-btn-ghost px-2.5! py-2!" aria-label="Close search">
+          <button type="button" onClick={onClose} className="u-btn u-btn-ghost min-h-11 min-w-11 px-2.5! py-2!" aria-label="Close search">
             <X className="size-4" aria-hidden />
           </button>
         </form>
 
-        <div className="mt-6 flex-1 overflow-y-auto">
+        <div data-lenis-prevent className="mt-6 flex-1 overflow-y-auto">
           {busy && <p className="u-label">Scanning telemetry…</p>}
           {!busy && results.map((r) => (
             <Link key={r.id} href={`/product/${r.slug}`} onClick={onClose} className="group flex items-center gap-4 border-b border-line py-3">

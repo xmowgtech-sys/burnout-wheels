@@ -2,7 +2,6 @@ import { StoreProviders } from "@/components/store/providers";
 import { Header } from "@/components/store/header";
 import { Footer } from "@/components/store/footer";
 import { SmoothScroll } from "@/components/store/smooth-scroll";
-import { RaceLoader } from "@/components/store/loader";
 import { VisitsBeacon } from "@/components/store/visits-beacon";
 import { SiteMonitor } from "@/components/store/site-monitor";
 import { ConsentBanner } from "@/components/store/consent-banner";

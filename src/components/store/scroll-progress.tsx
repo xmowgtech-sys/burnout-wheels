@@ -27,10 +27,13 @@ export function ScrollProgress() {
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
+    const lenis = window.__bwLenis;
+    lenis?.on("scroll", onScroll);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
+      lenis?.off("scroll", onScroll);
     };
   }, []);
 

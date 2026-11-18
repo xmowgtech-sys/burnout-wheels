@@ -61,6 +61,12 @@ export async function POST(req: NextRequest) {
     return Response.json({
       ok: true,
       name: acc.name ?? acc.email,
+      account: {
+        id: acc.id,
+        email: acc.email,
+        name: acc.name,
+        picture: acc.picture ?? null,
+      },
     });
   } catch (err) {
     logEvent({

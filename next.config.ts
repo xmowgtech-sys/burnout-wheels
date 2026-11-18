@@ -13,6 +13,29 @@ const config: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],
   },
+  webpack: (cfg, { dev }) => {
+    if (dev) {
+      const existing = cfg.watchOptions?.ignored;
+      const existingStrings = Array.isArray(existing)
+        ? existing.filter((x: unknown): x is string => typeof x === "string" && x.length > 0)
+        : typeof existing === "string" && existing.length > 0
+          ? [existing]
+          : ["**/node_modules/**", "**/.git/**", "**/.next/**"];
+      cfg.watchOptions = {
+        ...cfg.watchOptions,
+        aggregateTimeout: 300,
+        ignored: Array.from(
+          new Set([
+            ...existingStrings,
+            "**/data/**",
+            "**/.playwright-cli/**",
+            "**/tsconfig.tsbuildinfo",
+          ])
+        ),
+      };
+    }
+    return cfg;
+  },
 };
 
 export default config;

@@ -61,15 +61,16 @@ export function ensureSeedProducts(db: DatabaseSync): void {
     const ts = nowIso();
     const insert = db.prepare(
       `INSERT INTO products (slug, name, brand, category, scale, condition, description, highlights, tags, images,
-         priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropAt, imageFit, imagePosition, createdAt, updatedAt)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         priceSale, priceCost, feePercent, stock, lowStockThreshold, status, featured, dropNumber, rarity, dropAt, imageFit, imagePosition, createdAt, updatedAt)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT(slug) DO NOTHING`
     );
     const deletedSlugs = new Set(
       (db.prepare("SELECT slug FROM deleted_products").all() as { slug: string }[]).map((r) => r.slug)
     );
-    for (const p of SEED_PRODUCTS) {
-      if (deletedSlugs.has(p.slug)) continue;
+    SEED_PRODUCTS.forEach((p, index) => {
+      if (deletedSlugs.has(p.slug)) return;
+      const rarity = /\brare\b|\bunique\b/i.test(p.tags) ? "RARE" : "STANDARD";
       insert.run(
         p.slug,
         p.name,
@@ -88,13 +89,15 @@ export function ensureSeedProducts(db: DatabaseSync): void {
         p.lowStockThreshold,
         p.status,
         p.featured,
+        index + 1,
+        rarity,
         p.dropAt,
         p.imageFit,
         p.imagePosition,
         ts,
         ts
       );
-    }
+    });
   } catch {}
 }
 

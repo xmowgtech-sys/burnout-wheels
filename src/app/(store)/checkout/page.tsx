@@ -20,6 +20,7 @@ import { useStore, useToast } from "@/components/store/providers";
 import { ShopPayButton } from "@/components/store/shop-pay-button";
 import { trackFlow } from "@/components/store/site-monitor";
 import { fmtUSD } from "@/lib/money";
+import { computeCheckoutPricing } from "@/lib/drop-stage";
 import { COD_ADVANCE_LABEL, COD_ADVANCE_PAISE, PAYMENT_HELP, codBalance } from "@/lib/payments";
 import type { CustomerAddress } from "@/lib/addresses";
 
@@ -85,22 +86,22 @@ export default function CheckoutPage() {
   const [otpErr, setOtpErr] = useState("");
   const [otpNotice, setOtpNotice] = useState("");
 
-  // Order flow state
-  const [pendingFormSubmit, setPendingFormSubmit] = useState(false);
-
   // Storage hydration fallback so cart is never lost on navigation/refresh
   const [fallbackLines, setFallbackLines] = useState<typeof store.lines>([]);
   const [cartHydrated, setCartHydrated] = useState(false);
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem("bw:cart:v1") || window.sessionStorage.getItem("bw:cart:v1");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setFallbackLines(parsed);
-          if (store.lines.length === 0) {
-            parsed.forEach((l) => store.add(l, l.qty));
+      const mustClear = window.sessionStorage.getItem("bw:cart:clear-pending") === "1";
+      if (!mustClear) {
+        const raw = window.localStorage.getItem("bw:cart:v1") || window.sessionStorage.getItem("bw:cart:v1");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setFallbackLines(parsed);
+            if (store.lines.length === 0) {
+              parsed.forEach((l) => store.add(l, l.qty, { openDrawer: false }));
+            }
           }
         }
       }
@@ -109,15 +110,23 @@ export default function CheckoutPage() {
     } finally {
       setCartHydrated(true);
     }
-  }, [store]);
+    // Run hydration fallback once on mount; store.add updates lines cleanly without opening the drawer
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const activeLines = store.lines.length > 0 ? store.lines : fallbackLines;
 
   const fmt = (n: number) => fmtUSD(n);
-  const subtotal = activeLines.reduce((n, l) => n + l.qty * l.price, 0);
-  const discount = applied?.amount ?? 0;
-  const shippingFee = subtotal - discount >= 249900 ? 0 : shippingMethod === "EXPRESS" ? 19900 : 9900;
-  const total = subtotal - discount + shippingFee;
+  const pricing = useMemo(
+    () =>
+      computeCheckoutPricing({
+        items: activeLines.map((l) => ({ price: l.price, qty: l.qty })),
+        shippingMethod,
+        discountAmount: applied?.amount ?? 0,
+      }),
+    [activeLines, shippingMethod, applied?.amount]
+  );
+  const { subtotal, discount, shippingFee, total } = pricing;
 
   // Check login status on mount & fetch saved addresses
   useEffect(() => {
@@ -718,11 +727,22 @@ export default function CheckoutPage() {
                     />
                   </label>
                   <label>
+                    <span className="u-label-txt">Billing State</span>
+                    <input
+                      value={billingState}
+                      onChange={(e) => setBillingState(e.target.value)}
+                      required={!sameAsShipping}
+                      className="u-input mt-1.5 text-xs"
+                    />
+                  </label>
+                  <label>
                     <span className="u-label-txt">Billing PIN Code</span>
                     <input
                       value={billingPincode}
-                      onChange={(e) => setBillingPincode(e.target.value)}
+                      onChange={(e) => setBillingPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                       required={!sameAsShipping}
+                      pattern="\d{6}"
+                      inputMode="numeric"
                       className="u-input mt-1.5 text-xs"
                     />
                   </label>
@@ -1025,7 +1045,7 @@ export default function CheckoutPage() {
                   <button
                     type="submit"
                     disabled={otpBusy}
-                    className="u-btn u-btn-secondary w-full py-2.5! text-xs font-semibold"
+                    className="u-btn u-btn-ghost w-full py-2.5! text-xs font-semibold"
                   >
                     {otpBusy ? "Sending 6-digit code…" : "Send 6-digit OTP"}
                   </button>

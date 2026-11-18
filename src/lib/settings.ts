@@ -2,8 +2,7 @@ import { cache } from "react";
 import { getDb, nowIso, run } from "./db";
 import type { DiscordSettings, StorefrontSettings, TrustpilotSettings } from "./types";
 
-export const DEFAULT_HERO_IMAGE =
-  "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b3/2024-08-25_Motorsport%2C_Formel_1%2C_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3937_by_Stepro.jpg/1920px-2024-08-25_Motorsport%2C_Formel_1%2C_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3937_by_Stepro.jpg";
+export const DEFAULT_HERO_IMAGE = "/images/hero-pitlane.jpg";
 
 export const DEFAULT_STOREFRONT: StorefrontSettings = {
   shipping: { standard: 9900, express: 19900, freeOver: 249900 },

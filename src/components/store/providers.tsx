@@ -69,7 +69,7 @@ interface StoreState {
   mounted: boolean;
   count: () => number;
   subtotal: () => number;
-  add: (line: Omit<CartLine, "qty">, qty?: number) => void;
+  add: (line: Omit<CartLine, "qty">, qty?: number, opts?: { openDrawer?: boolean }) => void;
   setQty: (productId: number, qty: number) => void;
   remove: (productId: number) => void;
   clear: () => void;
@@ -184,7 +184,7 @@ function StoreProvider({ children }: { children: ReactNode }) {
     if (initialLoadDone.current) writeJson(LIST_KEY, wishlist);
   }, [wishlist]);
 
-  const add = useCallback((line: Omit<CartLine, "qty">, qty = 1) => {
+  const add = useCallback((line: Omit<CartLine, "qty">, qty = 1, opts?: { openDrawer?: boolean }) => {
     trackFlow("cart_add", { productId: line.productId });
     setLines((prev) => {
       const existing = prev.find((l) => l.productId === line.productId);
@@ -195,7 +195,7 @@ function StoreProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { ...line, qty }];
     });
-    setCartOpen(true);
+    if (opts?.openDrawer !== false) setCartOpen(true);
   }, []);
 
   const setQty = useCallback((productId: number, qty: number) => {
@@ -288,6 +288,7 @@ function CartDrawer() {
       <button aria-label="Close cart" onClick={closeCart} className="absolute inset-0 bg-ink/70 backdrop-blur-sm" />
       <div
         ref={panelRef}
+        data-lenis-prevent
         className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-line bg-coal anim-drawer"
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-4">

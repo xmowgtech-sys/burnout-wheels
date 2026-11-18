@@ -90,7 +90,7 @@ export interface ProductQuery {
 export function listProducts(query: ProductQuery = {}): Product[] {
   const db = getDb();
   const where: string[] = [];
-  const params: string[] = [];
+  const params: (string | number)[] = [];
 
   if (query.status && query.status !== "ALL") {
     where.push("status = ?");
@@ -156,7 +156,7 @@ export function listProducts(query: ProductQuery = {}): Product[] {
 export function productCount(query: ProductQuery): number {
   const db = getDb();
   const where: string[] = [];
-  const params: string[] = [];
+  const params: (string | number)[] = [];
   if (query.status && query.status !== "ALL") {
     where.push("status = ?");
     params.push(query.status);

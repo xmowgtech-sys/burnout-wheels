@@ -1,10 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Heart, Minus, Plus, ShoppingCart, X, Star, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Heart, Images, Minus, Plus, Rotate3d, ShoppingCart, X, Star, Zap } from "lucide-react";
 import { useStore, useToast } from "./providers";
 import { trackFlow } from "@/components/store/site-monitor";
 import { fmtUSD } from "@/lib/money";
@@ -13,77 +14,169 @@ import { CONDITION_LABELS, type Product } from "@/lib/types";
 import { COD_ADVANCE_LABEL } from "@/lib/payments";
 import { cn, prefersReducedMotion, clamp } from "@/lib/utils";
 
+const Pdp360Viewer = dynamic(
+  () => import("./pdp-360-viewer").then((m) => m.Pdp360Viewer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="relative flex aspect-[16/11] w-full items-center justify-center border border-line bg-[#090a0c] sm:aspect-[4/3]">
+        <span className="u-label text-fog">Initializing 360° Studio…</span>
+      </div>
+    ),
+  }
+);
+
 /* ---------------- gallery ---------------- */
 
 export function Gallery({ product }: { product: Product }) {
   const images = product.images.length ? product.images : [];
+  const [mode, setMode] = useState<"360" | "photo">("360");
   const [idx, setIdx] = useState(0);
   const [zoom, setZoom] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
 
-  if (images.length === 0) {
-    return <div className="u-media aspect-[4/3] w-full"><div className="u-skeleton absolute inset-0" aria-hidden /></div>;
-  }
-  const current = images[idx]!;
+  const current = images[idx] ?? null;
 
   return (
-    <div className="flex flex-col gap-3">
-      <div
-        ref={mainRef}
-        className={cn("u-media relative aspect-[16/11] w-full cursor-zoom-in sm:aspect-[4/3]", zoom && "cursor-zoom-out")}
-        onClick={() => setZoom((z) => !z)}
-        onMouseMove={(e) => {
-          if (!zoom || prefersReducedMotion() || e.currentTarget === null) return;
-          const r = e.currentTarget.getBoundingClientRect();
-          const x = clamp(((e.clientX - r.left) / r.width) * 100, 0, 100);
-          const y = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
-          const img = mainRef.current?.querySelector("img");
-          if (img) img.style.transformOrigin = `${x}% ${y}%`;
-        }}
-        aria-label="Product image, click to zoom"
-      >
-        <Image
-          src={current}
-          alt={`${product.name} — view ${idx + 1}`}
-          fill
-          priority
-          sizes="(min-width: 1024px) 60vw, 100vw"
-          className={cn(imageFitClass(product.imageFit, product.imagePosition), "transition-transform duration-500", zoom && "scale-[2.2]")}
-        />
-        <div className="pointer-events-none absolute left-3 top-3 flex gap-2">
-          <span className="u-badge bg-ink/70 backdrop-blur-sm">Reference photography</span>
+    <div className="flex min-w-0 w-full flex-col gap-3">
+      {/* Mode Switcher: Interactive 360° 3D View vs Reference Catalog Photos */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="inline-flex border border-line bg-panel" role="tablist" aria-label="Product inspection mode">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "360"}
+            onClick={() => {
+              setMode("360");
+              setZoom(false);
+            }}
+            className={cn(
+              "inline-flex min-h-[40px] items-center gap-2 px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors",
+              mode === "360" ? "bg-red text-bone" : "text-fog hover:text-bone"
+            )}
+          >
+            <Rotate3d className="size-3.5" aria-hidden />
+            <span>360° 3D View</span>
+          </button>
+          {images.length > 0 && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "photo"}
+              onClick={() => setMode("photo")}
+              className={cn(
+                "inline-flex min-h-[40px] items-center gap-2 border-l border-line px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors",
+                mode === "photo" ? "bg-bone text-ink" : "text-fog hover:text-bone"
+              )}
+            >
+              <Images className="size-3.5" aria-hidden />
+              <span>Photos ({images.length})</span>
+            </button>
+          )}
         </div>
+        <span className="hidden text-[11px] uppercase tracking-[0.12em] text-fog sm:inline">
+          {mode === "360" ? "Interactive Orbit" : "Click image to zoom"}
+        </span>
       </div>
 
-      {images.length > 1 && (
-        <div className="flex items-center gap-3">
-          <button
-            className="u-btn u-btn-ghost px-3! py-2.5!"
-            onClick={() => setIdx((i) => (i - 1 + images.length) % images.length)}
-            aria-label="Previous image"
-          >
-            <ArrowLeft className="size-4" aria-hidden />
-          </button>
-          <div className="flex flex-1 gap-2 overflow-x-auto">
+      {mode === "360" ? (
+        <Pdp360Viewer product={product} />
+      ) : current ? (
+        <div
+          ref={mainRef}
+          className={cn("u-media relative aspect-[16/11] w-full cursor-zoom-in sm:aspect-[4/3]", zoom && "cursor-zoom-out")}
+          onClick={() => setZoom((z) => !z)}
+          onMouseMove={(e) => {
+            if (!zoom || prefersReducedMotion() || e.currentTarget === null) return;
+            const r = e.currentTarget.getBoundingClientRect();
+            const x = clamp(((e.clientX - r.left) / r.width) * 100, 0, 100);
+            const y = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
+            const img = mainRef.current?.querySelector("img");
+            if (img) img.style.transformOrigin = `${x}% ${y}%`;
+          }}
+          aria-label="Product image, click to zoom"
+        >
+          <Image
+            src={current}
+            alt={`${product.name} — view ${idx + 1}`}
+            fill
+            priority
+            sizes="(min-width: 1024px) 60vw, 100vw"
+            className={cn(imageFitClass(product.imageFit, product.imagePosition), "transition-transform duration-500", zoom && "scale-[2.2]")}
+          />
+          <div className="pointer-events-none absolute left-3 top-3 flex gap-2">
+            <span className="u-badge bg-ink/85">Reference photography</span>
+          </div>
+        </div>
+      ) : (
+        <div className="u-media aspect-[4/3] w-full">
+          <div className="u-skeleton absolute inset-0" aria-hidden />
+        </div>
+      )}
+
+      {/* Thumbnail Strip (includes quick return tile to 360° 3D Spin + all product photos) */}
+      {images.length > 0 && (
+        <div className="flex items-center gap-2.5">
+          {mode === "photo" && images.length > 1 && (
+            <button
+              type="button"
+              className="u-btn u-btn-ghost px-3! py-2.5!"
+              onClick={() => setIdx((i) => (i - 1 + images.length) % images.length)}
+              aria-label="Previous image"
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+            </button>
+          )}
+
+          <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("360");
+                setZoom(false);
+              }}
+              aria-label="Inspect interactive 360-degree 3D view"
+              aria-current={mode === "360"}
+              className={cn(
+                "relative flex aspect-[4/3] w-20 shrink-0 flex-col items-center justify-center gap-1 border bg-[#090a0c] text-[10px] font-bold uppercase tracking-[0.12em] transition-all",
+                mode === "360" ? "border-red text-bone ring-1 ring-red" : "border-line text-fog hover:border-fog/50 hover:text-bone"
+              )}
+            >
+              <Rotate3d className="size-4 text-red" aria-hidden />
+              <span>360° 3D</span>
+            </button>
+
             {images.map((src, i) => (
               <button
                 key={src}
-                onClick={() => setIdx(i)}
-                className={cn("u-media relative aspect-[4/3] size-20 shrink-0 transition-opacity", i === idx ? "opacity-100 ring-2 ring-red" : "opacity-55 hover:opacity-85")}
-                aria-label={`Show image ${i + 1}`}
-                aria-current={i === idx}
+                type="button"
+                onClick={() => {
+                  setMode("photo");
+                  setIdx(i);
+                  setZoom(false);
+                }}
+                className={cn(
+                  "u-media relative aspect-[4/3] size-20 shrink-0 transition-opacity",
+                  mode === "photo" && i === idx ? "opacity-100 ring-2 ring-red" : "opacity-60 hover:opacity-90"
+                )}
+                aria-label={`Show photo ${i + 1}`}
+                aria-current={mode === "photo" && i === idx}
               >
                 <Image src={src} alt="" fill sizes="80px" className={imageFitClass(product.imageFit, product.imagePosition)} />
               </button>
             ))}
           </div>
-          <button
-            className="u-btn u-btn-ghost px-3! py-2.5!"
-            onClick={() => setIdx((i) => (i + 1) % images.length)}
-            aria-label="Next image"
-          >
-            <ArrowRight className="size-4" aria-hidden />
-          </button>
+
+          {mode === "photo" && images.length > 1 && (
+            <button
+              type="button"
+              className="u-btn u-btn-ghost px-3! py-2.5!"
+              onClick={() => setIdx((i) => (i + 1) % images.length)}
+              aria-label="Next image"
+            >
+              <ArrowRight className="size-4" aria-hidden />
+            </button>
+          )}
         </div>
       )}
     </div>
