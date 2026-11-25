@@ -344,6 +344,50 @@ export function updateProduct(id: number, input: ProductInput, actor: string): P
   return product;
 }
 
+/**
+ * Atomically increments a product's inventory stock by `addQty` and records
+ * a `product.restock` entry in the admin activity log.
+ */
+export function restockProduct(
+  id: number,
+  addQty: number,
+  actor: string
+): { product: Product; previousStock: number } | null {
+  if (!Number.isInteger(addQty) || addQty <= 0) {
+    throw new Error("Restock quantity must be a positive integer");
+  }
+  const db = getDb();
+  let previousStock = 0;
+  beginWrite(db);
+  try {
+    const existing = db.prepare("SELECT id, slug, stock FROM products WHERE id = ?").get(id) as
+      | { id: number; slug: string; stock: number }
+      | undefined;
+    if (!existing) {
+      db.exec("ROLLBACK;");
+      return null;
+    }
+    previousStock = existing.stock;
+    const nextStock = previousStock + addQty;
+    const ts = nowIso();
+    db.prepare("UPDATE products SET stock = ?, updatedAt = ? WHERE id = ?").run(nextStock, ts, id);
+    db.prepare("INSERT INTO activityLog (actor, action, entity, detail, createdAt) VALUES (?,?,?,?,?)").run(
+      actor,
+      "product.restock",
+      existing.slug,
+      `+${addQty} units (${previousStock} → ${nextStock})`,
+      ts
+    );
+    db.exec("COMMIT;");
+  } catch (err) {
+    db.exec("ROLLBACK;");
+    throw err;
+  }
+  const product = getProductById(id);
+  if (!product) return null;
+  return { product, previousStock };
+}
+
 /** Deletes the product row. Order history keeps its name/slug/image snapshot, so the
  *  only link we sever is orderItems.productId (nullable by design). This is what the
  *  owner expects from "Delete" — archiving left the row visible and looked like a failure. */

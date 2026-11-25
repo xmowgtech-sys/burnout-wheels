@@ -108,13 +108,11 @@ export default async function ShopPage({
         />
 
         <section className="py-8 md:py-14" aria-label="Products">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <p className="u-label" aria-live="polite">
-              {products.length} {products.length === 1 ? "unit" : "units"} on grid{q ? ` for “${q}”` : ""}
-            </p>
-            <p className="u-label hidden sm:block">
-              Sorted ·{" "}
-              {sort === "price-asc"
+          <ShopProductsGrid
+            initialProducts={products}
+            query={q || undefined}
+            sortLabel={
+              sort === "price-asc"
                 ? "price low → high"
                 : sort === "price-desc"
                   ? "price high → low"
@@ -124,11 +122,9 @@ export default async function ShopPage({
                       ? "rare / unique first"
                       : sort === "name-asc"
                         ? "name A → Z"
-                        : "newest first"}
-            </p>
-          </div>
-
-          <ShopProductsGrid initialProducts={products} />
+                        : "newest first"
+            }
+          />
         </section>
       </div>
     </>

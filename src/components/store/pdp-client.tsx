@@ -1,90 +1,86 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Heart, Images, Minus, Plus, Rotate3d, ShoppingCart, X, Star, Zap } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  GitCompareArrows,
+  Heart,
+  Maximize2,
+  Minus,
+  Plus,
+  Share2,
+  ShoppingCart,
+  Star,
+  X,
+  Zap,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { useStore, useToast } from "./providers";
 import { trackFlow } from "@/components/store/site-monitor";
 import { fmtUSD } from "@/lib/money";
 import { imageFitClass } from "@/lib/images";
 import { CONDITION_LABELS, type Product } from "@/lib/types";
+import { productToCompareItem } from "@/lib/collector-utils";
 import { COD_ADVANCE_LABEL } from "@/lib/payments";
 import { cn, prefersReducedMotion, clamp } from "@/lib/utils";
-
-const Pdp360Viewer = dynamic(
-  () => import("./pdp-360-viewer").then((m) => m.Pdp360Viewer),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="relative flex aspect-[16/11] w-full items-center justify-center border border-line bg-[#090a0c] sm:aspect-[4/3]">
-        <span className="u-label text-fog">Initializing 360° Studio…</span>
-      </div>
-    ),
-  }
-);
 
 /* ---------------- gallery ---------------- */
 
 export function Gallery({ product }: { product: Product }) {
   const images = product.images.length ? product.images : [];
-  const [mode, setMode] = useState<"360" | "photo">("360");
   const [idx, setIdx] = useState(0);
   const [zoom, setZoom] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
+  const lightboxCloseRef = useRef<HTMLButtonElement>(null);
 
   const current = images[idx] ?? null;
 
+  useEffect(() => {
+    setIdx(0);
+    setZoom(false);
+    setLightboxOpen(false);
+  }, [product.id]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    lightboxCloseRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+      if (images.length > 1) {
+        if (e.key === "ArrowRight") setIdx((i) => (i + 1) % images.length);
+        if (e.key === "ArrowLeft") setIdx((i) => (i - 1 + images.length) % images.length);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [lightboxOpen, images.length]);
+
+  const prevImage = () => {
+    setZoom(false);
+    setIdx((i) => (i - 1 + images.length) % images.length);
+  };
+
+  const nextImage = () => {
+    setZoom(false);
+    setIdx((i) => (i + 1) % images.length);
+  };
+
   return (
     <div className="flex min-w-0 w-full flex-col gap-3">
-      {/* Mode Switcher: Interactive 360° 3D View vs Reference Catalog Photos */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="inline-flex border border-line bg-panel" role="tablist" aria-label="Product inspection mode">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === "360"}
-            onClick={() => {
-              setMode("360");
-              setZoom(false);
-            }}
-            className={cn(
-              "inline-flex min-h-[40px] items-center gap-2 px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors",
-              mode === "360" ? "bg-red text-bone" : "text-fog hover:text-bone"
-            )}
-          >
-            <Rotate3d className="size-3.5" aria-hidden />
-            <span>360° 3D View</span>
-          </button>
-          {images.length > 0 && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "photo"}
-              onClick={() => setMode("photo")}
-              className={cn(
-                "inline-flex min-h-[40px] items-center gap-2 border-l border-line px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors",
-                mode === "photo" ? "bg-bone text-ink" : "text-fog hover:text-bone"
-              )}
-            >
-              <Images className="size-3.5" aria-hidden />
-              <span>Photos ({images.length})</span>
-            </button>
-          )}
-        </div>
-        <span className="hidden text-[11px] uppercase tracking-[0.12em] text-fog sm:inline">
-          {mode === "360" ? "Interactive Orbit" : "Click image to zoom"}
-        </span>
-      </div>
-
-      {mode === "360" ? (
-        <Pdp360Viewer product={product} />
-      ) : current ? (
+      {current ? (
         <div
           ref={mainRef}
-          className={cn("u-media relative aspect-[16/11] w-full cursor-zoom-in sm:aspect-[4/3]", zoom && "cursor-zoom-out")}
+          className={cn(
+            "u-media group relative aspect-[16/11] w-full overflow-hidden border border-line sm:aspect-[4/3]",
+            zoom ? "cursor-zoom-out" : "cursor-zoom-in"
+          )}
           onClick={() => setZoom((z) => !z)}
           onMouseMove={(e) => {
             if (!zoom || prefersReducedMotion() || e.currentTarget === null) return;
@@ -94,7 +90,9 @@ export function Gallery({ product }: { product: Product }) {
             const img = mainRef.current?.querySelector("img");
             if (img) img.style.transformOrigin = `${x}% ${y}%`;
           }}
-          aria-label="Product image, click to zoom"
+          onMouseLeave={() => {
+            if (zoom) setZoom(false);
+          }}
         >
           <Image
             src={current}
@@ -102,11 +100,83 @@ export function Gallery({ product }: { product: Product }) {
             fill
             priority
             sizes="(min-width: 1024px) 60vw, 100vw"
-            className={cn(imageFitClass(product.imageFit, product.imagePosition), "transition-transform duration-500", zoom && "scale-[2.2]")}
+            className={cn(
+              imageFitClass(product.imageFit, product.imagePosition),
+              "transition-transform duration-500",
+              zoom && "scale-[2.2]"
+            )}
           />
-          <div className="pointer-events-none absolute left-3 top-3 flex gap-2">
-            <span className="u-badge bg-ink/85">Reference photography</span>
+
+          {/* Top-left angle counter */}
+          {images.length > 0 && (
+            <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2">
+              <span className="u-mono border border-line-strong bg-ink/85 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-bone backdrop-blur-sm">
+                {String(idx + 1).padStart(2, "0")} / {String(images.length).padStart(2, "0")}
+              </span>
+            </div>
+          )}
+
+          {/* Top-right studio tools: Zoom toggle & Fullscreen lightbox */}
+          <div
+            className="absolute right-3 top-3 flex items-center gap-1.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setZoom((z) => !z)}
+              aria-label={zoom ? "Reset photo zoom" : "Zoom in on photo"}
+              aria-pressed={zoom}
+              className="grid size-10 place-items-center border border-line-strong bg-ink/85 text-bone backdrop-blur-sm transition-colors hover:border-red hover:text-red"
+              title={zoom ? "Reset zoom" : "Zoom photo"}
+            >
+              {zoom ? <ZoomOut className="size-4" aria-hidden /> : <ZoomIn className="size-4" aria-hidden />}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setZoom(false);
+                setLightboxOpen(true);
+              }}
+              aria-label="Open fullscreen photo lightbox"
+              className="grid size-10 place-items-center border border-line-strong bg-ink/85 text-bone backdrop-blur-sm transition-colors hover:border-red hover:text-red"
+              title="Fullscreen view"
+            >
+              <Maximize2 className="size-4" aria-hidden />
+            </button>
           </div>
+
+          {/* Stage prev/next arrows for multi-angle sets */}
+          {images.length > 1 && !zoom && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  prevImage();
+                }}
+                aria-label="Previous photo"
+                className="absolute left-3 top-1/2 grid size-10 -translate-y-1/2 place-items-center border border-line-strong bg-ink/80 text-bone opacity-90 transition-all hover:border-red hover:text-red md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+              >
+                <ArrowLeft className="size-4" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  nextImage();
+                }}
+                aria-label="Next photo"
+                className="absolute right-3 top-1/2 grid size-10 -translate-y-1/2 place-items-center border border-line-strong bg-ink/80 text-bone opacity-90 transition-all hover:border-red hover:text-red md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+              >
+                <ArrowRight className="size-4" aria-hidden />
+              </button>
+            </>
+          )}
+
+          {/* Subtle bottom-left interaction hint */}
+          <span className="pointer-events-none absolute bottom-3 left-3 hidden border border-line bg-ink/80 px-2.5 py-1 u-mono text-[10px] uppercase tracking-[0.14em] text-fog sm:inline-block">
+            {zoom ? "Move cursor to pan · click to reset" : "Click to inspect · macro zoom"}
+          </span>
         </div>
       ) : (
         <div className="u-media aspect-[4/3] w-full">
@@ -114,68 +184,128 @@ export function Gallery({ product }: { product: Product }) {
         </div>
       )}
 
-      {/* Thumbnail Strip (includes quick return tile to 360° 3D Spin + all product photos) */}
-      {images.length > 0 && (
+      {/* Thumbnail filmstrip */}
+      {images.length > 1 && (
         <div className="flex items-center gap-2.5">
-          {mode === "photo" && images.length > 1 && (
-            <button
-              type="button"
-              className="u-btn u-btn-ghost px-3! py-2.5!"
-              onClick={() => setIdx((i) => (i - 1 + images.length) % images.length)}
-              aria-label="Previous image"
-            >
-              <ArrowLeft className="size-4" aria-hidden />
-            </button>
-          )}
+          <button
+            type="button"
+            className="u-btn u-btn-ghost px-3! py-2.5!"
+            onClick={prevImage}
+            aria-label="Previous image"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+          </button>
 
           <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
-            <button
-              type="button"
-              onClick={() => {
-                setMode("360");
-                setZoom(false);
-              }}
-              aria-label="Inspect interactive 360-degree 3D view"
-              aria-current={mode === "360"}
-              className={cn(
-                "relative flex aspect-[4/3] w-20 shrink-0 flex-col items-center justify-center gap-1 border bg-[#090a0c] text-[10px] font-bold uppercase tracking-[0.12em] transition-all",
-                mode === "360" ? "border-red text-bone ring-1 ring-red" : "border-line text-fog hover:border-fog/50 hover:text-bone"
-              )}
-            >
-              <Rotate3d className="size-4 text-red" aria-hidden />
-              <span>360° 3D</span>
-            </button>
-
             {images.map((src, i) => (
               <button
                 key={src}
                 type="button"
                 onClick={() => {
-                  setMode("photo");
                   setIdx(i);
                   setZoom(false);
                 }}
                 className={cn(
-                  "u-media relative aspect-[4/3] size-20 shrink-0 transition-opacity",
-                  mode === "photo" && i === idx ? "opacity-100 ring-2 ring-red" : "opacity-60 hover:opacity-90"
+                  "u-media relative aspect-[4/3] w-20 shrink-0 transition-opacity",
+                  i === idx ? "opacity-100 ring-2 ring-red" : "opacity-60 hover:opacity-90"
                 )}
                 aria-label={`Show photo ${i + 1}`}
-                aria-current={mode === "photo" && i === idx}
+                aria-current={i === idx}
               >
                 <Image src={src} alt="" fill sizes="80px" className={imageFitClass(product.imageFit, product.imagePosition)} />
               </button>
             ))}
           </div>
 
-          {mode === "photo" && images.length > 1 && (
+          <button
+            type="button"
+            className="u-btn u-btn-ghost px-3! py-2.5!"
+            onClick={nextImage}
+            aria-label="Next image"
+          >
+            <ArrowRight className="size-4" aria-hidden />
+          </button>
+        </div>
+      )}
+
+      {/* Fullscreen Lightbox Modal */}
+      {lightboxOpen && current && (
+        <div
+          className="fixed inset-0 z-[85] flex flex-col bg-ink/95 backdrop-blur-md anim-fade"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${product.name} fullscreen photo gallery`}
+        >
+          <div className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="u-mono text-xs uppercase tracking-[0.16em] text-red">
+                {String(idx + 1).padStart(2, "0")} / {String(images.length).padStart(2, "0")}
+              </span>
+              <span className="truncate text-sm font-semibold text-bone">{product.name}</span>
+            </div>
             <button
+              ref={lightboxCloseRef}
               type="button"
-              className="u-btn u-btn-ghost px-3! py-2.5!"
-              onClick={() => setIdx((i) => (i + 1) % images.length)}
-              aria-label="Next image"
+              onClick={() => setLightboxOpen(false)}
+              aria-label="Close fullscreen gallery"
+              className="u-btn u-btn-ghost min-h-10 min-w-10 px-2.5! py-2!"
             >
-              <ArrowRight className="size-4" aria-hidden />
+              <X className="size-4" aria-hidden />
             </button>
+          </div>
+
+          <div className="relative flex flex-1 items-center justify-center p-4 sm:p-8">
+            <div className="relative h-full max-h-[75dvh] w-full max-w-5xl">
+              <Image
+                src={current}
+                alt={`${product.name} — fullscreen view ${idx + 1}`}
+                fill
+                sizes="95vw"
+                className="object-contain"
+                priority
+              />
+            </div>
+
+            {images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={prevImage}
+                  aria-label="Previous fullscreen photo"
+                  className="absolute left-3 top-1/2 grid size-11 -translate-y-1/2 place-items-center border border-line-strong bg-coal/90 text-bone transition-colors hover:border-red hover:text-red sm:left-6"
+                >
+                  <ArrowLeft className="size-4" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={nextImage}
+                  aria-label="Next fullscreen photo"
+                  className="absolute right-3 top-1/2 grid size-11 -translate-y-1/2 place-items-center border border-line-strong bg-coal/90 text-bone transition-colors hover:border-red hover:text-red sm:right-6"
+                >
+                  <ArrowRight className="size-4" aria-hidden />
+                </button>
+              </>
+            )}
+          </div>
+
+          {images.length > 1 && (
+            <div className="flex items-center justify-center gap-2 overflow-x-auto border-t border-line px-4 py-3">
+              {images.map((src, i) => (
+                <button
+                  key={src}
+                  type="button"
+                  onClick={() => setIdx(i)}
+                  aria-label={`Fullscreen photo ${i + 1}`}
+                  aria-current={i === idx}
+                  className={cn(
+                    "u-media relative aspect-[4/3] w-16 shrink-0 transition-opacity",
+                    i === idx ? "opacity-100 ring-2 ring-red" : "opacity-50 hover:opacity-90"
+                  )}
+                >
+                  <Image src={src} alt="" fill sizes="64px" className="object-cover" />
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -190,7 +320,10 @@ export function BuyPanel({ product }: { product: Product }) {
   const router = useRouter();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
+  const [copied, setCopied] = useState(false);
   const soldOut = product.stock <= 0;
+  const inComp = store.inCompare(product.id);
+  const inWish = store.inWishlist(product.id);
 
   const line = {
     productId: product.id,
@@ -207,19 +340,46 @@ export function BuyPanel({ product }: { product: Product }) {
   }, [product.id]);
 
   const handlePlaceOrderNow = () => {
-    store.add(line, qty);
+    store.add(line, qty, { openDrawer: false });
     router.push("/checkout");
+  };
+
+  const handleCompare = () => {
+    const status = store.toggleCompare(productToCompareItem(product));
+    if (status === "added") toast(`${product.name} added to compare tray`);
+    else if (status === "removed") toast("Removed from compare tray", "info");
+    else toast("Compare tray holds up to 3 cars — remove one first", "err");
+  };
+
+  const handleShare = async () => {
+    const url = typeof window !== "undefined" ? window.location.href : `/product/${product.slug}`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+      setCopied(true);
+      toast("Product link copied to clipboard");
+      window.setTimeout(() => setCopied(false), 2200);
+    } catch {
+      toast("Link ready to share from your address bar", "info");
+    }
   };
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center border border-line">
-          <button className="px-4 py-3 text-fog transition-colors hover:text-bone" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity">
+          <button
+            type="button"
+            className="px-4 py-3 text-fog transition-colors hover:text-bone"
+            onClick={() => setQty((q) => Math.max(1, q - 1))}
+            aria-label="Decrease quantity"
+          >
             <Minus className="size-3.5" aria-hidden />
           </button>
           <span className="u-mono min-w-10 text-center text-sm">{qty}</span>
           <button
+            type="button"
             className="px-4 py-3 text-fog transition-colors hover:text-bone disabled:opacity-30"
             onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
             disabled={qty >= product.stock}
@@ -228,30 +388,60 @@ export function BuyPanel({ product }: { product: Product }) {
             <Plus className="size-3.5" aria-hidden />
           </button>
         </div>
-        <button
-          onClick={() => {
-            store.toggleWishlist(line);
-            toast(store.inWishlist(product.id) ? "Removed from wishlist" : "Saved to wishlist", store.inWishlist(product.id) ? "info" : "ok");
-          }}
-          className={cn("u-btn u-btn-ghost !px-4 !py-3", store.inWishlist(product.id) && "!text-red")}
-          aria-pressed={store.inWishlist(product.id)}
-          aria-label="Toggle wishlist"
-        >
-          <Heart className={cn("size-4", store.inWishlist(product.id) && "fill-red")} aria-hidden />
-        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCompare}
+            className={cn(
+              "u-btn u-btn-ghost px-3.5! py-3! text-[11px]!",
+              inComp && "border-sky/60! bg-sky/10! text-sky!"
+            )}
+            aria-pressed={inComp}
+            aria-label={inComp ? `Remove ${product.name} from compare` : `Compare ${product.name}`}
+          >
+            <GitCompareArrows className="size-4" aria-hidden />
+            <span className="hidden sm:inline">{inComp ? "Comparing" : "Compare"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleShare}
+            className="u-btn u-btn-ghost px-3.5! py-3!"
+            aria-label="Share product link"
+            title="Copy product link"
+          >
+            {copied ? <Check className="size-4 text-mint" aria-hidden /> : <Share2 className="size-4" aria-hidden />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              store.toggleWishlist(line);
+              toast(inWish ? "Removed from wishlist" : "Saved to wishlist", inWish ? "info" : "ok");
+            }}
+            className={cn("u-btn u-btn-ghost !px-4 !py-3", inWish && "!text-red")}
+            aria-pressed={inWish}
+            aria-label={inWish ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
+          >
+            <Heart className={cn("size-4", inWish && "fill-red")} aria-hidden />
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2.5">
         <button
+          type="button"
           onClick={handlePlaceOrderNow}
           disabled={soldOut}
           className="u-btn u-btn-primary w-full py-4! text-xs font-bold flex items-center justify-center gap-2"
         >
-          <Zap className="size-4 text-yellow" />
+          <Zap className="size-4 text-yellow" aria-hidden />
           <span>{soldOut ? "Sold out" : `Place Order Now — ${fmtUSD(product.priceSale * qty)}`}</span>
         </button>
 
         <button
+          type="button"
           onClick={() => {
             store.add(line, qty);
             toast(`${product.name} × ${qty} loaded into cart`);
@@ -267,9 +457,9 @@ export function BuyPanel({ product }: { product: Product }) {
       {soldOut ? (
         <p className="u-label-txt">Next allocation drops soon — join the newsletter for first call.</p>
       ) : product.stock <= product.lowStockThreshold ? (
-        <p className="u-label-txt text-yellow!">⚠ Only {product.stock} in the paddock — first come, first served</p>
+        <p className="u-label-txt text-yellow!">Only {product.stock} in the paddock — first come, first served</p>
       ) : (
-        <p className="u-label-txt">✓ In stock · reserved when the order is placed</p>
+        <p className="u-label-txt">In stock · reserved when the order is placed</p>
       )}
 
       <p className="u-label-txt">
@@ -432,25 +622,28 @@ export function MobileBuyBar({ product }: { product: Product }) {
             {product.stock <= product.lowStockThreshold && product.stock > 0 ? ` · only ${product.stock} left` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <button
+            type="button"
             onClick={() => {
-              store.add(line, 1);
+              store.add(line, 1, { openDrawer: false });
               router.push("/checkout");
             }}
             disabled={soldOut}
-            className="u-btn u-btn-primary py-2.5 px-4 text-[11px] font-bold flex items-center gap-1.5 whitespace-nowrap"
+            className="u-btn u-btn-primary min-h-11 px-3.5! py-2.5! text-[11px]! font-bold flex items-center gap-1.5 whitespace-nowrap"
           >
-            <Zap className="size-3 text-yellow" />
-            <span className="truncate max-w-[140px]">Place Order — {fmtUSD(product.priceSale)}</span>
+            <Zap className="size-3 shrink-0 text-yellow" aria-hidden />
+            <span>{soldOut ? "Sold out" : `Order · ${fmtUSD(product.priceSale)}`}</span>
           </button>
           <button
+            type="button"
             onClick={() => {
               store.add(line, 1);
               toast(`${product.name} added to cart`);
             }}
             disabled={soldOut}
-            className="u-btn u-btn-ghost py-2.5 px-3 text-[11px] font-semibold flex items-center gap-1.5 whitespace-nowrap"
+            aria-label={`Add ${product.name} to cart`}
+            className="u-btn u-btn-ghost min-h-11 min-w-11 px-3! py-2.5! text-[11px]! font-semibold flex items-center justify-center whitespace-nowrap"
           >
             <ShoppingCart className="size-3.5" aria-hidden />
           </button>

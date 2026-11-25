@@ -21,6 +21,7 @@ import { StatusBadge, ConfirmDialog } from "@/components/admin/admin-ui";
 import { AdminOrderDrawer } from "@/components/admin/order-detail-drawer";
 import { fmtUSD, fmtDate } from "@/lib/money";
 import { formatOrderSummary } from "@/lib/order-summary";
+import type { OrderNotificationSummary } from "@/lib/notifications";
 import type { OrderWithRelations, OrderStatus, OpsEvent, SyncLog } from "@/lib/types";
 
 /* -------------------------------------------------------------
@@ -31,6 +32,7 @@ export function OrderActions({ order }: { order: OrderWithRelations }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [success, setSuccess] = useState("");
+  const [lastWaLink, setLastWaLink] = useState<string | null>(null);
 
   const [trackingC, setTrackingC] = useState("");
   const [trackingN, setTrackingN] = useState("");
@@ -44,14 +46,18 @@ export function OrderActions({ order }: { order: OrderWithRelations }) {
   const [confirmRestore, setConfirmRestore] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const showFeedback = (msg: string, isErr = false) => {
+  const showFeedback = (msg: string, isErr = false, waLink: string | null = null) => {
     if (isErr) {
       setErr(msg);
       setSuccess("");
+      setLastWaLink(null);
     } else {
       setSuccess(msg);
       setErr("");
-      setTimeout(() => setSuccess(""), 4000);
+      setLastWaLink(waLink);
+      if (!waLink) {
+        setTimeout(() => setSuccess(""), 4500);
+      }
     }
   };
 
@@ -64,9 +70,33 @@ export function OrderActions({ order }: { order: OrderWithRelations }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = (await res.json()) as { error?: string; message?: string };
+      const data = (await res.json()) as {
+        error?: string;
+        message?: string;
+        notifications?: OrderNotificationSummary | null;
+      };
       if (!res.ok) throw new Error(data.error || "Update failed");
-      showFeedback(successNote || data.message || "Order updated successfully!");
+      const notif = data.notifications;
+      const parts = [successNote || data.message || "Order updated successfully!"];
+      let waFallback: string | null = null;
+      if (notif) {
+        const emailLabel = notif.email.delivered
+          ? "Email sent"
+          : notif.email.attempted
+            ? "Email logged"
+            : null;
+        const waLabel = notif.whatsapp.delivered
+          ? "WhatsApp sent"
+          : notif.whatsapp.waLink
+            ? "WhatsApp ready"
+            : null;
+        const summary = [emailLabel, waLabel].filter(Boolean).join(" · ");
+        if (summary) parts.push(summary);
+        if (!notif.whatsapp.delivered && notif.whatsapp.waLink) {
+          waFallback = notif.whatsapp.waLink;
+        }
+      }
+      showFeedback(parts.join(" — "), false, waFallback);
       router.refresh();
     } catch (e) {
       showFeedback(e instanceof Error ? e.message : "Update failed", true);
@@ -124,11 +154,32 @@ export function OrderActions({ order }: { order: OrderWithRelations }) {
         </div>
       )}
       {success && (
-        <div role="status" className="border border-mint bg-mint/10 px-4 py-3 text-[13px] text-mint rounded flex items-center justify-between">
+        <div role="status" className="border border-mint bg-mint/10 px-4 py-3 text-[13px] text-mint rounded flex flex-wrap items-center justify-between gap-3">
           <span className="flex items-center gap-1.5 font-medium">
-            <Check className="size-4" /> {success}
+            <Check className="size-4 shrink-0" /> {success}
           </span>
-          <button type="button" onClick={() => setSuccess("")} className="text-mint font-bold ml-2">×</button>
+          <div className="flex items-center gap-2 ml-auto">
+            {lastWaLink && (
+              <a
+                href={lastWaLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="u-btn u-btn-primary bg-mint! text-ink! text-[11px]! font-bold py-1! px-2.5! inline-flex items-center gap-1"
+              >
+                Send WhatsApp Update <ExternalLink className="size-3" />
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setSuccess("");
+                setLastWaLink(null);
+              }}
+              className="text-mint font-bold ml-1"
+            >
+              ×
+            </button>
+          </div>
         </div>
       )}
 

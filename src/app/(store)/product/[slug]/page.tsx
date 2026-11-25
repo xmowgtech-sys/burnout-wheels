@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
 import { Gallery, BuyPanel, ReviewLauncher, Stars, MobileBuyBar } from "@/components/store/pdp-client";
+import { RecentlyViewedStrip, RecentlyViewedTracker } from "@/components/store/recently-viewed";
 import { ShopPayButton } from "@/components/store/shop-pay-button";
 import { ProductCard } from "@/components/store/product-card";
 import { Reveal } from "@/components/store/reveal";
@@ -255,6 +256,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </div>
         )}
       </section>
+
+      <RecentlyViewedTracker product={product} />
+      <RecentlyViewedStrip excludeId={product.id} />
 
       <MobileBuyBar product={product} />
     </div>

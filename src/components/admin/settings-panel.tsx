@@ -12,17 +12,25 @@ type DiscordPanelValues = DiscordSettings & {
   envAdmin: boolean;
 };
 
+type NotificationStatus = {
+  smtpConfigured: boolean;
+  whatsappCloudConfigured: boolean;
+  whatsappWebhookConfigured: boolean;
+};
+
 export function SettingsPanel({
   storefront,
   trustpilot,
   payments,
   discord,
+  notifications,
   products,
 }: {
   storefront: StorefrontSettings;
   trustpilot: TrustpilotSettings;
   payments: { keyId: string; upiVpa: string; secretSet: boolean };
   discord: DiscordPanelValues;
+  notifications?: NotificationStatus;
   products: Product[];
 }) {
   const router = useRouter();
@@ -411,13 +419,15 @@ export function SettingsPanel({
       <section className="u-card p-5" aria-labelledby="dc-h">
         <p id="dc-h" className="u-label">Discord order routing</p>
         <p className="u-label-txt mt-2">
-          Paste a channel webhook URL, not a server invite. Invites cannot receive webhook posts. Billing gets a compact
-          customer + cart message with a “Checkout this order” button; the admin webhook is the full private order log.
+          Public <code className="font-mono text-bone">DISCORD_WEBHOOK_URL</code> / <code className="font-mono text-bone">#billing</code>{" "}
+          posts are privacy-masked (<code className="font-mono text-bone">[Name - Am***T, Order ID - BW-XXXXXX-0Q]</code>) with zero
+          personal details and a bottom <code className="font-mono text-bone">Make Payment with this Order ID</code> button linking to{" "}
+          <code className="font-mono text-bone">#checkout</code>. Set a separate private admin webhook only if you want full unmasked staff logs.
         </p>
         <div className="mt-4 grid gap-4">
           <label className="block">
             <span className="u-label-txt">
-              Billing channel webhook — #💳・billing{" "}
+              Public billing channel webhook — #💳・billing (privacy-masked){" "}
               {discord.effectiveBilling ? <span className="u-badge ml-2 border-mint text-mint">connected</span> : <span className="u-badge ml-2 border-yellow text-yellow">not set</span>}
             </span>
             <input
@@ -429,8 +439,8 @@ export function SettingsPanel({
           </label>
           <label className="block">
             <span className="u-label-txt">
-              Admin order log webhook — private staff channel{" "}
-              {discord.effectiveAdmin ? <span className="u-badge ml-2 border-mint text-mint">connected</span> : <span className="u-badge ml-2 border-yellow text-yellow">not set</span>}
+              Admin order log webhook — private staff channel (optional){" "}
+              {discord.effectiveAdmin ? <span className="u-badge ml-2 border-mint text-mint">connected</span> : <span className="u-badge ml-2 border-line text-dim">optional</span>}
             </span>
             <input
               value={disc.adminWebhookUrl}
@@ -440,11 +450,11 @@ export function SettingsPanel({
             />
           </label>
           <label className="block">
-            <span className="u-label-txt">“Checkout this order” link — #✅・checkout</span>
+            <span className="u-label-txt">“Make Payment with this Order ID” link — #checkout</span>
             <input
               value={disc.checkoutUrl}
               onChange={(e) => setDisc({ ...disc, checkoutUrl: e.target.value })}
-              placeholder="https://discord.gg/…"
+              placeholder="https://discord.com/invite/6QVmX4kbez"
               className="u-input mt-1.5 font-mono! text-[13px]!"
             />
           </label>
@@ -456,11 +466,58 @@ export function SettingsPanel({
         </div>
         <div className="mt-6 flex flex-wrap gap-3">
           <button onClick={saveDiscord} disabled={busy} className="u-btn u-btn-primary">Save Discord routing</button>
-          <button onClick={() => testDiscord("billing")} disabled={busy} className="u-btn u-btn-ghost">Test billing webhook</button>
+          <button onClick={() => testDiscord("billing")} disabled={busy} className="u-btn u-btn-ghost">Test public masked webhook</button>
           <button onClick={() => testDiscord("admin")} disabled={busy} className="u-btn u-btn-ghost">Test admin webhook</button>
         </div>
         {testMsg && <p className="u-label-txt mt-3" role="status">{testMsg}</p>}
       </section>
+
+      {/* automated customer order notifications */}
+      {notifications && (
+        <section className="u-card p-5" aria-labelledby="notif-h">
+          <p id="notif-h" className="u-label">Automated customer order alerts — Email &amp; WhatsApp</p>
+          <p className="u-label-txt mt-2">
+            Whenever an order changes status (Accepted/Paid, Processing, Packing, Shipped, Delivered, Cancelled, or Refunded),
+            Burnout Wheels automatically alerts the customer via Email and WhatsApp using server environment variables.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="border border-line bg-ink/40 p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[13px] font-semibold text-bone">Email status alerts (SMTP)</span>
+                {notifications.smtpConfigured ? (
+                  <span className="u-badge border-mint text-mint">live SMTP</span>
+                ) : (
+                  <span className="u-badge border-yellow text-yellow">outbox log</span>
+                )}
+              </div>
+              <p className="u-label-txt mt-1.5">
+                {notifications.smtpConfigured
+                  ? "Branded HTML + text status emails send automatically via SMTP."
+                  : "Set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD on the server for live email delivery. Drafts are saved in the mail log."}
+              </p>
+            </div>
+            <div className="border border-line bg-ink/40 p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[13px] font-semibold text-bone">WhatsApp status alerts</span>
+                {notifications.whatsappCloudConfigured ? (
+                  <span className="u-badge border-mint text-mint">Cloud API</span>
+                ) : notifications.whatsappWebhookConfigured ? (
+                  <span className="u-badge border-mint text-mint">Webhook</span>
+                ) : (
+                  <span className="u-badge border-sky text-sky">1-click wa.me</span>
+                )}
+              </div>
+              <p className="u-label-txt mt-1.5">
+                {notifications.whatsappCloudConfigured
+                  ? "Dispatched automatically via Meta WhatsApp Business Cloud API."
+                  : notifications.whatsappWebhookConfigured
+                    ? "Dispatched automatically via configured WHATSAPP_WEBHOOK_URL."
+                    : "Set WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID (or WHATSAPP_WEBHOOK_URL) on the server for hands-free dispatch. A 1-click WhatsApp link is shown on each order update."}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

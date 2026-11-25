@@ -10,6 +10,7 @@ import type { CustomerAddress } from "./addresses";
 import { fmtUSD } from "./money";
 import { orderAddress, orderPaymentStatus, orderTaxesTotal } from "./order-summary";
 import { siteUrl } from "./site";
+import { buildPublicDiscordOrderPayload, DEFAULT_DISCORD_CHECKOUT_URL } from "./notifications";
 
 /* ---------------- status flow ---------------- */
 
@@ -351,14 +352,15 @@ export async function notifyDiscordOrder(
       })
     : [];
 
+  const checkoutLink = checkoutUrl || DEFAULT_DISCORD_CHECKOUT_URL;
   const checkoutButton = {
     type: 1,
     components: [
       {
         type: 2,
         style: 5,
-        label: "Checkout this order",
-        url: checkoutUrl || "https://discord.gg/6QVmX4kbez",
+        label: "Make Payment with this Order ID (#checkout)",
+        url: checkoutLink,
       },
     ],
   };
@@ -367,37 +369,20 @@ export async function notifyDiscordOrder(
   const footer = { text: `Burnout Wheels · ${siteUrl()}` };
   const color = result.paymentChannel === "WHATSAPP" ? 3066993 : 15548997;
 
-  /* ---------------- billing message: name + cart + checkout button ---------------- */
-  const billingPayload: DiscordPayload = {
-    content: `🏎️ **New Burnout Wheels order #${result.number}** — ${customerName}`,
-    allowed_mentions: { parse: [] },
-    embeds: [
-      {
-        title: `Order #${result.number}`,
-        description: `${units > 0 ? `${units} item unit${units === 1 ? "" : "s"}` : "Cart"} · ${fmtUSD(total)} · ${
-          order?.shippingMethod ?? text(input.shippingMethod, "standard")
-        } shipping`,
-        color,
-        fields: [
-          { name: "Customer", value: clamp(`${customerName}\n${customerEmail}`), inline: true },
-          { name: "Phone", value: clamp(phone), inline: true },
-          { name: "Deliver to", value: clamp(address), inline: false },
-          {
-            name: `Cart${units > 0 ? ` (${units} unit${units === 1 ? "" : "s"})` : ""}`,
-            value: clamp(itemLines.length > 0 ? itemLines.join("\n") : `Order total ${fmtUSD(total)}`),
-            inline: false,
-          },
-          { name: "TOTAL", value: `**${fmtUSD(total)}**`, inline: true },
-          { name: "Payment", value: clamp(`${result.paymentMethod}${result.paymentChannel ? ` · via ${result.paymentChannel}` : ""}`), inline: true },
-        ],
-        footer,
-        timestamp,
-      },
-    ],
-    components: [checkoutButton],
-  };
+  /* ---------------- billing / DISCORD_WEBHOOK_URL: privacy-masked public message ---------------- */
+  const billingPayload: DiscordPayload = buildPublicDiscordOrderPayload({
+    orderNumber: result.number,
+    customerName,
+    totalMinor: total,
+    units,
+    paymentMethod: result.paymentMethod,
+    paymentChannel: result.paymentChannel,
+    shippingMethod: order?.shippingMethod ?? text(input.shippingMethod, "STANDARD"),
+    items: order?.items,
+    checkoutUrl: checkoutLink,
+  });
 
-  /* ---------------- admin message: full private order log ---------------- */
+  /* ---------------- admin message: full private order log (dedicated admin webhook only) ---------------- */
   const adminFields: DiscordField[] = [
     { name: "Customer", value: clamp(`${customerName}\n${customerEmail}`), inline: true },
     { name: "Phone", value: clamp(phone), inline: true },
@@ -461,19 +446,25 @@ export async function notifyDiscordOrder(
 
   const targets: { label: string; url: string; payload: DiscordPayload }[] = [];
   if (billing) targets.push({ label: "billing", url: billing, payload: billingPayload });
+  // Only post unmasked private details to a distinct, dedicated admin webhook.
   if (admin && admin !== billing) targets.push({ label: "admin", url: admin, payload: adminPayload });
-  // Same webhook for both channels: send one combined message rather than duplicates.
-  if (billing && admin && admin === billing) {
-    targets[0] = { label: "billing+admin", url: billing, payload: adminPayload };
-  }
 
   const post = async (target: { label: string; url: string; payload: DiscordPayload }) => {
-    const res = await fetch(target.url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      signal: AbortSignal.timeout(5000),
-      body: JSON.stringify(target.payload),
-    });
+    const send = (body: DiscordPayload) =>
+      fetch(target.url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        signal: AbortSignal.timeout(5000),
+        body: JSON.stringify(body),
+      });
+
+    let res = await send(target.payload);
+    // Standard user-created Discord webhooks may reject `components` with 400; retry with markdown CTA preserved.
+    if (!res.ok && res.status === 400 && "components" in target.payload) {
+      const { components: _ignored, ...fallbackPayload } = target.payload;
+      void _ignored;
+      res = await send(fallbackPayload);
+    }
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(

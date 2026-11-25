@@ -1,4 +1,5 @@
 import { getDb } from "./db";
+import { parseProduct } from "./catalog";
 import { REVENUE_STATUSES, type Product, type OrderStatus } from "./types";
 import { lastMonthKeys, daysAgoIso } from "./utils";
 
@@ -190,14 +191,20 @@ export interface LowStockItem {
   product: Product;
 }
 
-export function lowStockProducts(): Product[] {
+export function lowStockProducts(limit = 50): Product[] {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT * FROM products WHERE status = 'ACTIVE' AND stock <= lowStockThreshold ORDER BY stock ASC LIMIT 20`
+      `SELECT * FROM products
+       WHERE status = 'ACTIVE' AND stock <= lowStockThreshold
+       ORDER BY CASE WHEN stock <= 0 THEN 0 ELSE 1 END ASC,
+                (CAST(stock AS REAL) / MAX(lowStockThreshold, 1)) ASC,
+                stock ASC,
+                name COLLATE NOCASE ASC
+       LIMIT ?`
     )
-    .all() as unknown as (Omit<Product, "featured"> & { featured: number })[];
-  return rows.map((r) => ({ ...r, featured: r.featured === 1 }));
+    .all(limit) as Parameters<typeof parseProduct>[0][];
+  return rows.map(parseProduct);
 }
 
 export interface InventoryStat {

@@ -11,6 +11,7 @@ export interface MailDraft {
   to: string;
   subject: string;
   body: string; // text; links only ever point at our own origin
+  html?: string;
 }
 
 interface SendResult {
@@ -36,6 +37,7 @@ export async function sendMail(draft: MailDraft): Promise<SendResult> {
         to: draft.to,
         subject: draft.subject,
         text: draft.body,
+        ...(draft.html ? { html: draft.html } : {}),
       });
       delivered = true;
       note = "sent via SMTP";

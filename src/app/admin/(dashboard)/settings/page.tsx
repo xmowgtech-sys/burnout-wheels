@@ -3,6 +3,7 @@ import { getStorefront, getTrustpilot, getDiscord, resolveDiscordWebhooks } from
 import { listProducts } from "@/lib/catalog";
 import { ensureCatalogHydrated } from "@/lib/catalog-store";
 import { getPayments } from "@/lib/razorpay";
+import { getNotificationProviderStatus } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Settings · Pit wall", robots: { index: false } };
@@ -12,6 +13,7 @@ export default async function SettingsAdminPage() {
   const pay = getPayments();
   const savedDiscord = getDiscord();
   const effectiveDiscord = resolveDiscordWebhooks();
+  const notifications = getNotificationProviderStatus();
   return (
     <div className="flex flex-col gap-8">
       <header>
@@ -23,6 +25,7 @@ export default async function SettingsAdminPage() {
         trustpilot={getTrustpilot()}
         products={listProducts({ status: "ACTIVE", limit: 200, sort: "newest" })}
         payments={{ keyId: pay?.razorpayKeyId ?? "", upiVpa: pay?.upiVpa ?? "", secretSet: Boolean(pay?.razorpayKeyId) }}
+        notifications={notifications}
         discord={{
           ...savedDiscord,
           effectiveBilling: effectiveDiscord.billing,
@@ -32,11 +35,7 @@ export default async function SettingsAdminPage() {
               process.env.DISCORD_ORDERS_WEBHOOK_URL?.trim() ||
               process.env.DISCORD_WEBHOOK_URL?.trim()
           ),
-          envAdmin: Boolean(
-            process.env.DISCORD_ADMIN_WEBHOOK_URL?.trim() ||
-              process.env.DISCORD_ORDERS_WEBHOOK_URL?.trim() ||
-              process.env.DISCORD_WEBHOOK_URL?.trim()
-          ),
+          envAdmin: Boolean(process.env.DISCORD_ADMIN_WEBHOOK_URL?.trim()),
         }}
       />
     </div>

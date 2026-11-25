@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, Package, TriangleAlert } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { AreaChart, BarChart, StatCard, Table, Td, StatusBadge } from "@/components/admin/admin-ui";
+import { LowStockMonitor } from "@/components/admin/low-stock-monitor";
 import { fmtUSD, fmtDate } from "@/lib/money";
 import { overview, monthlySeries, bestSellers, lowStockProducts } from "@/lib/finance";
 import { sessionsSince, recentActivity } from "@/lib/analytics";
@@ -96,44 +97,24 @@ export default async function AdminOverviewPage() {
         </Table>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section aria-label="Low stock">
-          <div className="mb-3 flex items-center gap-2">
-            <TriangleAlert className="size-4 text-yellow" aria-hidden />
-            <p className="u-label">Low stock</p>
-          </div>
-          {lowStock.length === 0 ? (
-            <p className="u-label-txt border border-line px-4 py-3 font-mono">All units above threshold.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {lowStock.map((p) => (
-                <li key={p.id} className="border border-line bg-coal/60 px-4 py-3">
-                  <Link href={`/admin/products/${p.id}`} className="text-[13px] font-semibold hover:text-red">{p.name}</Link>
-                  <p className="u-label-txt mt-1">{p.stock} left · threshold {p.lowStockThreshold}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-          <Link href="/admin/products" className="u-label mt-3 inline-flex items-center gap-1.5 hover:text-bone"><Package className="size-3" /> Inventory</Link>
-        </section>
+      <LowStockMonitor initialProducts={lowStock} />
 
-        <section aria-label="Recent activity">
-          <p className="u-label mb-3">Activity log</p>
-          {activity.length === 0 ? (
-            <p className="u-label-txt border border-line px-4 py-3 font-mono">Quiet pit lane.</p>
-          ) : (
-            <ul className="flex flex-col gap-1.5">
-              {activity.map((a) => (
-                <li key={a.id} className="flex items-baseline gap-3 border-b border-line pb-1.5 text-[12px]">
-                  <span className="u-mono font-bold text-red">{a.action}</span>
-                  <span className="truncate text-fog">{a.detail || a.entity}</span>
-                  <span className="u-label-txt ml-auto shrink-0">{a.actor}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
+      <section aria-label="Recent activity">
+        <p className="u-label mb-3">Activity log</p>
+        {activity.length === 0 ? (
+          <p className="u-label-txt border border-line px-4 py-3 font-mono">Quiet pit lane.</p>
+        ) : (
+          <ul className="flex flex-col gap-1.5">
+            {activity.map((a) => (
+              <li key={a.id} className="flex items-baseline gap-3 border-b border-line pb-1.5 text-[12px]">
+                <span className="u-mono font-bold text-red">{a.action}</span>
+                <span className="truncate text-fog">{a.detail || a.entity}</span>
+                <span className="u-label-txt ml-auto shrink-0">{a.actor}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

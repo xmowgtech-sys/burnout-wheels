@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Heart, Plus } from "lucide-react";
+import { Eye, GitCompareArrows, Heart, Plus } from "lucide-react";
 import Image from "next/image";
 import { useStore, useToast } from "./providers";
 import { fmtUSD } from "@/lib/money";
 import { imageFitClass } from "@/lib/images";
 import { CONDITION_LABELS, RARITY_LABELS, type Product } from "@/lib/types";
+import { productToCompareItem } from "@/lib/collector-utils";
 import { cn, dropLabel } from "@/lib/utils";
 
 export function WishlistHeart({ product, floating = false }: { product: Product; floating?: boolean }) {
@@ -16,6 +17,7 @@ export function WishlistHeart({ product, floating = false }: { product: Product;
 
   return (
     <button
+      type="button"
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -32,11 +34,11 @@ export function WishlistHeart({ product, floating = false }: { product: Product;
       aria-label={active ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
       aria-pressed={active}
       className={cn(
-        "grid size-11 place-items-center border transition-all",
+        "grid size-10 place-items-center border transition-all sm:size-11",
         floating
-          ? "border-line bg-ink/70 backdrop-blur-sm hover:border-line-strong"
+          ? "border-line bg-ink/80 backdrop-blur-sm hover:border-line-strong"
           : "border-line hover:border-line-strong",
-        active ? "border-rose/60 bg-rose/10 text-rose" : "text-fog hover:text-bone"
+        active ? "border-rose/60 bg-rose/15 text-rose" : "text-fog hover:text-bone"
       )}
     >
       <Heart className={cn("size-4", active && "fill-rose")} aria-hidden />
@@ -50,6 +52,8 @@ export function ProductCard({ product, priority = false }: { product: Product; p
   const soldOut = product.stock <= 0;
   const low = !soldOut && product.stock <= product.lowStockThreshold;
   const primary = product.images[0] ?? null;
+  const secondary = product.images[1] ?? null;
+  const comparing = store.inCompare(product.id);
 
   const add = () => {
     store.add({
@@ -64,67 +68,127 @@ export function ProductCard({ product, priority = false }: { product: Product; p
     toast(`${product.name} loaded into cart`);
   };
 
+  const handleCompare = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const status = store.toggleCompare(productToCompareItem(product));
+    if (status === "added") toast(`${product.name} added to compare tray`);
+    else if (status === "removed") toast("Removed from compare tray", "info");
+    else toast("Compare tray holds up to 3 cars — remove one first", "err");
+  };
+
+  const handleQuickView = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    store.openQuickView(product);
+  };
+
   return (
     <article className="group relative flex flex-col">
-      <Link href={`/product/${product.slug}`} className="relative block" aria-label={`View ${product.name}`}>
-        <div className="u-media u-duotone relative aspect-[4/3]">
-          {primary ? (
-            <Image
-              src={primary}
-              alt={product.name}
-              fill
-              sizes="(min-width: 1024px) 25vw, (min-width: 640px) 45vw, 46vw"
-              className={imageFitClass(product.imageFit, product.imagePosition)}
-              priority={priority}
-            />
-          ) : (
-            <div className="u-skeleton absolute inset-0" aria-hidden />
-          )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-ink/75 to-transparent" aria-hidden />
-
-          <div className="absolute left-2.5 top-2.5 sm:left-3 sm:top-3">
-            {soldOut ? (
-              <span className="u-badge border-white/20 bg-ink/90 uppercase text-fog">Sold out</span>
-            ) : low ? (
-              <span className="u-badge border-red/60 bg-red text-white uppercase">Only {product.stock} left</span>
-            ) : product.rarity !== "STANDARD" ? (
-              <span
-                className={cn(
-                  "u-badge uppercase bg-ink/85",
-                  product.rarity === "UNIQUE" ? "border-violet/60 text-violet" : "border-orange/60 text-orange"
+      <div className="relative">
+        <Link href={`/product/${product.slug}`} className="relative block" aria-label={`View ${product.name}`}>
+          <div className="u-media u-duotone relative aspect-[4/3] overflow-hidden">
+            {primary ? (
+              <>
+                <Image
+                  src={primary}
+                  alt={product.name}
+                  fill
+                  sizes="(min-width: 1024px) 25vw, (min-width: 640px) 45vw, 46vw"
+                  className={cn(
+                    imageFitClass(product.imageFit, product.imagePosition),
+                    "transition-opacity duration-500",
+                    secondary && "group-hover:opacity-0"
+                  )}
+                  priority={priority}
+                />
+                {secondary && (
+                  <Image
+                    src={secondary}
+                    alt={`${product.name} — alternate angle`}
+                    fill
+                    sizes="(min-width: 1024px) 25vw, (min-width: 640px) 45vw, 46vw"
+                    className={cn(
+                      imageFitClass(product.imageFit, product.imagePosition),
+                      "opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                    )}
+                  />
                 )}
-              >
-                {RARITY_LABELS[product.rarity]}
-              </span>
+              </>
             ) : (
-              <span className="u-badge u-badge-cond bg-ink/85" data-condition={product.condition}>
-                {CONDITION_LABELS[product.condition]}
-              </span>
+              <div className="u-skeleton absolute inset-0" aria-hidden />
             )}
-          </div>
 
-          <div className="absolute right-2.5 top-2.5 sm:right-3 sm:top-3">
-            <WishlistHeart product={product} floating />
-          </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-ink/75 to-transparent" aria-hidden />
 
-          <span
+            <div className="absolute left-2.5 top-2.5 sm:left-3 sm:top-3">
+              {soldOut ? (
+                <span className="u-badge border-white/20 bg-ink/90 uppercase text-fog">Sold out</span>
+              ) : low ? (
+                <span className="u-badge border-red/60 bg-red text-white uppercase">Only {product.stock} left</span>
+              ) : product.rarity !== "STANDARD" ? (
+                <span
+                  className={cn(
+                    "u-badge uppercase bg-ink/85",
+                    product.rarity === "UNIQUE" ? "border-violet/60 text-violet" : "border-orange/60 text-orange"
+                  )}
+                >
+                  {RARITY_LABELS[product.rarity]}
+                </span>
+              ) : (
+                <span className="u-badge u-badge-cond bg-ink/85" data-condition={product.condition}>
+                  {CONDITION_LABELS[product.condition]}
+                </span>
+              )}
+            </div>
+
+            <span
+              className={cn(
+                "u-badge absolute bottom-2.5 left-2.5 uppercase sm:bottom-3 sm:left-3",
+                product.featured ? "border-yellow/70 bg-yellow text-ink" : "border-white/15 bg-ink/85 text-bone"
+              )}
+            >
+              {dropLabel(product.dropNumber, product.id)}
+            </span>
+
+            <span className="u-spectrum absolute inset-x-0 bottom-0 h-[2px] origin-left scale-x-0 transition-transform duration-500 group-hover:scale-x-100" aria-hidden />
+          </div>
+        </Link>
+
+        {/* Top-right wishlist toggle — native button outside link to keep HTML valid */}
+        <div className="absolute right-2.5 top-2.5 z-10 sm:right-3 sm:top-3">
+          <WishlistHeart product={product} floating />
+        </div>
+
+        {/* Bottom-right Quick View & Compare controls */}
+        <div className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1.5 sm:bottom-3 sm:right-3">
+          <button
+            type="button"
+            onClick={handleCompare}
+            aria-pressed={comparing}
+            aria-label={comparing ? `Remove ${product.name} from compare` : `Compare ${product.name}`}
+            title={comparing ? "In compare tray" : "Compare specs"}
             className={cn(
-              "u-badge absolute bottom-2.5 left-2.5 uppercase sm:bottom-3 sm:left-3",
-              product.featured ? "border-yellow/70 bg-yellow text-ink" : "border-white/15 bg-ink/85 text-bone"
+              "grid size-9 place-items-center border backdrop-blur-sm transition-all sm:size-10",
+              comparing
+                ? "border-sky/70 bg-sky/20 text-sky opacity-100"
+                : "border-line bg-ink/85 text-fog hover:border-line-strong hover:text-bone md:opacity-80 md:group-hover:opacity-100 md:focus-visible:opacity-100"
             )}
           >
-            {dropLabel(product.dropNumber, product.id)}
-          </span>
+            <GitCompareArrows className="size-3.5" aria-hidden />
+          </button>
 
-          {/* inspect cue — desktop hover only */}
-          <span className="pointer-events-none absolute bottom-3 right-3 hidden items-center gap-2 border border-white/20 bg-ink/90 px-3 py-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100 md:flex">
-            <span className="u-label text-bone">Inspect</span>
-            <ArrowUpRight className="size-3.5 text-red" aria-hidden />
-          </span>
-
-          <span className="u-spectrum absolute inset-x-0 bottom-0 h-[2px] origin-left scale-x-0 transition-transform duration-500 group-hover:scale-x-100" aria-hidden />
+          <button
+            type="button"
+            onClick={handleQuickView}
+            aria-label={`Quick view ${product.name}`}
+            title="Quick view"
+            className="grid size-9 place-items-center border border-line bg-ink/85 text-bone backdrop-blur-sm transition-all hover:border-red hover:text-red sm:size-10 md:opacity-80 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+          >
+            <Eye className="size-3.5" aria-hidden />
+          </button>
         </div>
-      </Link>
+      </div>
 
       <div className="flex flex-1 items-start justify-between gap-2 pt-3 sm:gap-3 sm:pt-4">
         <div className="min-w-0">
@@ -141,6 +205,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
           <p className="u-mono mt-1.5 text-[13px] font-medium sm:mt-2 sm:text-[15px]">{fmtUSD(product.priceSale)}</p>
         </div>
         <button
+          type="button"
           onClick={add}
           disabled={soldOut}
           aria-label={soldOut ? `${product.name} is sold out` : `Add ${product.name} to cart`}

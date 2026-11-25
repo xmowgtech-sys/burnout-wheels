@@ -8,6 +8,16 @@ import Link from "next/link";
 import { X, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import { trackFlow } from "@/components/store/site-monitor";
 import { COD_ADVANCE_LABEL } from "@/lib/payments";
+import {
+  computeFreeShippingProgress,
+  isCompareItem,
+  safeParseArray,
+  toggleCompareItem,
+  type CompareItem,
+} from "@/lib/collector-utils";
+import type { Product } from "@/lib/types";
+import { QuickViewModal } from "./quick-view-modal";
+import { CompareOverlay } from "./compare-overlay";
 
 /* ========= toast ========= */
 
@@ -65,6 +75,9 @@ interface CartLine {
 interface StoreState {
   lines: CartLine[];
   wishlist: { productId: number; slug: string; name: string; price: number; image: string | null; condition: string }[];
+  compareItems: CompareItem[];
+  compareModalOpen: boolean;
+  quickViewProduct: Product | null;
   cartOpen: boolean;
   mounted: boolean;
   count: () => number;
@@ -77,6 +90,14 @@ interface StoreState {
   closeCart: () => void;
   toggleWishlist: (item: CartLine | { productId: number; slug: string; name: string; price: number; image: string | null; condition: string }) => void;
   inWishlist: (productId: number) => boolean;
+  toggleCompare: (item: CompareItem) => "added" | "removed" | "full";
+  removeCompare: (productId: number) => void;
+  clearCompare: () => void;
+  inCompare: (productId: number) => boolean;
+  openCompareModal: () => void;
+  closeCompareModal: () => void;
+  openQuickView: (product: Product) => void;
+  closeQuickView: () => void;
 }
 
 const CartCtx = createContext<StoreState | null>(null);
@@ -90,6 +111,7 @@ export function useStore(): StoreState {
 const CART_KEY = "bw:cart:v1";
 const CLEAR_FLAG = "bw:cart:clear-pending";
 const LIST_KEY = "bw:wishlist:v1";
+const COMPARE_KEY = "bw:compare:v1";
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -111,9 +133,14 @@ function writeJson(key: string, value: unknown): void {
 function StoreProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [wishlist, setWishlist] = useState<StoreState["wishlist"]>([]);
+  const [compareItems, setCompareItems] = useState<CompareItem[]>([]);
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const initialLoadDone = useRef(false);
+  const compareRef = useRef<CompareItem[]>([]);
+  compareRef.current = compareItems;
 
   useEffect(() => {
     let localLines: CartLine[] = [];
@@ -138,8 +165,15 @@ function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     const localWish = readJson<StoreState["wishlist"]>(LIST_KEY, []);
+    let localCompare: CompareItem[] = [];
+    try {
+      localCompare = safeParseArray(window.localStorage.getItem(COMPARE_KEY), isCompareItem);
+    } catch {
+      localCompare = [];
+    }
     setLines(localLines);
     setWishlist(localWish);
+    setCompareItems(localCompare);
     initialLoadDone.current = true;
     setMounted(true);
 
@@ -183,6 +217,10 @@ function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (initialLoadDone.current) writeJson(LIST_KEY, wishlist);
   }, [wishlist]);
+
+  useEffect(() => {
+    if (initialLoadDone.current) writeJson(COMPARE_KEY, compareItems);
+  }, [compareItems]);
 
   const add = useCallback((line: Omit<CartLine, "qty">, qty = 1, opts?: { openDrawer?: boolean }) => {
     trackFlow("cart_add", { productId: line.productId });
@@ -238,10 +276,39 @@ function StoreProvider({ children }: { children: ReactNode }) {
     }).catch(() => {});
   }, []);
 
+  const toggleCompare = useCallback((item: CompareItem): "added" | "removed" | "full" => {
+    const result = toggleCompareItem(compareRef.current, item);
+    if (result.status !== "full") {
+      setCompareItems(result.next);
+    }
+    return result.status;
+  }, []);
+
+  const removeCompare = useCallback((productId: number) => {
+    setCompareItems((prev) => {
+      const next = prev.filter((item) => item.id !== productId);
+      if (next.length < 2) setCompareModalOpen(false);
+      return next;
+    });
+  }, []);
+
+  const clearCompare = useCallback(() => {
+    setCompareItems([]);
+    setCompareModalOpen(false);
+  }, []);
+
+  const openCompareModal = useCallback(() => setCompareModalOpen(true), []);
+  const closeCompareModal = useCallback(() => setCompareModalOpen(false), []);
+  const openQuickView = useCallback((product: Product) => setQuickViewProduct(product), []);
+  const closeQuickView = useCallback(() => setQuickViewProduct(null), []);
+
   const value = useMemo<StoreState>(() => {
     return {
       lines,
       wishlist,
+      compareItems,
+      compareModalOpen,
+      quickViewProduct,
       cartOpen,
       mounted,
       count: () => lines.reduce((n, l) => n + l.qty, 0),
@@ -254,8 +321,38 @@ function StoreProvider({ children }: { children: ReactNode }) {
       closeCart,
       toggleWishlist,
       inWishlist: (productId) => wishlist.some((w) => w.productId === productId),
+      toggleCompare,
+      removeCompare,
+      clearCompare,
+      inCompare: (productId) => compareItems.some((c) => c.id === productId),
+      openCompareModal,
+      closeCompareModal,
+      openQuickView,
+      closeQuickView,
     };
-  }, [lines, wishlist, cartOpen, mounted, add, setQty, remove, clear, openCart, closeCart, toggleWishlist]);
+  }, [
+    lines,
+    wishlist,
+    compareItems,
+    compareModalOpen,
+    quickViewProduct,
+    cartOpen,
+    mounted,
+    add,
+    setQty,
+    remove,
+    clear,
+    openCart,
+    closeCart,
+    toggleWishlist,
+    toggleCompare,
+    removeCompare,
+    clearCompare,
+    openCompareModal,
+    closeCompareModal,
+    openQuickView,
+    closeQuickView,
+  ]);
 
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 }
@@ -280,8 +377,7 @@ function CartDrawer() {
   }, [cartOpen, closeCart]);
 
   if (!cartOpen) return null;
-  const freeOver = 249900;
-  const remaining = Math.max(0, freeOver - subtotal());
+  const shipping = computeFreeShippingProgress(subtotal());
 
   return (
     <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-label="Cart">
@@ -363,15 +459,25 @@ function CartDrawer() {
               ))}
             </div>
             <div className="border-t border-line px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-              {remaining > 0 ? (
-                <p className="u-label-txt">Add {fmt(remaining)} more for free shipping</p>
-              ) : (
-                <p className="u-label-txt text-mint">Free shipping unlocked</p>
-              )}
-              <div className="mt-2 h-1 w-full bg-white/10">
+              <div className="flex items-center justify-between gap-2">
+                {shipping.unlocked ? (
+                  <p className="u-label-txt text-mint!">Free pan-India shipping unlocked</p>
+                ) : (
+                  <p className="u-label-txt">Add {fmt(shipping.remaining)} more for free shipping</p>
+                )}
+                <span className="u-mono text-[10.5px] text-fog">{shipping.percent}%</span>
+              </div>
+              <div
+                className="mt-2 h-1.5 w-full bg-white/10"
+                role="progressbar"
+                aria-valuenow={shipping.percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Free shipping threshold progress"
+              >
                 <div
-                  className="u-spectrum h-full transition-[width] duration-500"
-                  style={{ width: `${Math.min(100, (subtotal() / freeOver) * 100)}%` }}
+                  className={shipping.unlocked ? "h-full bg-mint transition-[width] duration-500" : "u-spectrum h-full transition-[width] duration-500"}
+                  style={{ width: `${shipping.percent}%` }}
                 />
               </div>
               <div className="mt-4 flex items-center justify-between">
@@ -403,6 +509,8 @@ export function StoreProviders({ children }: { children: ReactNode }) {
       <StoreProvider>
         {children}
         <CartDrawer />
+        <QuickViewModal />
+        <CompareOverlay />
       </StoreProvider>
     </ToastProvider>
   );

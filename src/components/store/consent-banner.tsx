@@ -63,7 +63,7 @@ export function ConsentBanner() {
       aria-modal="false"
       aria-label="Cookie preferences"
       data-lenis-prevent
-      className="fixed inset-x-0 bottom-0 z-[80] border-t border-line-strong bg-coal/97 px-4 py-2.5 shadow-2xl md:px-6"
+      className="fixed inset-x-0 bottom-0 z-[50] border-t border-line-strong bg-coal/97 px-4 py-2.5 shadow-2xl md:px-6"
     >
       <div className="mx-auto max-w-[1500px]">
         {showPrefs ? (

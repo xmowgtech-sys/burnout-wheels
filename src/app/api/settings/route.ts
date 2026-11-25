@@ -11,6 +11,7 @@ import { getPayments, setPayments } from "@/lib/razorpay";
 import { requireApiUser, apiErrorResponse } from "@/lib/auth";
 import { logActivity } from "@/lib/analytics";
 import { ensureCatalogHydrated, persistCatalogSnapshot } from "@/lib/catalog-store";
+import { getNotificationProviderStatus } from "@/lib/notifications";
 import { discordSettingsSchema, storefrontSettingsSchema, trustpilotSettingsSchema } from "@/lib/validation";
 
 /** GET — current settings bundle (settings.manage). Secrets are never echoed. */
@@ -34,12 +35,9 @@ export async function GET() {
             process.env.DISCORD_ORDERS_WEBHOOK_URL?.trim() ||
             process.env.DISCORD_WEBHOOK_URL?.trim()
         ),
-        envAdmin: Boolean(
-          process.env.DISCORD_ADMIN_WEBHOOK_URL?.trim() ||
-            process.env.DISCORD_ORDERS_WEBHOOK_URL?.trim() ||
-            process.env.DISCORD_WEBHOOK_URL?.trim()
-        ),
+        envAdmin: Boolean(process.env.DISCORD_ADMIN_WEBHOOK_URL?.trim()),
       },
+      notifications: getNotificationProviderStatus(),
     });
   } catch (err) {
     return apiErrorResponse(err);

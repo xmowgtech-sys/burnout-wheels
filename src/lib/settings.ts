@@ -50,7 +50,7 @@ export const DEFAULT_TRUSTPILOT: TrustpilotSettings = {
   note: "Trustpilot profile is pending. Until a real profile is connected we show no customer scores anywhere on the site.",
 };
 
-export const DISCORD_CHECKOUT_URL = "https://discord.gg/6QVmX4kbez";
+export const DISCORD_CHECKOUT_URL = "https://discord.com/invite/6QVmX4kbez";
 
 export const DEFAULT_DISCORD: DiscordSettings = {
   billingWebhookUrl: "",
@@ -99,15 +99,17 @@ function envWebhook(...names: string[]): string {
 
 /**
  * Effective Discord routes. Admin-saved settings win over environment
- * variables so the owner can fix a wrong URL without a redeploy; the old
- * `DISCORD_ORDERS_WEBHOOK_URL` / `DISCORD_WEBHOOK_URL` names keep working.
+ * variables so the owner can fix a wrong URL without a redeploy.
+ * `DISCORD_WEBHOOK_URL` always routes to the privacy-masked public billing
+ * channel (never exposing raw personal details); private admin logs only post
+ * when a dedicated `DISCORD_ADMIN_WEBHOOK_URL` or saved admin webhook is set.
  */
 export function resolveDiscordWebhooks(): { billing: string; admin: string; checkoutUrl: string } {
   const saved = getDiscord();
-  const envBilling = envWebhook("DISCORD_BILLING_WEBHOOK_URL", "DISCORD_ORDERS_WEBHOOK_URL", "DISCORD_WEBHOOK_URL");
-  const envAdmin = envWebhook("DISCORD_ADMIN_WEBHOOK_URL", "DISCORD_ORDERS_WEBHOOK_URL", "DISCORD_WEBHOOK_URL");
+  const envBilling = envWebhook("DISCORD_BILLING_WEBHOOK_URL", "DISCORD_WEBHOOK_URL", "DISCORD_ORDERS_WEBHOOK_URL");
+  const envAdmin = envWebhook("DISCORD_ADMIN_WEBHOOK_URL");
   const billing = saved.billingWebhookUrl.trim() || envBilling;
-  const admin = saved.adminWebhookUrl.trim() || envAdmin || billing;
+  const admin = saved.adminWebhookUrl.trim() || envAdmin;
   return { billing, admin, checkoutUrl: saved.checkoutUrl.trim() || DISCORD_CHECKOUT_URL };
 }
 

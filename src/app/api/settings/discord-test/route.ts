@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireApiUser, apiErrorResponse } from "@/lib/auth";
 import { resolveDiscordWebhooks } from "@/lib/settings";
+import { buildPublicDiscordOrderPayload } from "@/lib/notifications";
 import { siteUrl } from "@/lib/site";
 
 const bodySchema = z.object({
@@ -39,24 +40,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const res = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      signal: AbortSignal.timeout(8000),
-      body: JSON.stringify({
-        content: `🧪 **Burnout Wheels test** — the ${parsed.data.target} webhook is connected.`,
-        allowed_mentions: { parse: [] },
-        embeds: [
-          {
-            title: `Discord ${parsed.data.target} test`,
-            description: "If you can read this inside the right channel, new orders will land here too.",
-            color: 3066993,
-            footer: { text: `Burnout Wheels · ${siteUrl()}` },
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      }),
-    });
+    const payload: Record<string, unknown> =
+      parsed.data.target === "billing"
+        ? buildPublicDiscordOrderPayload({
+            orderNumber: "BW-TEST01-0Q",
+            customerName: "Amanjot",
+            totalMinor: 49900,
+            units: 1,
+            paymentMethod: "UPI",
+            paymentChannel: "DISCORD",
+            shippingMethod: "STANDARD",
+            items: [{ name: "Red Bull Racing RB20 F1 (Test)", qty: 1, price: 49900, scale: "1:64" }],
+            checkoutUrl: effective.checkoutUrl,
+          })
+        : {
+            content: `🧪 **Burnout Wheels test** — the ${parsed.data.target} webhook is connected.`,
+            allowed_mentions: { parse: [] },
+            embeds: [
+              {
+                title: `Discord ${parsed.data.target} test`,
+                description: "If you can read this inside the right channel, private admin order logs will land here.",
+                color: 3066993,
+                footer: { text: `Burnout Wheels · ${siteUrl()}` },
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          };
+
+    const postTest = (body: Record<string, unknown>) =>
+      fetch(webhookUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        signal: AbortSignal.timeout(8000),
+        body: JSON.stringify(body),
+      });
+
+    let res = await postTest(payload);
+    if (!res.ok && res.status === 400 && "components" in payload) {
+      const { components: _ignored, ...fallback } = payload;
+      void _ignored;
+      res = await postTest(fallback);
+    }
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");

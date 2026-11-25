@@ -2,6 +2,8 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { rateLimit, ipOf } from "@/lib/auth";
 import { getPayments, verifyRazorpaySignature, markOrderPaid } from "@/lib/razorpay";
+import { adminGetOrder } from "@/lib/orders";
+import { notifyCustomerOrderStatusChange } from "@/lib/notifications";
 import { hydrateOrderByNumber, persistOrderByNumber } from "@/lib/order-store";
 import { logEvent } from "@/lib/ops";
 
@@ -34,9 +36,18 @@ export async function POST(req: NextRequest) {
     }
 
     await hydrateOrderByNumber(number, { refresh: true });
+    const previousOrder = adminGetOrder(number);
     const ok = markOrderPaid(number, razorpay_payment_id);
     if (!ok) return Response.json({ error: "Order not found." }, { status: 404 });
     await persistOrderByNumber(number);
+    const updatedOrder = adminGetOrder(number);
+    if (updatedOrder && previousOrder?.status !== "PAID") {
+      await notifyCustomerOrderStatusChange(
+        updatedOrder,
+        previousOrder?.status ?? "PENDING_PAYMENT",
+        `UPI payment verified (${razorpay_payment_id})`
+      );
+    }
     return Response.json({ ok: true, status: "PAID" });
   } catch (err) {
     logEvent({ source: "API", level: "ERROR", type: "api_fail", path: "/api/checkout/confirm", message: err instanceof Error ? err.message : "confirm crash" });

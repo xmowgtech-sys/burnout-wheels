@@ -16,6 +16,7 @@ import {
   type AdminOrderQuery,
 } from "@/lib/orders";
 import { requireApiUser, apiErrorResponse, rateLimit, ipOf } from "@/lib/auth";
+import { notifyCustomerOrderStatusChange } from "@/lib/notifications";
 import type { OrderStatus } from "@/lib/types";
 import {
   hydrateAllOrders,
@@ -175,6 +176,7 @@ export async function PATCH(req: NextRequest) {
           return Response.json({ error: "The catalog store is unavailable — the order was not changed. Try again in a minute." }, { status: 503 });
         }
       }
+      const previousStatus = target.status;
       const order = updateOrderStatus(id, {
         to: body.to as OrderStatus,
         note: body.note,
@@ -187,9 +189,13 @@ export async function PATCH(req: NextRequest) {
         await persistCatalogSnapshot({ hydrated: true });
       }
       await persistOrderSnapshot(order);
+      const notifications =
+        previousStatus !== order.status
+          ? await notifyCustomerOrderStatusChange(order, previousStatus, body.note)
+          : null;
       revalidatePath(`/admin/orders`);
       revalidatePath(`/admin/orders/${orderNumber}`);
-      return Response.json({ order });
+      return Response.json({ order, notifications });
     }
 
     if (

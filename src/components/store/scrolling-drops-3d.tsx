@@ -319,7 +319,7 @@ export function ScrollingDrops3D({ product }: { product: Product | null }) {
           )}
 
           {/* Bottom Edge Dock — lifted cleanly above bottom consent bar */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-[106px] z-10 mx-auto flex max-w-[1500px] flex-col gap-2 px-3 sm:bottom-[72px] sm:px-6 md:flex-row md:flex-wrap md:items-end md:justify-between md:px-8">
+          <div className="pointer-events-none absolute inset-x-0 bottom-[132px] z-10 mx-auto flex max-w-[1500px] flex-col gap-2 px-3 sm:bottom-[72px] sm:px-6 md:flex-row md:flex-wrap md:items-end md:justify-between md:px-8">
             {/* Left/Center Camera & Spin HUD (Desktop & Tablet) */}
             <div className="pointer-events-auto hidden items-center justify-between gap-2 md:flex md:justify-start">
               {hudHidden ? (
@@ -424,7 +424,7 @@ export function ScrollingDrops3D({ product }: { product: Product | null }) {
                     href={`/product/${product.slug}`}
                     className="u-btn u-btn-ghost min-h-10 px-3! py-2! text-[10.5px]!"
                   >
-                    360° Spec <ArrowRight className="size-3.5" aria-hidden />
+                    Inspect Spec <ArrowRight className="size-3.5" aria-hidden />
                   </Link>
                 </div>
               </div>
