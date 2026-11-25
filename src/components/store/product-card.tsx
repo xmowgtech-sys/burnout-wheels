@@ -8,7 +8,9 @@ import { fmtUSD } from "@/lib/money";
 import { imageFitClass } from "@/lib/images";
 import { CONDITION_LABELS, RARITY_LABELS, type Product } from "@/lib/types";
 import { productToCompareItem } from "@/lib/collector-utils";
+import { SAKUGA_PALETTE } from "@/lib/sakuga-vfx";
 import { cn, dropLabel } from "@/lib/utils";
+import { animateSakugaSpring, emitSakugaFromElement } from "./sakuga-vfx-layer";
 
 export function WishlistHeart({ product, floating = false }: { product: Product; floating?: boolean }) {
   const store = useStore();
@@ -18,9 +20,17 @@ export function WishlistHeart({ product, floating = false }: { product: Product;
   return (
     <button
       type="button"
+      data-sakuga-managed="true"
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
+        const btn = e.currentTarget;
+        animateSakugaSpring(btn, "pop");
+        emitSakugaFromElement(btn, active ? "smoke" : "sparkle", {
+          accent: active ? SAKUGA_PALETTE.sky : SAKUGA_PALETTE.rose,
+          label: active ? "" : "キラッ!",
+          scale: active ? 0.68 : 0.88,
+        });
         store.toggleWishlist({
           productId: product.id,
           slug: product.slug,
@@ -55,7 +65,14 @@ export function ProductCard({ product, priority = false }: { product: Product; p
   const secondary = product.images[1] ?? null;
   const comparing = store.inCompare(product.id);
 
-  const add = () => {
+  const add = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const btn = e.currentTarget;
+    animateSakugaSpring(btn, "heavy");
+    emitSakugaFromElement(btn, "impact", {
+      accent: SAKUGA_PALETTE.primary,
+      label: "GET!",
+      scale: 0.96,
+    });
     store.add({
       productId: product.id,
       slug: product.slug,
@@ -68,18 +85,32 @@ export function ProductCard({ product, priority = false }: { product: Product; p
     toast(`${product.name} loaded into cart`);
   };
 
-  const handleCompare = (e: React.MouseEvent) => {
+  const handleCompare = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    const btn = e.currentTarget;
+    animateSakugaSpring(btn, "snappy");
     const status = store.toggleCompare(productToCompareItem(product));
+    emitSakugaFromElement(btn, status === "full" ? "smoke" : "slash", {
+      accent: status === "full" ? SAKUGA_PALETTE.primary : SAKUGA_PALETTE.sky,
+      label: status === "added" ? "シュッ!" : "",
+      scale: 0.78,
+    });
     if (status === "added") toast(`${product.name} added to compare tray`);
     else if (status === "removed") toast("Removed from compare tray", "info");
     else toast("Compare tray holds up to 3 cars — remove one first", "err");
   };
 
-  const handleQuickView = (e: React.MouseEvent) => {
+  const handleQuickView = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    const btn = e.currentTarget;
+    animateSakugaSpring(btn, "snappy");
+    emitSakugaFromElement(btn, "slash", {
+      accent: SAKUGA_PALETTE.yellow,
+      label: "",
+      scale: 0.72,
+    });
     store.openQuickView(product);
   };
 
@@ -164,6 +195,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
         <div className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1.5 sm:bottom-3 sm:right-3">
           <button
             type="button"
+            data-sakuga-managed="true"
             onClick={handleCompare}
             aria-pressed={comparing}
             aria-label={comparing ? `Remove ${product.name} from compare` : `Compare ${product.name}`}
@@ -180,6 +212,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
 
           <button
             type="button"
+            data-sakuga-managed="true"
             onClick={handleQuickView}
             aria-label={`Quick view ${product.name}`}
             title="Quick view"
@@ -206,6 +239,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
         </div>
         <button
           type="button"
+          data-sakuga-managed="true"
           onClick={add}
           disabled={soldOut}
           aria-label={soldOut ? `${product.name} is sold out` : `Add ${product.name} to cart`}

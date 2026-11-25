@@ -8,6 +8,7 @@ const COLS: { title: string; links: { href: string; label: string; external?: bo
     title: "Pit lane",
     links: [
       { href: "/shop", label: "Shop the grid" },
+      { href: "/vfx", label: "Sakuga FX Lab" },
       { href: "/wishlist", label: "Wishlist" },
       { href: "/track", label: "Track an order" },
     ],

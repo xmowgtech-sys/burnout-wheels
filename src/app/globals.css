@@ -534,6 +534,13 @@ a:hover .u-duotone img { filter: saturate(1.05) contrast(1.04); }
   to { opacity: 1; transform: none; }
 }
 .anim-rise { animation: rise-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes sakuga-toast-pop {
+  0% { opacity: 0; transform: translate3d(-14px, 18px, 0) scale(0.86, 1.14); }
+  52% { opacity: 1; transform: translate3d(4px, -3px, 0) scale(1.04, 0.96); }
+  78% { transform: translate3d(-1px, 1px, 0) scale(0.99, 1.01); }
+  100% { opacity: 1; transform: none; }
+}
+.anim-sakuga-toast { animation: sakuga-toast-pop 0.36s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 /* loader — badge reveal + sweep (added to existing loader rules below) */
 .bw-badge-reveal { animation: badge-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both, badge-pulse 2.6s ease-in-out 0.9s both; }

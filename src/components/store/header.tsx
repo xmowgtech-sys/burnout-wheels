@@ -21,6 +21,7 @@ interface QuickResult {
 
 const NAV = [
   { href: "/shop", label: "Shop" },
+  { href: "/vfx", label: "FX Lab" },
   { href: "/shipping", label: "Shipping" },
   { href: "/trust", label: "Trust" },
 ];
@@ -78,10 +79,10 @@ export function Header() {
           scrolled ? "border-b border-line bg-ink/95" : "border-b border-transparent"
         }`}
       >
-        <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-1 px-3 sm:px-4 md:h-[72px] md:gap-3 md:px-8">
+        <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-1 px-2.5 sm:px-4 md:h-[72px] md:gap-3 md:px-8">
           {/* menu — in the flow on phones so the wordmark can sit left, like a pit board */}
           <button
-            className="grid size-11 shrink-0 place-items-center border border-line text-bone transition-colors hover:border-line-strong md:hidden"
+            className="grid size-10 shrink-0 place-items-center border border-line text-bone transition-colors hover:border-line-strong sm:size-11 md:hidden"
             onClick={() => setMenuOpen(true)}
             aria-label="Open menu"
             aria-expanded={menuOpen}
@@ -163,10 +164,10 @@ export function Header() {
               <span className="u-label transition-colors group-hover:text-bone">Search</span>
               <kbd className="u-mono border border-line px-1 py-0.5 text-[9px] leading-none text-dim">⌘K</kbd>
             </button>
-            <button onClick={() => setSearchOpen(true)} className="grid size-11 place-items-center text-fog transition-colors hover:text-bone md:hidden" aria-label="Search">
+            <button onClick={() => setSearchOpen(true)} className="grid size-10 place-items-center text-fog transition-colors hover:text-bone sm:size-11 md:hidden" aria-label="Search">
               <Search className="size-4" aria-hidden />
             </button>
-            <Link href="/wishlist" className="relative hidden size-11 place-items-center text-fog transition-colors hover:text-bone min-[360px]:grid" aria-label="Wishlist">
+            <Link href="/wishlist" className="relative hidden size-10 place-items-center text-fog transition-colors hover:text-bone min-[360px]:grid sm:size-11" aria-label="Wishlist">
               <Heart className="size-4 md:size-[17px]" aria-hidden />
               {store.wishlist.length > 0 && (
                 <span className="absolute right-0.5 top-0.5 grid size-4 place-items-center bg-yellow text-[9px] font-bold text-ink">
@@ -176,7 +177,7 @@ export function Header() {
             </Link>
             <button
               onClick={store.openCart}
-              className="relative grid size-11 place-items-center text-fog transition-colors hover:text-bone"
+              className="relative grid size-10 place-items-center text-fog transition-colors hover:text-bone sm:size-11"
               aria-label={`Cart, ${store.count()} items`}
             >
               <ShoppingBag className="size-4 md:size-[17px]" aria-hidden />

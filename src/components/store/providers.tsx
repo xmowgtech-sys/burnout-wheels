@@ -18,6 +18,8 @@ import {
 import type { Product } from "@/lib/types";
 import { QuickViewModal } from "./quick-view-modal";
 import { CompareOverlay } from "./compare-overlay";
+import { SakugaVfxProvider, emitSakuga } from "./sakuga-vfx-layer";
+import { SAKUGA_PALETTE } from "@/lib/sakuga-vfx";
 
 /* ========= toast ========= */
 
@@ -37,6 +39,23 @@ function ToastProvider({ children }: { children: ReactNode }) {
   const toast = useCallback((title: string, kind: Toast["kind"] = "ok") => {
     const id = ++seq.current;
     setItems((prev) => [...prev.slice(-2), { id, title, kind }]);
+
+    if (typeof window !== "undefined") {
+      const isDesktop = window.innerWidth >= 768;
+      const x = isDesktop ? 200 : Math.min(window.innerWidth * 0.5, 190);
+      const y = isDesktop ? window.innerHeight - 62 : window.innerHeight - 124;
+      emitSakuga(kind === "err" ? "impact" : kind === "info" ? "sparkle" : "check", x, y, {
+        accent:
+          kind === "err"
+            ? SAKUGA_PALETTE.primary
+            : kind === "info"
+              ? SAKUGA_PALETTE.yellow
+              : SAKUGA_PALETTE.mint,
+        label: kind === "err" ? "!" : "",
+        scale: 0.72,
+      });
+    }
+
     window.setTimeout(() => setItems((prev) => prev.filter((t) => t.id !== id)), 3800);
   }, []);
 
@@ -47,7 +66,7 @@ function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div aria-live="polite" role="status" className="pointer-events-none fixed bottom-24 left-4 z-[90] flex w-[min(88vw,340px)] flex-col gap-2 md:bottom-8 md:left-8">
         {items.map((t) => (
-          <div key={t.id} className="u-card pointer-events-auto flex items-center gap-3 px-4 py-3 shadow-2xl">
+          <div key={t.id} className="u-card anim-sakuga-toast pointer-events-auto flex items-center gap-3 border-bone/25 px-4 py-3 shadow-[4px_4px_0_rgba(225,6,0,0.45)]">
             {t.kind === "ok" && <CheckCircle2 className="size-4 shrink-0 text-mint" aria-hidden />}
             {t.kind === "err" && <AlertTriangle className="size-4 shrink-0 text-red" aria-hidden />}
             {t.kind === "info" && <Info className="size-4 shrink-0 text-yellow" aria-hidden />}
@@ -505,13 +524,15 @@ function CartDrawer() {
 
 export function StoreProviders({ children }: { children: ReactNode }) {
   return (
-    <ToastProvider>
-      <StoreProvider>
-        {children}
-        <CartDrawer />
-        <QuickViewModal />
-        <CompareOverlay />
-      </StoreProvider>
-    </ToastProvider>
+    <SakugaVfxProvider>
+      <ToastProvider>
+        <StoreProvider>
+          {children}
+          <CartDrawer />
+          <QuickViewModal />
+          <CompareOverlay />
+        </StoreProvider>
+      </ToastProvider>
+    </SakugaVfxProvider>
   );
 }
